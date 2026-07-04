@@ -1,7 +1,7 @@
 // Configuration loading and home-directory resolution.
 //
-// The memory home defaults to ~/.agent-memory and can be overridden with the
-// AGENT_MEMORY_HOME environment variable. A config.json in the home directory
+// The memory home defaults to ~/.memento and can be overridden with the
+// MEMENTO_HOME environment variable. A config.json in the home directory
 // overrides individual defaults. Loading is read-only: nothing is created here —
 // directory scaffolding belongs to the store and report tooling. Full schema
 // validation lives in the validation helper (a later task); this module only
@@ -33,7 +33,7 @@ export interface ResolvedConfig {
   config: MementoConfig;
 }
 
-export const DEFAULT_HOME_DIR = '.agent-memory';
+export const DEFAULT_HOME_DIR = '.memento';
 
 export const DEFAULT_CONFIG: MementoConfig = {
   schema_version: 1,
@@ -43,9 +43,9 @@ export const DEFAULT_CONFIG: MementoConfig = {
   logging_enabled: true,
 };
 
-/** Resolve the memory home directory, honouring AGENT_MEMORY_HOME. */
+/** Resolve the memory home directory, honouring MEMENTO_HOME. */
 export function resolveHome(env: NodeJS.ProcessEnv = process.env): string {
-  const override = env.AGENT_MEMORY_HOME?.trim();
+  const override = env.MEMENTO_HOME?.trim();
   if (override) {
     return resolve(expandTilde(override));
   }

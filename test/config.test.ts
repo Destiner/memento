@@ -7,20 +7,20 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { DEFAULT_CONFIG, loadConfig, resolveHome } from '../src/config.js';
 
 describe('resolveHome', () => {
-  test('defaults to ~/.agent-memory when unset', () => {
-    expect(resolveHome({})).toBe(join(homedir(), '.agent-memory'));
+  test('defaults to ~/.memento when unset', () => {
+    expect(resolveHome({})).toBe(join(homedir(), '.memento'));
   });
 
-  test('honours an absolute AGENT_MEMORY_HOME override', () => {
-    expect(resolveHome({ AGENT_MEMORY_HOME: '/custom/path' })).toBe('/custom/path');
+  test('honours an absolute MEMENTO_HOME override', () => {
+    expect(resolveHome({ MEMENTO_HOME: '/custom/path' })).toBe('/custom/path');
   });
 
   test('expands a leading ~ in the override', () => {
-    expect(resolveHome({ AGENT_MEMORY_HOME: '~/mem' })).toBe(join(homedir(), 'mem'));
+    expect(resolveHome({ MEMENTO_HOME: '~/mem' })).toBe(join(homedir(), 'mem'));
   });
 
   test('resolves a relative override to an absolute path', () => {
-    expect(resolveHome({ AGENT_MEMORY_HOME: 'rel/mem' })).toBe(resolve('rel/mem'));
+    expect(resolveHome({ MEMENTO_HOME: 'rel/mem' })).toBe(resolve('rel/mem'));
   });
 });
 
