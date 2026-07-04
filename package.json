@@ -1,6 +1,6 @@
 {
   "name": "memento",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Coding-agent memory layer",
   "type": "module",
   "private": true,
@@ -8,7 +8,8 @@
     "node": ">=20"
   },
   "bin": {
-    "memento": "./dist/cli.js"
+    "memento": "./dist/cli.js",
+    "memento-mcp": "./dist/main.js"
   },
   "main": "./dist/index.js",
   "scripts": {
