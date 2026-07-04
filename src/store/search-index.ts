@@ -23,7 +23,18 @@ export const MEMORY_DB = ':memory:';
 
 const EXCERPT_TOKENS = 18;
 
-export interface SearchOptions {
+// Structured filters (§9.3). Within a category the values are OR-ed (match any);
+// across categories they are AND-ed (all must hold). All are optional.
+export interface SearchFilters {
+  project?: string;
+  types?: MemoryType[];
+  scopes?: MemoryScope[];
+  entities?: string[];
+  tags?: string[];
+  status?: MemoryStatus[];
+}
+
+export interface SearchOptions extends SearchFilters {
   limit: number;
 }
 
@@ -114,6 +125,9 @@ export class MemoryIndex {
     const match = toMatchQuery(query);
     if (!match) return [];
 
+    const filter = buildFilters(options);
+    const where = ['memories_fts MATCH ?', ...filter.clauses].join(' AND ');
+
     const rows = this.db
       .prepare(
         `SELECT m.id, m.title, m.type, m.scope, m.status, m.importance, m.confidence,
@@ -122,11 +136,11 @@ export class MemoryIndex {
                 snippet(memories_fts, ${FTS_BODY_COLUMN}, '', '', '…', ${EXCERPT_TOKENS}) AS excerpt
          FROM memories_fts f
          JOIN memories m ON m.id = f.id
-         WHERE memories_fts MATCH ?
+         WHERE ${where}
          ORDER BY bm25 ASC
          LIMIT ?;`,
       )
-      .all(match, options.limit) as unknown as MemoryRow[];
+      .all(match, ...filter.params, options.limit) as unknown as MemoryRow[];
 
     return rows.map(toHit);
   }
@@ -182,6 +196,54 @@ export class MemoryIndex {
       throw error;
     }
   }
+}
+
+// Translate structured filters into parameterized SQL predicates. Scalar
+// columns (type/scope/status) use IN; multi-valued JSON arrays (projects/
+// entities/tags) use json_each so a memory matches if any of its values does.
+function buildFilters(filters: SearchFilters): { clauses: string[]; params: string[] } {
+  const clauses: string[] = [];
+  const params: string[] = [];
+
+  if (filters.project) {
+    clauses.push('EXISTS (SELECT 1 FROM json_each(m.projects) WHERE value = ?)');
+    params.push(filters.project);
+  }
+  addInClause(clauses, params, 'm.type', filters.types);
+  addInClause(clauses, params, 'm.scope', filters.scopes);
+  addInClause(clauses, params, 'm.status', filters.status);
+  addJsonClause(clauses, params, 'm.entities', filters.entities);
+  addJsonClause(clauses, params, 'm.tags', filters.tags);
+
+  return { clauses, params };
+}
+
+function addInClause(
+  clauses: string[],
+  params: string[],
+  column: string,
+  values: string[] | undefined,
+): void {
+  if (!values?.length) return;
+  clauses.push(`${column} IN (${placeholders(values.length)})`);
+  params.push(...values);
+}
+
+function addJsonClause(
+  clauses: string[],
+  params: string[],
+  column: string,
+  values: string[] | undefined,
+): void {
+  if (!values?.length) return;
+  clauses.push(
+    `EXISTS (SELECT 1 FROM json_each(${column}) WHERE value IN (${placeholders(values.length)}))`,
+  );
+  params.push(...values);
+}
+
+function placeholders(count: number): string {
+  return Array.from({ length: count }, () => '?').join(', ');
 }
 
 // Turn a natural-language query into a safe FTS5 MATCH expression: split into
