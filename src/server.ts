@@ -9,9 +9,11 @@ import { MementoError, toErrorShape } from './errors.js';
 import { createMemory } from './store/create.js';
 import { openIndex } from './store/index-open.js';
 import { readMemory } from './store/read.js';
+import { searchMemory } from './store/search.js';
 import {
   createMemoryInputShape,
   readMemoryInputShape,
+  searchMemoryInputShape,
   updateMemoryInputShape,
 } from './store/schema.js';
 import { updateMemory } from './store/update.js';
@@ -42,11 +44,24 @@ const updateMemoryOutputShape = {
   updated: z.boolean(),
 } as const;
 
+const searchMemoryOutputShape = {
+  query_id: z.string(),
+  results: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      type: z.string(),
+      scope: z.string(),
+      score: z.number(),
+      why_relevant: z.array(z.string()),
+      excerpt: z.string().optional(),
+      updated_at: z.string(),
+    }),
+  ),
+  result_count: z.number(),
+} as const;
+
 const UNIMPLEMENTED_TOOLS: { name: string; description: string }[] = [
-  {
-    name: 'search_memory',
-    description: 'Unified structured retrieval over stored memories.',
-  },
   {
     name: 'answer_memory',
     description: 'Retrieval-and-synthesis convenience returning a source-backed answer.',
@@ -122,6 +137,33 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
     async (args) => {
       try {
         const result = await updateMemory(args, { memoriesDir: resolved.paths.memories, index });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (error) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: JSON.stringify(toErrorShape(error)) }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'search_memory',
+    {
+      description: 'Unified structured retrieval over stored memories.',
+      inputSchema: searchMemoryInputShape,
+      outputSchema: searchMemoryOutputShape,
+    },
+    (args) => {
+      try {
+        const result = searchMemory(args, {
+          index,
+          defaultLimit: resolved.config.default_result_limit,
+          maxLimit: resolved.config.max_result_limit,
+        });
         return {
           content: [{ type: 'text', text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,

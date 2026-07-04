@@ -172,6 +172,27 @@ export const updateMemoryInputSchema = z
 
 export type UpdateMemoryInput = z.infer<typeof updateMemoryInputSchema>;
 
+// `search_memory` input (§9.3). `query` is the only required field; every filter
+// is optional so an agent can ask a plain-language question. `intent` is
+// advisory metadata, not a retrieval mode. `limit` is clamped to the configured
+// maximum by the operation, so it is only bounded below here.
+export const searchMemoryInputShape = {
+  query: nonEmpty,
+  intent: nonEmpty.optional(),
+  project: nonEmpty.optional(),
+  types: z.array(typeSchema).optional(),
+  scopes: z.array(scopeSchema).optional(),
+  entities: z.array(nonEmpty).optional(),
+  tags: z.array(nonEmpty).optional(),
+  status: z.array(statusSchema).optional(),
+  limit: z.number().int().min(1).optional(),
+  include_excerpt: z.boolean().optional(),
+} as const;
+
+export const searchMemoryInputSchema = z.object(searchMemoryInputShape).strict();
+
+export type SearchMemoryInput = z.infer<typeof searchMemoryInputSchema>;
+
 export type MemoryType = z.infer<typeof typeSchema>;
 export type MemoryScope = z.infer<typeof scopeSchema>;
 export type MemoryStatus = z.infer<typeof statusSchema>;

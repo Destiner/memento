@@ -14,6 +14,7 @@ const TIME_CHARS = 10;
 const RANDOM_CHARS = 16;
 
 const ID_PREFIX = 'mem_';
+const QUERY_ID_PREFIX = 'qry_';
 const DEFAULT_SLUG_MAX = 60;
 
 // Encode a millisecond timestamp as the 10-char ULID time component.
@@ -42,6 +43,12 @@ function encodeRandom(): string {
 // injectable so tests can assert on the deterministic timestamp prefix.
 export function generateId(now: number = Date.now()): string {
   return ID_PREFIX + encodeTime(now) + encodeRandom();
+}
+
+// A `qry_`-prefixed ULID for correlating a search call with its log event
+// (§9.3). Same format as a memory id, different namespace so the two never mix.
+export function generateQueryId(now: number = Date.now()): string {
+  return QUERY_ID_PREFIX + encodeTime(now) + encodeRandom();
 }
 
 // Derive a deterministic, filesystem-safe slug from a title. Lowercased,
