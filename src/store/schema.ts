@@ -61,7 +61,6 @@ export const frontmatterSchema = z
     status: statusSchema,
     created_at: z.iso.datetime(),
     updated_at: z.iso.datetime(),
-    version: z.int().positive(),
     projects: z.array(nonEmpty).optional(),
     entities: z.array(nonEmpty).optional(),
     tags: z.array(nonEmpty).optional(),
@@ -75,8 +74,8 @@ export const frontmatterSchema = z
   })
   .strict();
 
-// `create_memory` input (§9.1). Server-managed fields (id, version, status,
-// timestamps) are not accepted here. Exposed as a raw shape so the MCP layer can
+// `create_memory` input (§9.1). Server-managed fields (id, status, timestamps)
+// are not accepted here. Exposed as a raw shape so the MCP layer can
 // advertise and pre-validate it; the derived object schema drives our own
 // validate() so createMemory is correct when called directly.
 export const createMemoryInputShape = {

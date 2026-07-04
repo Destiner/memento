@@ -42,7 +42,6 @@ describe('createMemory', () => {
     expect(result).toEqual({
       id: 'mem_TEST0001',
       path: join(dir, 'mem_TEST0001-exampleemailvendor-deliverability-caveat.md'),
-      version: 1,
       created: true,
     });
     expect(readdirSync(dir)).toEqual(['mem_TEST0001-exampleemailvendor-deliverability-caveat.md']);
@@ -58,7 +57,6 @@ describe('createMemory', () => {
 
     expect(metadata.id).toBe('mem_TEST0002');
     expect(metadata.status).toBe('active');
-    expect(metadata.version).toBe(1);
     expect(metadata.created_at).toBe('2026-07-04T14:20:00Z');
     expect(metadata.updated_at).toBe('2026-07-04T14:20:00Z');
     expect(body).toBe('## Summary\nWebhooks lag at peak volume.');

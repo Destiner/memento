@@ -24,7 +24,6 @@ export interface CreateMemoryOptions {
 export interface CreateMemoryResult {
   id: string;
   path: string;
-  version: number;
   created: true;
 }
 
@@ -45,7 +44,7 @@ export async function createMemory(
   const path = join(options.memoriesDir, memoryFilename(id, input.title));
   await atomicWrite(path, serializeFrontmatter(metadata, input.body));
 
-  return { id, path, version: 1, created: true };
+  return { id, path, created: true };
 }
 
 // Second-precision ISO timestamp, matching the §7 format (no milliseconds).
@@ -68,7 +67,6 @@ function buildMetadata(
     status: 'active',
     created_at: timestamp,
     updated_at: timestamp,
-    version: 1,
   };
 
   if (input.projects) metadata.projects = input.projects;

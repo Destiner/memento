@@ -11,7 +11,6 @@ const validMetadata = {
   status: 'active',
   created_at: '2026-07-04T15:00:00Z',
   updated_at: '2026-07-04T15:00:00Z',
-  version: 1,
   projects: ['legacy-sync', 'customer-portal'],
   tags: ['migration'],
   confidence: 'high',
@@ -34,7 +33,6 @@ describe('validateFrontmatter', () => {
       status: 'active',
       created_at: '2026-07-04T15:00:00Z',
       updated_at: '2026-07-04T15:00:00Z',
-      version: 1,
     };
     expect(validateFrontmatter(minimal)).toEqual(minimal);
   });
@@ -51,17 +49,6 @@ describe('validateFrontmatter', () => {
       expect(error).toBeInstanceOf(MementoError);
       const details = (error as MementoError).details as { path: string }[];
       expect(details.map((d) => d.path).sort()).toEqual(['/confidence', '/scope']);
-    }
-  });
-
-  test('rejects a non-positive version', () => {
-    try {
-      validateFrontmatter({ ...validMetadata, version: 0 });
-      throw new Error('should have thrown');
-    } catch (error) {
-      expect(error).toBeInstanceOf(MementoError);
-      const details = (error as MementoError).details as { path: string }[];
-      expect(details.map((d) => d.path)).toContain('/version');
     }
   });
 

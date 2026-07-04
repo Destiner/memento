@@ -4,8 +4,7 @@
 
 export type MementoErrorCode =
   | 'validation_error' // input failed schema / vocabulary checks
-  | 'not_found' // referenced memory or version does not exist
-  | 'version_conflict' // expected_version did not match current
+  | 'not_found' // referenced memory does not exist
   | 'invalid_request' // well-formed but semantically rejected
   | 'internal_error'; // unexpected failure
 

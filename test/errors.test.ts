@@ -28,11 +28,11 @@ describe('MementoError', () => {
 
 describe('toErrorShape', () => {
   test('preserves a MementoError verbatim', () => {
-    const err = new MementoError('version_conflict', 'stale', { expected: 1 });
+    const err = new MementoError('not_found', 'no such memory', { id: 'mem_x' });
     expect(toErrorShape(err)).toEqual({
-      code: 'version_conflict',
-      message: 'stale',
-      details: { expected: 1 },
+      code: 'not_found',
+      message: 'no such memory',
+      details: { id: 'mem_x' },
     });
   });
 

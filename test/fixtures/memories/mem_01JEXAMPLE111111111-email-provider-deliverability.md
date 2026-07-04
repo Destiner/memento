@@ -6,7 +6,6 @@ scope: cross_project
 status: active
 created_at: 2026-06-18T09:30:00Z
 updated_at: 2026-06-20T11:00:00Z
-version: 2
 projects:
   - marketing-api
   - customer-portal

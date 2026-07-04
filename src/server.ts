@@ -15,7 +15,6 @@ export const SERVER_VERSION = '0.1.0';
 const createMemoryOutputShape = {
   id: z.string(),
   path: z.string(),
-  version: z.number().int(),
   created: z.boolean(),
 } as const;
 

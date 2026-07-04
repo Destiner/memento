@@ -16,7 +16,6 @@ export interface MementoConfig {
   search_backend: 'fts5';
   default_result_limit: number;
   max_result_limit: number;
-  history_retention: 'all';
   logging_enabled: boolean;
 }
 
@@ -24,7 +23,6 @@ export interface MementoPaths {
   home: string;
   config: string;
   memories: string;
-  history: string;
   index: string;
   logs: string;
   dashboard: string;
@@ -42,7 +40,6 @@ export const DEFAULT_CONFIG: MementoConfig = {
   search_backend: 'fts5',
   default_result_limit: 5,
   max_result_limit: 10,
-  history_retention: 'all',
   logging_enabled: true,
 };
 
@@ -61,7 +58,6 @@ export function resolvePaths(home: string): MementoPaths {
     home,
     config: join(home, 'config.json'),
     memories: join(home, 'memories'),
-    history: join(home, 'history'),
     index: join(home, 'index'),
     logs: join(home, 'logs'),
     dashboard: join(home, 'dashboard'),

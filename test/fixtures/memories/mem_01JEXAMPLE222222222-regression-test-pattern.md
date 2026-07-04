@@ -6,7 +6,6 @@ scope: project
 status: active
 created_at: 2026-05-02T13:15:00Z
 updated_at: 2026-05-02T13:15:00Z
-version: 1
 projects:
   - customer-portal
 entities:

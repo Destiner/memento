@@ -6,7 +6,6 @@ scope: cross_project
 status: active
 created_at: 2026-07-04T15:00:00Z
 updated_at: 2026-07-04T15:00:00Z
-version: 1
 projects:
   - legacy-sync
   - customer-portal

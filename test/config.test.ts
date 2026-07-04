@@ -46,7 +46,6 @@ describe('loadConfig', () => {
       home,
       config: join(home, 'config.json'),
       memories: join(home, 'memories'),
-      history: join(home, 'history'),
       index: join(home, 'index'),
       logs: join(home, 'logs'),
       dashboard: join(home, 'dashboard'),
