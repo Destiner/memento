@@ -1,0 +1,6 @@
+node_modules/
+dist/
+bun.lock
+
+# spec/docs are hand-authored; keep prettier off them
+*.md
