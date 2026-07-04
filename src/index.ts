@@ -29,3 +29,4 @@ export type {
   MemoryMetadata,
 } from './store/schema.js';
 export { generateId, slugify, memoryFilename } from './store/id.js';
+export { atomicWrite, ensureDir } from './store/atomic.js';
