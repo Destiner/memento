@@ -16,10 +16,14 @@ import { parseFrontmatter, serializeFrontmatter } from './frontmatter.js';
 import { memoryFilename } from './id.js';
 import { resolveMemoryPath } from './resolve.js';
 import { updateMemoryInputSchema, validateFrontmatter, type UpdateMemoryInput } from './schema.js';
+import type { MemoryIndex } from './search-index.js';
 import { isoSeconds } from './time.js';
 
 export interface UpdateMemoryOptions {
   memoriesDir: string;
+  // Derived index to keep in sync after the canonical write (§12). Optional so
+  // the store is usable without search wiring (e.g. unit tests).
+  index?: MemoryIndex;
   // Injectable for deterministic tests; default to wall-clock.
   now?: number;
 }
@@ -59,6 +63,9 @@ export async function updateMemory(
   if (targetPath !== currentPath) {
     await unlink(currentPath);
   }
+
+  // Re-index the edited record (upsert is keyed on id, so it replaces in place).
+  options.index?.upsert(validated, newBody);
 
   return { id: validated.id, path: targetPath, updated: true };
 }

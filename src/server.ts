@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { loadConfig, type ResolvedConfig } from './config.js';
 import { MementoError, toErrorShape } from './errors.js';
 import { createMemory } from './store/create.js';
+import { openIndex } from './store/index-open.js';
 import { readMemory } from './store/read.js';
 import {
   createMemoryInputShape,
@@ -52,10 +53,17 @@ const UNIMPLEMENTED_TOOLS: { name: string; description: string }[] = [
   },
 ];
 
-export function createServer(resolved: ResolvedConfig = loadConfig()): McpServer {
+export async function createServer(resolved: ResolvedConfig = loadConfig()): Promise<McpServer> {
   const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
+  });
+
+  // Open the derived index once at startup, rebuilding from markdown if it is
+  // missing or its schema is out of date. Writes keep it in sync from here.
+  const { index } = await openIndex({
+    indexDir: resolved.paths.index,
+    memoriesDir: resolved.paths.memories,
   });
 
   server.registerTool(
@@ -67,7 +75,7 @@ export function createServer(resolved: ResolvedConfig = loadConfig()): McpServer
     },
     async (args) => {
       try {
-        const result = await createMemory(args, { memoriesDir: resolved.paths.memories });
+        const result = await createMemory(args, { memoriesDir: resolved.paths.memories, index });
         return {
           content: [{ type: 'text', text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
@@ -113,7 +121,7 @@ export function createServer(resolved: ResolvedConfig = loadConfig()): McpServer
     },
     async (args) => {
       try {
-        const result = await updateMemory(args, { memoriesDir: resolved.paths.memories });
+        const result = await updateMemory(args, { memoriesDir: resolved.paths.memories, index });
         return {
           content: [{ type: 'text', text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,

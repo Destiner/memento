@@ -13,10 +13,14 @@ import { atomicWrite } from './atomic.js';
 import { serializeFrontmatter } from './frontmatter.js';
 import { generateId, memoryFilename } from './id.js';
 import { createMemoryInputSchema, validateFrontmatter, type CreateMemoryInput } from './schema.js';
+import type { MemoryIndex } from './search-index.js';
 import { isoSeconds } from './time.js';
 
 export interface CreateMemoryOptions {
   memoriesDir: string;
+  // Derived index to keep in sync after the canonical write (§12). Optional so
+  // the store is usable without search wiring (e.g. unit tests).
+  index?: MemoryIndex;
   // Injectable for deterministic tests; default to wall-clock / random ULID.
   now?: number;
   makeId?: (now: number) => string;
@@ -40,10 +44,14 @@ export async function createMemory(
 
   const metadata = buildMetadata(input, id, timestamp);
   // Defense in depth: the record we are about to persist must itself validate.
-  validateFrontmatter(metadata);
+  const validated = validateFrontmatter(metadata);
 
   const path = join(options.memoriesDir, memoryFilename(id, input.title));
   await atomicWrite(path, serializeFrontmatter(metadata, input.body));
+
+  // Index after the canonical write succeeds (§12). The file is already durable,
+  // so it is never lost even if indexing fails; the index is rebuildable.
+  options.index?.upsert(validated, input.body);
 
   return { id, path, created: true };
 }
