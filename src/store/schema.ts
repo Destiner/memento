@@ -97,6 +97,15 @@ export const createMemoryInputSchema = z.object(createMemoryInputShape).strict()
 
 export type CreateMemoryInput = z.infer<typeof createMemoryInputSchema>;
 
+// `read_memory` input (§9.4): a memory is read by its stable id alone.
+export const readMemoryInputShape = {
+  id: nonEmpty,
+} as const;
+
+export const readMemoryInputSchema = z.object(readMemoryInputShape).strict();
+
+export type ReadMemoryInput = z.infer<typeof readMemoryInputSchema>;
+
 export type MemoryType = z.infer<typeof typeSchema>;
 export type MemoryScope = z.infer<typeof scopeSchema>;
 export type MemoryStatus = z.infer<typeof statusSchema>;

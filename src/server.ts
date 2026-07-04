@@ -7,7 +7,8 @@ import { z } from 'zod';
 import { loadConfig, type ResolvedConfig } from './config.js';
 import { MementoError, toErrorShape } from './errors.js';
 import { createMemory } from './store/create.js';
-import { createMemoryInputShape } from './store/schema.js';
+import { readMemory } from './store/read.js';
+import { createMemoryInputShape, readMemoryInputShape } from './store/schema.js';
 
 export const SERVER_NAME = 'memento';
 export const SERVER_VERSION = '0.1.0';
@@ -18,6 +19,17 @@ const createMemoryOutputShape = {
   created: z.boolean(),
 } as const;
 
+const readMemoryOutputShape = {
+  id: z.string(),
+  metadata: z.object({
+    title: z.string(),
+    type: z.string(),
+    scope: z.string(),
+    status: z.string(),
+  }),
+  markdown: z.string(),
+} as const;
+
 const UNIMPLEMENTED_TOOLS: { name: string; description: string }[] = [
   {
     name: 'update_memory',
@@ -26,10 +38,6 @@ const UNIMPLEMENTED_TOOLS: { name: string; description: string }[] = [
   {
     name: 'search_memory',
     description: 'Unified structured retrieval over stored memories.',
-  },
-  {
-    name: 'read_memory',
-    description: 'Read a single memory by stable ID (current or historical).',
   },
   {
     name: 'answer_memory',
@@ -53,6 +61,29 @@ export function createServer(resolved: ResolvedConfig = loadConfig()): McpServer
     async (args) => {
       try {
         const result = await createMemory(args, { memoriesDir: resolved.paths.memories });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (error) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: JSON.stringify(toErrorShape(error)) }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'read_memory',
+    {
+      description: 'Read a single memory by stable ID.',
+      inputSchema: readMemoryInputShape,
+      outputSchema: readMemoryOutputShape,
+    },
+    async (args) => {
+      try {
+        const result = await readMemory(args, { memoriesDir: resolved.paths.memories });
         return {
           content: [{ type: 'text', text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
