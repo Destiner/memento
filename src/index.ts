@@ -9,3 +9,5 @@ export { MementoError, toErrorShape } from './errors.js';
 export type { MementoErrorCode, MementoErrorShape } from './errors.js';
 export { validate } from './validation.js';
 export type { FieldError } from './validation.js';
+export { parseFrontmatter, serializeFrontmatter } from './store/frontmatter.js';
+export type { ParsedMemory } from './store/frontmatter.js';
