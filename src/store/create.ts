@@ -13,6 +13,7 @@ import { atomicWrite } from './atomic.js';
 import { serializeFrontmatter } from './frontmatter.js';
 import { generateId, memoryFilename } from './id.js';
 import { createMemoryInputSchema, validateFrontmatter, type CreateMemoryInput } from './schema.js';
+import { isoSeconds } from './time.js';
 
 export interface CreateMemoryOptions {
   memoriesDir: string;
@@ -45,11 +46,6 @@ export async function createMemory(
   await atomicWrite(path, serializeFrontmatter(metadata, input.body));
 
   return { id, path, created: true };
-}
-
-// Second-precision ISO timestamp, matching the §7 format (no milliseconds).
-function isoSeconds(now: number): string {
-  return new Date(now).toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
 // Assemble front matter in canonical field order, including optional fields only

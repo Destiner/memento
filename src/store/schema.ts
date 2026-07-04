@@ -106,6 +106,72 @@ export const readMemoryInputSchema = z.object(readMemoryInputShape).strict();
 
 export type ReadMemoryInput = z.infer<typeof readMemoryInputSchema>;
 
+// Editable metadata fields for `update_memory` (§9.2). Everything a user can
+// meaningfully change; system fields (id, created_at, updated_at) are omitted
+// and, being a strict object, rejected if supplied.
+export const updateMemoryChangesShape = {
+  title: nonEmpty.optional(),
+  type: typeSchema.optional(),
+  scope: scopeSchema.optional(),
+  status: statusSchema.optional(),
+  projects: z.array(nonEmpty).optional(),
+  entities: z.array(nonEmpty).optional(),
+  tags: z.array(nonEmpty).optional(),
+  confidence: confidenceSchema.optional(),
+  importance: importanceSchema.optional(),
+  review_after: dateOnlySchema.optional(),
+  source_kind: nonEmpty.optional(),
+  source_refs: z.array(nonEmpty).optional(),
+  supersedes: z.array(nonEmpty).optional(),
+  related_memories: z.array(nonEmpty).optional(),
+} as const;
+
+// `update_memory` input (§9.2). An edit is metadata `changes` and/or a body
+// edit — either an exact-match `old_text`/`new_text` replacement or a full
+// `body` replacement. Cross-field rules are enforced by the schema below.
+export const updateMemoryInputShape = {
+  id: nonEmpty,
+  changes: z.object(updateMemoryChangesShape).strict().optional(),
+  old_text: z.string().optional(),
+  new_text: z.string().optional(),
+  body: nonEmpty.optional(),
+  change_note: nonEmpty.optional(),
+} as const;
+
+export const updateMemoryInputSchema = z
+  .object(updateMemoryInputShape)
+  .strict()
+  .superRefine((input, ctx) => {
+    const hasChanges = input.changes !== undefined && Object.keys(input.changes).length > 0;
+    const hasOldText = input.old_text !== undefined;
+    const hasNewText = input.new_text !== undefined;
+    const hasBody = input.body !== undefined;
+
+    if (hasOldText !== hasNewText) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'old_text and new_text must be provided together.',
+        path: [hasOldText ? 'new_text' : 'old_text'],
+      });
+    }
+    if (hasBody && hasOldText) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'body (full replacement) and old_text (surgical edit) are mutually exclusive.',
+        path: ['body'],
+      });
+    }
+    if (!hasChanges && !hasOldText && !hasBody) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Provide at least one of: changes, body, or old_text/new_text.',
+        path: [],
+      });
+    }
+  });
+
+export type UpdateMemoryInput = z.infer<typeof updateMemoryInputSchema>;
+
 export type MemoryType = z.infer<typeof typeSchema>;
 export type MemoryScope = z.infer<typeof scopeSchema>;
 export type MemoryStatus = z.infer<typeof statusSchema>;

@@ -8,7 +8,12 @@ import { loadConfig, type ResolvedConfig } from './config.js';
 import { MementoError, toErrorShape } from './errors.js';
 import { createMemory } from './store/create.js';
 import { readMemory } from './store/read.js';
-import { createMemoryInputShape, readMemoryInputShape } from './store/schema.js';
+import {
+  createMemoryInputShape,
+  readMemoryInputShape,
+  updateMemoryInputShape,
+} from './store/schema.js';
+import { updateMemory } from './store/update.js';
 
 export const SERVER_NAME = 'memento';
 export const SERVER_VERSION = '0.1.0';
@@ -30,11 +35,13 @@ const readMemoryOutputShape = {
   markdown: z.string(),
 } as const;
 
+const updateMemoryOutputShape = {
+  id: z.string(),
+  path: z.string(),
+  updated: z.boolean(),
+} as const;
+
 const UNIMPLEMENTED_TOOLS: { name: string; description: string }[] = [
-  {
-    name: 'update_memory',
-    description: 'Create a new version of an existing memory and update the canonical file.',
-  },
   {
     name: 'search_memory',
     description: 'Unified structured retrieval over stored memories.',
@@ -84,6 +91,29 @@ export function createServer(resolved: ResolvedConfig = loadConfig()): McpServer
     async (args) => {
       try {
         const result = await readMemory(args, { memoriesDir: resolved.paths.memories });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (error) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: JSON.stringify(toErrorShape(error)) }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'update_memory',
+    {
+      description: 'Edit an existing memory in place (metadata changes and/or a body edit).',
+      inputSchema: updateMemoryInputShape,
+      outputSchema: updateMemoryOutputShape,
+    },
+    async (args) => {
+      try {
+        const result = await updateMemory(args, { memoriesDir: resolved.paths.memories });
         return {
           content: [{ type: 'text', text: JSON.stringify(result) }],
           structuredContent: result as unknown as Record<string, unknown>,
