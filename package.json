@@ -8,8 +8,7 @@
     "node": ">=20"
   },
   "bin": {
-    "memento": "./dist/cli.js",
-    "memento-mcp": "./dist/main.js"
+    "memento": "./dist/main.js"
   },
   "main": "./dist/index.js",
   "scripts": {
