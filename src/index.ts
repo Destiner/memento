@@ -30,3 +30,5 @@ export type {
 } from './store/schema.js';
 export { generateId, slugify, memoryFilename } from './store/id.js';
 export { atomicWrite, ensureDir } from './store/atomic.js';
+export { createMemory } from './store/create.js';
+export type { CreateMemoryOptions, CreateMemoryResult } from './store/create.js';

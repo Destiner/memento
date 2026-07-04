@@ -75,6 +75,29 @@ export const frontmatterSchema = z
   })
   .strict();
 
+// `create_memory` input (§9.1). Server-managed fields (id, version, status,
+// timestamps) are not accepted here. Exposed as a raw shape so the MCP layer can
+// advertise and pre-validate it; the derived object schema drives our own
+// validate() so createMemory is correct when called directly.
+export const createMemoryInputShape = {
+  title: nonEmpty,
+  type: typeSchema,
+  scope: scopeSchema,
+  body: nonEmpty,
+  projects: z.array(nonEmpty).optional(),
+  entities: z.array(nonEmpty).optional(),
+  tags: z.array(nonEmpty).optional(),
+  confidence: confidenceSchema.optional(),
+  importance: importanceSchema.optional(),
+  review_after: dateOnlySchema.optional(),
+  source_kind: nonEmpty.optional(),
+  source_refs: z.array(nonEmpty).optional(),
+} as const;
+
+export const createMemoryInputSchema = z.object(createMemoryInputShape).strict();
+
+export type CreateMemoryInput = z.infer<typeof createMemoryInputSchema>;
+
 export type MemoryType = z.infer<typeof typeSchema>;
 export type MemoryScope = z.infer<typeof scopeSchema>;
 export type MemoryStatus = z.infer<typeof statusSchema>;

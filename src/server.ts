@@ -1,16 +1,25 @@
-// MCP server wiring for Memento. Tool handlers are stubs until later tasks
-// implement the canonical store, search index, and answer interface.
+// MCP server wiring for Memento. create_memory is live; the remaining tools
+// are stubs until later tasks implement versioning, search, and answers.
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
+
+import { loadConfig, type ResolvedConfig } from './config.js';
+import { MementoError, toErrorShape } from './errors.js';
+import { createMemory } from './store/create.js';
+import { createMemoryInputShape } from './store/schema.js';
 
 export const SERVER_NAME = 'memento';
 export const SERVER_VERSION = '0.1.0';
 
-const TOOL_STUBS: { name: string; description: string }[] = [
-  {
-    name: 'create_memory',
-    description: 'Create a new canonical markdown memory.',
-  },
+const createMemoryOutputShape = {
+  id: z.string(),
+  path: z.string(),
+  version: z.number().int(),
+  created: z.boolean(),
+} as const;
+
+const UNIMPLEMENTED_TOOLS: { name: string; description: string }[] = [
   {
     name: 'update_memory',
     description: 'Create a new version of an existing memory and update the canonical file.',
@@ -29,15 +38,38 @@ const TOOL_STUBS: { name: string; description: string }[] = [
   },
 ];
 
-export function createServer(): McpServer {
+export function createServer(resolved: ResolvedConfig = loadConfig()): McpServer {
   const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
   });
 
-  for (const { name, description } of TOOL_STUBS) {
+  server.registerTool(
+    'create_memory',
+    {
+      description: 'Create a new canonical markdown memory.',
+      inputSchema: createMemoryInputShape,
+      outputSchema: createMemoryOutputShape,
+    },
+    async (args) => {
+      try {
+        const result = await createMemory(args, { memoriesDir: resolved.paths.memories });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (error) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: JSON.stringify(toErrorShape(error)) }],
+        };
+      }
+    },
+  );
+
+  for (const { name, description } of UNIMPLEMENTED_TOOLS) {
     server.registerTool(name, { description }, () => {
-      throw new Error(`${name} is not implemented yet.`);
+      throw new MementoError('internal_error', `${name} is not implemented yet.`);
     });
   }
 
