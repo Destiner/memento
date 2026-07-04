@@ -6,6 +6,8 @@ import { z } from 'zod';
 
 import { loadConfig, type ResolvedConfig } from './config.js';
 import { toErrorShape } from './errors.js';
+import { createLogger, type EventLogger } from './logging/logger.js';
+import type { ToolEventFields } from './logging/events.js';
 import { answerMemory } from './store/answer.js';
 import { createMemory } from './store/create.js';
 import { openIndex } from './store/index-open.js';
@@ -76,10 +78,66 @@ const answerMemoryOutputShape = {
   caveat: z.string(),
 } as const;
 
+interface ToolCallResult {
+  content: { type: 'text'; text: string }[];
+  structuredContent?: Record<string, unknown>;
+  isError?: boolean;
+  [key: string]: unknown;
+}
+
+// One choke point for every tool: run the operation, shape the MCP response, and
+// emit an instrumentation event (§13). Success and error both log latency and
+// outcome; `fields` contributes the per-tool, non-sensitive signals derived from
+// the (already validated) result. Logging is fire-and-forget so it never adds
+// disk latency to — or fails — the tool call.
+async function runTool<T>(
+  tool: string,
+  logger: EventLogger,
+  exec: () => T | Promise<T>,
+  fields?: (result: T) => Partial<ToolEventFields>,
+): Promise<ToolCallResult> {
+  const start = performance.now();
+  try {
+    const result = await exec();
+    const latency_ms = Math.round(performance.now() - start);
+    void logger.log({ tool, outcome: 'success', latency_ms, ...fields?.(result) });
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result) }],
+      structuredContent: result as unknown as Record<string, unknown>,
+    };
+  } catch (error) {
+    const latency_ms = Math.round(performance.now() - start);
+    const shape = toErrorShape(error);
+    void logger.log({ tool, outcome: 'error', latency_ms, error_code: shape.code });
+    return {
+      isError: true,
+      content: [{ type: 'text', text: JSON.stringify(shape) }],
+    };
+  }
+}
+
+// Names (never values) of the search filters the caller supplied, for §13's
+// "filters_used". An empty array counts as absent.
+function usedFilters(args: Record<string, unknown>, keys: readonly string[]): string[] {
+  return keys.filter((key) => {
+    const value = args[key];
+    if (value === undefined) return false;
+    return Array.isArray(value) ? value.length > 0 : true;
+  });
+}
+
+const SEARCH_FILTER_KEYS = ['project', 'types', 'scopes', 'entities', 'tags', 'status'] as const;
+
 export async function createServer(resolved: ResolvedConfig = loadConfig()): Promise<McpServer> {
   const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
+  });
+
+  const logger = createLogger({
+    logsDir: resolved.paths.logs,
+    enabled: resolved.config.logging_enabled,
+    serverVersion: SERVER_VERSION,
   });
 
   // Open the derived index once at startup, rebuilding from markdown if it is
@@ -96,20 +154,13 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       inputSchema: createMemoryInputShape,
       outputSchema: createMemoryOutputShape,
     },
-    async (args) => {
-      try {
-        const result = await createMemory(args, { memoriesDir: resolved.paths.memories, index });
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result) }],
-          structuredContent: result as unknown as Record<string, unknown>,
-        };
-      } catch (error) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: JSON.stringify(toErrorShape(error)) }],
-        };
-      }
-    },
+    (args) =>
+      runTool(
+        'create_memory',
+        logger,
+        () => createMemory(args, { memoriesDir: resolved.paths.memories, index }),
+        () => ({ memory_type: args.type, memory_scope: args.scope }),
+      ),
   );
 
   server.registerTool(
@@ -119,20 +170,10 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       inputSchema: readMemoryInputShape,
       outputSchema: readMemoryOutputShape,
     },
-    async (args) => {
-      try {
-        const result = await readMemory(args, { memoriesDir: resolved.paths.memories });
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result) }],
-          structuredContent: result as unknown as Record<string, unknown>,
-        };
-      } catch (error) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: JSON.stringify(toErrorShape(error)) }],
-        };
-      }
-    },
+    (args) =>
+      runTool('read_memory', logger, () =>
+        readMemory(args, { memoriesDir: resolved.paths.memories }),
+      ),
   );
 
   server.registerTool(
@@ -142,20 +183,10 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       inputSchema: updateMemoryInputShape,
       outputSchema: updateMemoryOutputShape,
     },
-    async (args) => {
-      try {
-        const result = await updateMemory(args, { memoriesDir: resolved.paths.memories, index });
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result) }],
-          structuredContent: result as unknown as Record<string, unknown>,
-        };
-      } catch (error) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: JSON.stringify(toErrorShape(error)) }],
-        };
-      }
-    },
+    (args) =>
+      runTool('update_memory', logger, () =>
+        updateMemory(args, { memoriesDir: resolved.paths.memories, index }),
+      ),
   );
 
   server.registerTool(
@@ -165,24 +196,23 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       inputSchema: searchMemoryInputShape,
       outputSchema: searchMemoryOutputShape,
     },
-    (args) => {
-      try {
-        const result = searchMemory(args, {
-          index,
-          defaultLimit: resolved.config.default_result_limit,
-          maxLimit: resolved.config.max_result_limit,
-        });
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result) }],
-          structuredContent: result as unknown as Record<string, unknown>,
-        };
-      } catch (error) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: JSON.stringify(toErrorShape(error)) }],
-        };
-      }
-    },
+    (args) =>
+      runTool(
+        'search_memory',
+        logger,
+        () =>
+          searchMemory(args, {
+            index,
+            defaultLimit: resolved.config.default_result_limit,
+            maxLimit: resolved.config.max_result_limit,
+          }),
+        (result) => ({
+          result_count: result.result_count,
+          query_id: result.query_id,
+          query_length: args.query.length,
+          filters_used: usedFilters(args as Record<string, unknown>, SEARCH_FILTER_KEYS),
+        }),
+      ),
   );
 
   server.registerTool(
@@ -192,24 +222,22 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       inputSchema: answerMemoryInputShape,
       outputSchema: answerMemoryOutputShape,
     },
-    async (args) => {
-      try {
-        const result = await answerMemory(args, {
-          index,
-          memoriesDir: resolved.paths.memories,
-          maxLimit: resolved.config.max_result_limit,
-        });
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result) }],
-          structuredContent: result as unknown as Record<string, unknown>,
-        };
-      } catch (error) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: JSON.stringify(toErrorShape(error)) }],
-        };
-      }
-    },
+    (args) =>
+      runTool(
+        'answer_memory',
+        logger,
+        () =>
+          answerMemory(args, {
+            index,
+            memoriesDir: resolved.paths.memories,
+            maxLimit: resolved.config.max_result_limit,
+          }),
+        (result) => ({
+          source_count: result.sources.length,
+          question_length: args.question.length,
+          confidence: result.confidence,
+        }),
+      ),
   );
 
   return server;

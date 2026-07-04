@@ -15,6 +15,7 @@ const RANDOM_CHARS = 16;
 
 const ID_PREFIX = 'mem_';
 const QUERY_ID_PREFIX = 'qry_';
+const EVENT_ID_PREFIX = 'evt_';
 const DEFAULT_SLUG_MAX = 60;
 
 // Encode a millisecond timestamp as the 10-char ULID time component.
@@ -49,6 +50,12 @@ export function generateId(now: number = Date.now()): string {
 // (§9.3). Same format as a memory id, different namespace so the two never mix.
 export function generateQueryId(now: number = Date.now()): string {
   return QUERY_ID_PREFIX + encodeTime(now) + encodeRandom();
+}
+
+// An `evt_`-prefixed ULID for a single instrumentation event (§13). Sortable by
+// creation time, distinct namespace from memory and query ids.
+export function generateEventId(now: number = Date.now()): string {
+  return EVENT_ID_PREFIX + encodeTime(now) + encodeRandom();
 }
 
 // Derive a deterministic, filesystem-safe slug from a title. Lowercased,
