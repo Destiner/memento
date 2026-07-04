@@ -11,3 +11,20 @@ export { validate } from './validation.js';
 export type { FieldError } from './validation.js';
 export { parseFrontmatter, serializeFrontmatter } from './store/frontmatter.js';
 export type { ParsedMemory } from './store/frontmatter.js';
+export {
+  MEMORY_TYPES,
+  MEMORY_SCOPES,
+  MEMORY_STATUSES,
+  CONFIDENCE_LEVELS,
+  IMPORTANCE_LEVELS,
+  frontmatterSchema,
+  validateFrontmatter,
+} from './store/schema.js';
+export type {
+  MemoryType,
+  MemoryScope,
+  MemoryStatus,
+  Confidence,
+  Importance,
+  MemoryMetadata,
+} from './store/schema.js';
