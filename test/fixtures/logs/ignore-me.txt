@@ -1,0 +1,1 @@
+Not an events-YYYY-MM-DD.jsonl file; the loader must ignore it.
