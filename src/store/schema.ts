@@ -193,6 +193,21 @@ export const searchMemoryInputSchema = z.object(searchMemoryInputShape).strict()
 
 export type SearchMemoryInput = z.infer<typeof searchMemoryInputSchema>;
 
+// `answer_memory` input (§9.5). A plain-language question with an optional
+// project filter; retrieval is intentionally narrower than search (no type/
+// scope/tag filters) because the tool returns a compact, source-backed answer
+// rather than a browsable result set.
+export const answerMemoryInputShape = {
+  question: nonEmpty,
+  project: nonEmpty.optional(),
+  limit: z.number().int().min(1).optional(),
+  include_sources: z.boolean().optional(),
+} as const;
+
+export const answerMemoryInputSchema = z.object(answerMemoryInputShape).strict();
+
+export type AnswerMemoryInput = z.infer<typeof answerMemoryInputSchema>;
+
 export type MemoryType = z.infer<typeof typeSchema>;
 export type MemoryScope = z.infer<typeof scopeSchema>;
 export type MemoryStatus = z.infer<typeof statusSchema>;

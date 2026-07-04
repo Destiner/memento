@@ -1,16 +1,18 @@
-// MCP server wiring for Memento. create_memory is live; the remaining tools
-// are stubs until later tasks implement versioning, search, and answers.
+// MCP server wiring for Memento. All five tool contracts (§9) are live: create,
+// read, update, search, and the answer convenience layer.
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
 import { loadConfig, type ResolvedConfig } from './config.js';
-import { MementoError, toErrorShape } from './errors.js';
+import { toErrorShape } from './errors.js';
+import { answerMemory } from './store/answer.js';
 import { createMemory } from './store/create.js';
 import { openIndex } from './store/index-open.js';
 import { readMemory } from './store/read.js';
 import { searchMemory } from './store/search.js';
 import {
+  answerMemoryInputShape,
   createMemoryInputShape,
   readMemoryInputShape,
   searchMemoryInputShape,
@@ -61,12 +63,18 @@ const searchMemoryOutputShape = {
   result_count: z.number(),
 } as const;
 
-const UNIMPLEMENTED_TOOLS: { name: string; description: string }[] = [
-  {
-    name: 'answer_memory',
-    description: 'Retrieval-and-synthesis convenience returning a source-backed answer.',
-  },
-];
+const answerMemoryOutputShape = {
+  answer: z.string(),
+  sources: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      updated_at: z.string(),
+    }),
+  ),
+  confidence: z.enum(['high', 'medium', 'low']),
+  caveat: z.string(),
+} as const;
 
 export async function createServer(resolved: ResolvedConfig = loadConfig()): Promise<McpServer> {
   const server = new McpServer({
@@ -177,11 +185,32 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
     },
   );
 
-  for (const { name, description } of UNIMPLEMENTED_TOOLS) {
-    server.registerTool(name, { description }, () => {
-      throw new MementoError('internal_error', `${name} is not implemented yet.`);
-    });
-  }
+  server.registerTool(
+    'answer_memory',
+    {
+      description: 'Retrieval-and-synthesis convenience returning a source-backed answer.',
+      inputSchema: answerMemoryInputShape,
+      outputSchema: answerMemoryOutputShape,
+    },
+    async (args) => {
+      try {
+        const result = await answerMemory(args, {
+          index,
+          memoriesDir: resolved.paths.memories,
+          maxLimit: resolved.config.max_result_limit,
+        });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      } catch (error) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: JSON.stringify(toErrorShape(error)) }],
+        };
+      }
+    },
+  );
 
   return server;
 }
