@@ -5,3 +5,7 @@ export const name = 'memento';
 export { createServer, SERVER_NAME, SERVER_VERSION } from './server.js';
 export { DEFAULT_CONFIG, loadConfig, resolveHome, resolvePaths } from './config.js';
 export type { MementoConfig, MementoPaths, ResolvedConfig } from './config.js';
+export { MementoError, toErrorShape } from './errors.js';
+export type { MementoErrorCode, MementoErrorShape } from './errors.js';
+export { validate } from './validation.js';
+export type { FieldError } from './validation.js';
