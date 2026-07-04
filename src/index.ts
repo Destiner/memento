@@ -28,3 +28,4 @@ export type {
   Importance,
   MemoryMetadata,
 } from './store/schema.js';
+export { generateId, slugify, memoryFilename } from './store/id.js';
