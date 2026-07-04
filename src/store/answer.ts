@@ -10,6 +10,7 @@
 import { readFile } from 'node:fs/promises';
 
 import { validate } from '../validation.js';
+import { extractSummary } from './body-template.js';
 import { parseFrontmatter } from './frontmatter.js';
 import { resolveMemoryPath } from './resolve.js';
 import { answerMemoryInputSchema, type Confidence } from './schema.js';
@@ -96,14 +97,6 @@ async function passageFor(hit: SearchHit, memoriesDir: string): Promise<string> 
     // Fall through to the index excerpt below.
   }
   return hit.excerpt;
-}
-
-// Capture the text under a `## Summary` heading up to the next `## ` heading or
-// end of body. Returns null when the section is absent or empty.
-function extractSummary(body: string): string | null {
-  const match = /##\s+Summary\b[^\n]*\n([\s\S]*?)(?=\n##\s|$)/.exec(body);
-  const text = match?.[1]?.trim();
-  return text && text.length > 0 ? text : null;
 }
 
 // Confidence is the base lexical band, capped by the top source's own confidence

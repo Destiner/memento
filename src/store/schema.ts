@@ -9,6 +9,7 @@
 import { z } from 'zod';
 
 import { validate } from '../validation.js';
+import { hasSummarySection } from './body-template.js';
 
 export const MEMORY_TYPES = [
   'decision',
@@ -93,7 +94,23 @@ export const createMemoryInputShape = {
   source_refs: z.array(nonEmpty).optional(),
 } as const;
 
-export const createMemoryInputSchema = z.object(createMemoryInputShape).strict();
+// Enforce the §7 body template at capture time: a memory must lead with a
+// non-empty `## Summary` section. This is the one section answer_memory depends
+// on, so requiring it here closes the silent-quality-loss gap where a
+// summary-less memory falls back to a truncated FTS excerpt.
+export const createMemoryInputSchema = z
+  .object(createMemoryInputShape)
+  .strict()
+  .superRefine((input, ctx) => {
+    if (!hasSummarySection(input.body)) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'body must include a non-empty "## Summary" section (§7 template); answer_memory synthesizes from it.',
+        path: ['body'],
+      });
+    }
+  });
 
 export type CreateMemoryInput = z.infer<typeof createMemoryInputSchema>;
 

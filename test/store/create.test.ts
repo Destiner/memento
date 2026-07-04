@@ -112,6 +112,25 @@ describe('createMemory', () => {
       createMemory({ ...validInput, status: 'archived' }, { memoriesDir: dir }),
     ).rejects.toBeInstanceOf(MementoError);
   });
+
+  test('rejects a body without a ## Summary section without writing a file', async () => {
+    const noSummary = {
+      ...validInput,
+      body: 'Webhooks lag at peak volume.\n\n## Context\nDetails.',
+    };
+    await expect(createMemory(noSummary, { memoriesDir: dir })).rejects.toBeInstanceOf(
+      MementoError,
+    );
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  test('rejects a ## Summary heading with no content beneath it', async () => {
+    const emptySummary = { ...validInput, body: '## Summary\n\n## Context\nDetails.' };
+    await expect(createMemory(emptySummary, { memoriesDir: dir })).rejects.toBeInstanceOf(
+      MementoError,
+    );
+    expect(readdirSync(dir)).toEqual([]);
+  });
 });
 
 describe('fixture memories', () => {
