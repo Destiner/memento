@@ -9,10 +9,14 @@ import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { MementoError } from '../errors.js';
+import { assertInsideRoot, assertSafeMemoryId } from './path-safety.js';
 
 // Return the absolute path of the canonical file for `id`. Throws not_found when
-// no file matches and internal_error when more than one does (store corruption).
+// no file matches, internal_error when more than one does (store corruption),
+// and validation_error when the id is malformed or the match resolves (via a
+// symlink) outside the memory root (§15).
 export async function resolveMemoryPath(memoriesDir: string, id: string): Promise<string> {
+  assertSafeMemoryId(id);
   const matches = await findMatches(memoriesDir, id);
   if (matches.length === 0) {
     throw new MementoError('not_found', `No memory found with id ${id}.`, { id });
@@ -23,7 +27,9 @@ export async function resolveMemoryPath(memoriesDir: string, id: string): Promis
       matches,
     });
   }
-  return join(memoriesDir, matches[0]!);
+  const path = join(memoriesDir, matches[0]!);
+  await assertInsideRoot(memoriesDir, path);
+  return path;
 }
 
 async function findMatches(dir: string, id: string): Promise<string[]> {

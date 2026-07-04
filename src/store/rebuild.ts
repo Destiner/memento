@@ -13,6 +13,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { parseFrontmatter } from './frontmatter.js';
+import { assertInsideRoot } from './path-safety.js';
 import { validateFrontmatter } from './schema.js';
 import type { MemoryIndex } from './search-index.js';
 
@@ -32,7 +33,11 @@ export async function rebuildIndex(
   const result: RebuildResult = { indexed: 0, skipped: [] };
   for (const file of files) {
     try {
-      const raw = await readFile(join(memoriesDir, file), 'utf8');
+      const path = join(memoriesDir, file);
+      // A symlink escaping the memory root is store corruption, not a memory;
+      // skip it rather than ingesting content from outside the store (§15).
+      await assertInsideRoot(memoriesDir, path);
+      const raw = await readFile(path, 'utf8');
       const { metadata, body } = parseFrontmatter(raw);
       const validated = validateFrontmatter(metadata);
       index.upsert(validated, body);
