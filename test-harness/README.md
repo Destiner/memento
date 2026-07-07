@@ -30,6 +30,9 @@ bun run typecheck:harness
 
 ## Status
 
-Build order (§11): variant switch (done) → fixtures/corpus/scenarios →
-runner → scorers → report → stub server. The runner currently resolves a
-manifest and exits; execution lands in later steps.
+Build order (§11): variant switch (done) → fixtures/corpus/scenarios (done) →
+runner (done) → scorers → report → stub server. The runner executes the
+hermetic per-rep lifecycle (§7.2) under the spend cap and flake policy (§7.4)
+and appends a record per rep to `results/results.jsonl`. Scoring is next
+(§11.4): reps currently log session diagnostics with placeholder scores, and
+the crowded env is deferred with the stub server (§11 step 6).
