@@ -33,8 +33,8 @@ describe('resolveScenarios', () => {
     expect(scenarios.map((s) => s.id)).toEqual(['read/email-provider']);
   });
 
-  test('throws when a glob matches no scenarios (e.g. an empty class)', () => {
-    expect(() => resolveScenarios(HARNESS_ROOT, ['no-write/*'])).toThrow(/matched no scenarios/);
+  test('throws when a glob matches no scenarios (e.g. a nonexistent group)', () => {
+    expect(() => resolveScenarios(HARNESS_ROOT, ['absent/*'])).toThrow(/matched no scenarios/);
   });
 
   test('expands the should-not-retrieve group to its committed scenarios', () => {
@@ -45,6 +45,16 @@ describe('resolveScenarios', () => {
       'no-read/rename-constant',
     ]);
     expect(scenarios.every((s) => s.class === 'should-not-retrieve')).toBe(true);
+  });
+
+  test('expands the should-not-capture group to its committed scenarios', () => {
+    const scenarios = resolveScenarios(HARNESS_ROOT, ['no-write/*']);
+    expect(scenarios.map((s) => s.id)).toEqual([
+      'no-write/extract-url-helper',
+      'no-write/lowercase-email',
+      'no-write/reset-token-test',
+    ]);
+    expect(scenarios.every((s) => s.class === 'should-not-capture')).toBe(true);
   });
 });
 

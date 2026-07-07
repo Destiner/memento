@@ -1,3 +1,5 @@
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, test } from 'vitest';
@@ -5,6 +7,15 @@ import { describe, expect, test } from 'vitest';
 import { loadScenario, scenarioSchema } from './scenario.js';
 
 const HARNESS_ROOT = fileURLToPath(new URL('..', import.meta.url));
+
+// The manifest selects scenarios by group (read knobs → read + no-read, etc.),
+// so a scenario filed under the wrong group is silently mis-tested. Pin the map.
+const GROUP_CLASS: Record<string, string> = {
+  read: 'should-retrieve',
+  'no-read': 'should-not-retrieve',
+  write: 'should-capture',
+  'no-write': 'should-not-capture',
+};
 
 // A minimal valid should-retrieve scenario, reused as the base for negative cases.
 const VALID = {
@@ -27,6 +38,23 @@ describe('loadScenario', () => {
     expect(scenario.seeded_memory).toBe('corpus/facts/email-provider.md');
     expect(scenario.checks.utility_regex).toBe('(?i)postmark');
     expect(scenario.checks.task_success).toBe('bun run check');
+  });
+
+  test('every committed scenario loads and its class matches its group', () => {
+    const scenariosDir = `${HARNESS_ROOT}scenarios`;
+    let count = 0;
+    for (const group of readdirSync(scenariosDir, { withFileTypes: true })) {
+      if (!group.isDirectory()) continue;
+      for (const entry of readdirSync(join(scenariosDir, group.name), { withFileTypes: true })) {
+        const file = join(scenariosDir, group.name, entry.name, 'scenario.yaml');
+        if (!entry.isDirectory() || !existsSync(file)) continue;
+        const scenario = loadScenario(file);
+        expect(scenario.id).toBe(`${group.name}/${entry.name}`);
+        expect(scenario.class).toBe(GROUP_CLASS[group.name]);
+        count++;
+      }
+    }
+    expect(count).toBeGreaterThanOrEqual(7); // read(1) + no-read(3) + no-write(3) so far
   });
 });
 

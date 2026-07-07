@@ -39,9 +39,11 @@ the hermetic per-rep lifecycle (§7.2) under the spend cap and flake policy
 (§11.4): reps currently log session diagnostics with placeholder scores, and
 the crowded env is deferred with the stub server (§11 step 6).
 
-Scenarios so far: `read/email-provider` (should-retrieve) and three
-`no-read/*` should-not-retrieve probes (rename, guard, typo) that stage a
-green saas-app via the `saas-app-mailer` overlay so a trivial edit keeps the
-oracle passing — any memento call there is a false positive. Still to author:
-`no-write/*`, more `read/*`, and `write/*` capture scenarios (the last need
-discovery overlays and land alongside the scorer).
+Scenarios so far: `read/email-provider` (should-retrieve); three `no-read/*`
+should-not-retrieve probes (rename, guard, typo); and three `no-write/*`
+should-not-capture probes (lowercase, add-test, extract-helper). The should-not-*
+scenarios stage a green saas-app via the `saas-app-mailer` overlay so routine
+work keeps the oracle passing — any memento retrieval (no-read) or create/update
+(no-write) there is a false positive. Still to author: more `read/*`, and
+`write/*` capture scenarios (the last need discovery overlays and the capture
+rubric, so they land alongside the scorer).

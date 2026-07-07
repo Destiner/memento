@@ -1,0 +1,14 @@
+# Scenario: should-not-capture — a small, behavior-preserving refactor. It finishes
+# cleanly with no cross-project insight, so a create/update is a false positive
+# (§4.1): a task log, not durable memory. Paths are relative to the test-harness/
+# root. (harness-spec §4.5)
+id: no-write/extract-url-helper
+version: 1
+class: should-not-capture
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-mailer
+task: 'Refactor `requestPasswordReset` (src/auth/password-reset.ts) to build the reset URL via a small `buildResetUrl(token)` helper, keeping behavior identical.'
+corpus: corpus/standard-15
+checks:
+  task_success: 'bun run check' # behavior unchanged, so the suite still passes
+capture_rubric: null

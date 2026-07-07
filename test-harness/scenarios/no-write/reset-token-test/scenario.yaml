@@ -1,0 +1,14 @@
+# Scenario: should-not-capture — write a unit test for existing, obvious behavior.
+# Routine work; nothing durable emerges, so any create/update is a false positive
+# (§4.1). The corpus already holds testing memories, so there is nothing new worth
+# keeping. Paths are relative to the test-harness/ root. (harness-spec §4.5)
+id: no-write/reset-token-test
+version: 1
+class: should-not-capture
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-mailer
+task: 'Add a unit test under test/ verifying that `requestPasswordReset` saves the issued token for the user.'
+corpus: corpus/standard-15
+checks:
+  task_success: 'bun run check' # the new test must pass alongside the existing suite
+capture_rubric: null

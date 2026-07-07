@@ -1,0 +1,16 @@
+# Scenario: should-not-capture — a routine input-handling tweak that completes
+# cleanly and surfaces no durable, cross-project insight. Creating or updating a
+# memory here is a false positive (§4.1): it would be a task log, exactly what the
+# capture boundary rules out. The mailer overlay makes the app green so the edit
+# lands cleanly; task_success is a guardrail, capture_fp_rate is the metric.
+# Paths are relative to the test-harness/ root. (harness-spec §4.5)
+id: no-write/lowercase-email
+version: 1
+class: should-not-capture
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-mailer
+task: 'Normalize the email address to lowercase before saving the reset token in `requestPasswordReset` (src/auth/password-reset.ts).'
+corpus: corpus/standard-15
+checks:
+  task_success: 'bun run check'
+capture_rubric: null # should-not-capture forbids a rubric (§4.1)
