@@ -1,0 +1,11 @@
+# baseline-no-memento: Memento not registered at all (§10). Anchors the
+# task-success and token guardrails (§5.3) and calibrates seeded-fact
+# unguessability in Phase 0 (§9): utility should be ~0 with no memory to read.
+# memento_variant: null tells the runner to register no Memento MCP server.
+name: baseline-no-memento
+description: Memento not registered — guardrail anchor and unguessability calibration.
+knob: none
+variant: none
+side: both
+portability: portable
+memento_variant: null

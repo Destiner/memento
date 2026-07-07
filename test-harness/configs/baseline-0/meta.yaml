@@ -1,0 +1,12 @@
+# baseline-0: the neutral 0-line every knob is paired against (§10). Memento
+# installed with the plain variant (terse descriptions, no instructions field,
+# no nudges) and zero user-installed knobs. Deliberately NOT today's shipped
+# default — the shipped trigger-list descriptions (8db547f) are themselves the
+# descriptions knob's strong arm, a variant under test rather than the baseline.
+name: baseline-0
+description: Neutral floor — Memento installed (plain variant), no user knobs.
+knob: none
+variant: none
+side: both
+portability: portable
+memento_variant: plain
