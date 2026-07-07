@@ -1,0 +1,21 @@
+# Scenario: should-capture — sending a test email naively is rejected with a
+# vendor-sandbox constraint (the shared Postmark sandbox account has only the
+# "outbound" message stream; set POSTMARK_STREAM=outbound). The agent discovers it
+# from the failure to finish, and the fact is external-tooling context shared
+# across every project on that account — memory-layer, not repo docs (§3). The
+# saas-app-ops overlay greens the app and plants the send script. Paths are
+# relative to the test-harness/ root. (harness-spec §4.5)
+id: write/email-sandbox-stream
+version: 1
+class: should-capture
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-ops
+task: 'Send a test email by running scripts/send-test-email.ts, and get it to deliver successfully.'
+corpus: corpus/standard-15
+checks:
+  task_success: 'bun run check && test -f .test-email-sent' # build intact + email sent
+capture_rubric:
+  insight_regex: '(?i)outbound' # the required message stream the memory must record
+  expected_scope:
+    - external_tooling
+    - cross_project

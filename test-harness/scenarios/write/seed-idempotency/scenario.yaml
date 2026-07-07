@@ -1,0 +1,21 @@
+# Scenario: should-capture — seeding users naively is refused with a shared-DB
+# constraint (no unique constraint on users.email, so non-idempotent seeders
+# duplicate rows; pass --idempotency-key). The agent discovers it from the failure
+# to finish, and the fact is cross-project context about the shared dev database —
+# memory-layer, not this repo's docs (§3). The saas-app-ops overlay greens the app
+# and plants the seed script. Paths are relative to the test-harness/ root.
+# (harness-spec §4.5)
+id: write/seed-idempotency
+version: 1
+class: should-capture
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-ops
+task: 'Seed the local users table by running scripts/seed-users.ts.'
+corpus: corpus/standard-15
+checks:
+  task_success: 'bun run check && test -f .users-seeded' # build intact + seeding ran
+capture_rubric:
+  insight_regex: '(?i)idempoten' # the seeder requirement the memory must record
+  expected_scope:
+    - cross_project
+    - external_tooling

@@ -1,0 +1,21 @@
+# Scenario: should-capture — running the migration naively is refused with a
+# cross-service infra constraint (concurrent migrations corrupt the shared ledger;
+# re-run with --single-tx). The agent must discover it from the failure to finish
+# the task, and the constraint is a durable, cross-project lesson that belongs in
+# memory, not this repo's docs (§3) — so a well-formed capture recording it passes
+# the rubric (§5.2). The saas-app-ops overlay greens the app and plants the migrate
+# script. Paths are relative to the test-harness/ root. (harness-spec §4.5)
+id: write/migrate-single-tx
+version: 1
+class: should-capture
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-ops
+task: 'Apply the pending database migration. The migration runner is scripts/migrate.ts.'
+corpus: corpus/standard-15
+checks:
+  task_success: 'bun run check && test -f .migrate-applied' # build intact + migration ran
+capture_rubric:
+  insight_regex: '(?i)single[-_ ]?tx' # the actionable workaround the memory must record
+  expected_scope: # a shared-infra lesson is cross-project, not repo-owned (§3)
+    - cross_project
+    - external_tooling

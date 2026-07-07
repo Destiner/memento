@@ -32,19 +32,29 @@ bun run typecheck:harness
 
 ## Status
 
-Build order (§11): variant switch (done) → fixtures/corpus/scenarios (2a done;
-2b with scorers) → runner (done) → scorers → report → stub server. The runner
-executes the hermetic per-rep lifecycle (§7.2) under the spend cap and flake
-policy (§7.4) and appends a record per rep to `results/results.jsonl`. Scoring
-is next (§11 step 4): reps currently log session diagnostics with placeholder
-scores, and the crowded env is deferred with the stub server (§11 step 6).
+Build order (§11): variant switch (done) → fixtures/corpus/scenarios (done) →
+runner (done) → scorers (done) → report → stub server. The runner executes the
+hermetic per-rep lifecycle (§7.2) under the spend cap and flake policy (§7.4),
+scores each rep, and appends a record to `results/results.jsonl`. Next is the
+report over that log (§11 step 5); the crowded env is deferred with the stub
+server (§11 step 6).
+
+Scoring (§5, §11 step 4) reads three sources while the sandbox is still on disk:
+Memento's event log (`$MEMENTO_HOME/logs/`) for the authoritative list of tool
+calls the report derives FP rates from; the git diff of the session's changes for
+the should-retrieve utility check (regex over added lines only); and the fixture
+oracle (`task_success`) as the guardrail. should-capture reps are scored against
+the five-criterion capture rubric (§5.2) over the memories the session created or
+edited. Read and write scores are recomputed from the log, never stored (§8.2).
 
 Scenarios: three `read/*` should-retrieve (email provider, reset-link domain,
 security contact — each seeds an unguessable fact into the corpus and checks it
 lands in the diff); three `no-read/*` should-not-retrieve probes (rename, guard,
-typo); and three `no-write/*` should-not-capture probes (lowercase, add-test,
-extract-helper). All but `read/email-provider` stage a green saas-app through the
-`saas-app-mailer` overlay. This completes 2a (retrieve / no-retrieve /
-no-capture); the `write/*` should-capture class (2b) needs discovery overlays and
-the capture rubric, so it lands with the scorer (§11 step 4). Thematic diversity
-within saas-app is limited by design — `bigger-app` in Phase 2 is the fix (§12).
+typo); three `no-write/*` should-not-capture probes (lowercase, add-test,
+extract-helper); and three `write/*` should-capture (migrate --single-tx, Postmark
+sandbox stream, seed idempotency — each plants a discovery artifact whose failure
+message states a cross-project constraint the agent must find, then capture). The
+no-read/no-write scenarios stage a green saas-app via the `saas-app-mailer`
+overlay; the write scenarios use `saas-app-ops`, which greens the app and plants
+the discovery scripts. Thematic diversity within saas-app is limited by design —
+`bigger-app` in Phase 2 is the fix (§12).
