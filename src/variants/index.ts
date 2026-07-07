@@ -7,9 +7,16 @@
 //
 // Variants are composed from independent knob-dimension tables (descriptions.ts,
 // instructions.ts, nudges.ts) so Phase-2 combinations are just new entries here.
-// `baseline` differs from shipped behavior on nothing.
+//
+// baseline-0 (the harness 0-line, §10) is `plain`: neutral descriptions, no
+// instructions, no nudges. Each single-knob variant flips exactly one dimension
+// from that floor. `shipped` is the real-world default — today's trigger-list
+// descriptions (commit 8db547f) — which is itself the descriptions knob's strong
+// arm, deliberately *not* baseline-0. There is intentionally no variant named
+// `baseline`: it would collide with baseline-0 and let a misconfigured rep pass
+// silently.
 
-import { baselineDescriptions, type DescriptionSet } from './descriptions.js';
+import { plainDescriptions, triggerListDescriptions, type DescriptionSet } from './descriptions.js';
 import { USAGE_PROTOCOL } from './instructions.js';
 import { CREATE_SUCCESS_NUDGE, EMPTY_SEARCH_NUDGE, type NudgeSet } from './nudges.js';
 
@@ -24,23 +31,33 @@ export interface VariantConfig {
   nudges: NudgeSet;
 }
 
-export const DEFAULT_VARIANT = 'baseline';
+// Default for normal (non-harness) operation: the shipped trigger-list behavior.
+export const DEFAULT_VARIANT = 'shipped';
 
 const VARIANTS: Record<string, VariantConfig> = {
-  baseline: {
-    name: 'baseline',
-    descriptions: baselineDescriptions,
+  // baseline-0: neutral floor every knob is measured against.
+  plain: {
+    name: 'plain',
+    descriptions: plainDescriptions,
     nudges: {},
   },
+  // Real-world default; = descriptions knob ON, everything else at the floor.
+  shipped: {
+    name: 'shipped',
+    descriptions: triggerListDescriptions,
+    nudges: {},
+  },
+  // Instructions knob ON (plain descriptions + usage-protocol instructions).
   'server-instructions': {
     name: 'server-instructions',
-    descriptions: baselineDescriptions,
+    descriptions: plainDescriptions,
     instructions: USAGE_PROTOCOL,
     nudges: {},
   },
+  // Nudges knob ON (plain descriptions + tool-result nudges).
   'result-nudges': {
     name: 'result-nudges',
-    descriptions: baselineDescriptions,
+    descriptions: plainDescriptions,
     nudges: {
       emptySearch: EMPTY_SEARCH_NUDGE,
       createSuccess: CREATE_SUCCESS_NUDGE,
@@ -56,7 +73,7 @@ export function listVariants(): string[] {
 /**
  * Resolve a variant by name. Throws a descriptive startup error for an unknown
  * name so a mistyped MEMENTO_VARIANT fails loudly instead of silently running
- * baseline (which would invalidate a harness rep without warning).
+ * the default (which would invalidate a harness rep without warning).
  */
 export function resolveVariant(name: string = DEFAULT_VARIANT): VariantConfig {
   const variant = VARIANTS[name];

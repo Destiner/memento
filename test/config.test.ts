@@ -25,19 +25,17 @@ describe('resolveHome', () => {
 });
 
 describe('resolveVariantName', () => {
-  test('defaults to baseline when unset', () => {
-    expect(resolveVariantName({})).toBe('baseline');
+  test('defaults to shipped when unset', () => {
+    expect(resolveVariantName({})).toBe('shipped');
   });
 
   test('honours a MEMENTO_VARIANT override', () => {
-    expect(resolveVariantName({ MEMENTO_VARIANT: 'server-instructions' })).toBe(
-      'server-instructions',
-    );
+    expect(resolveVariantName({ MEMENTO_VARIANT: 'plain' })).toBe('plain');
   });
 
-  test('trims whitespace and falls back to baseline when blank', () => {
+  test('trims whitespace and falls back to the default when blank', () => {
     expect(resolveVariantName({ MEMENTO_VARIANT: '  result-nudges  ' })).toBe('result-nudges');
-    expect(resolveVariantName({ MEMENTO_VARIANT: '   ' })).toBe('baseline');
+    expect(resolveVariantName({ MEMENTO_VARIANT: '   ' })).toBe('shipped');
   });
 });
 

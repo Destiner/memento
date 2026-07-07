@@ -1,17 +1,36 @@
 // Tool-description sets for the MEMENTO_VARIANT switch (harness knob: "Tool
 // descriptions", §3.1). Each set maps every tool to the `description` the server
-// registers for it. `baseline` is the currently shipped wording verbatim, so
-// selecting it is a behavioral no-op; alternative sets (terse / explicit
-// trigger-list) are added here as their content is settled.
+// registers for it. The descriptions knob is an ablation with two sets:
+//
+//   plain        — neutral/terse mechanics only, no when-to-use guidance. This is
+//                  the harness's baseline-0 floor (§10).
+//   triggerList  — today's shipped text, which embeds implementer-spec §11
+//                  when-to-query/when-to-capture guidance (commit 8db547f).
+//                  Measured from the plain floor, this is the knob's strong arm.
 
 export type ToolName =
   'create_memory' | 'read_memory' | 'update_memory' | 'search_memory' | 'answer_memory';
 
 export type DescriptionSet = Record<ToolName, string>;
 
-// Default shipped descriptions (implementer-spec §11 guidance embedded in prose).
-// Kept identical to the strings previously inlined in server.ts.
-export const baselineDescriptions: DescriptionSet = {
+// Neutral floor: what each tool does, with no propensity guidance. baseline-0.
+export const plainDescriptions: DescriptionSet = {
+  create_memory: 'Create a memory as a canonical markdown file from the given metadata and body.',
+  read_memory: 'Read one memory in full by its stable ID.',
+  update_memory:
+    'Edit an existing memory in place: apply metadata changes and/or a body edit ' +
+    '(an exact-match old_text/new_text replacement or a full-body replacement).',
+  search_memory:
+    'Search stored memories by plain-language query plus optional structured ' +
+    'filters. Returns ranked results with excerpts.',
+  answer_memory:
+    'Answer a question from stored memories: returns a synthesized answer with ' +
+    'source IDs, a confidence level, and a caveat.',
+};
+
+// Shipped descriptions — implementer-spec §11 guidance embedded in prose. Kept
+// identical to the strings previously inlined in server.ts (commit 8db547f).
+export const triggerListDescriptions: DescriptionSet = {
   create_memory:
     'Create a durable, cross-task memory as a canonical markdown file. ' +
     'Create only when a reusable insight emerged that is not repo-owned truth ' +

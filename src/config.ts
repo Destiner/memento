@@ -11,6 +11,8 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import { DEFAULT_VARIANT } from './variants/index.js';
+
 export interface MementoConfig {
   schema_version: number;
   search_backend: 'fts5';
@@ -32,14 +34,12 @@ export interface ResolvedConfig {
   paths: MementoPaths;
   config: MementoConfig;
   // Name of the active MEMENTO_VARIANT knob bundle (resolved against the variant
-  // registry in server startup); defaults to 'baseline'. Env-only, like the home
-  // directory — never read from config.json.
+  // registry at server startup); defaults to DEFAULT_VARIANT. Env-only, like the
+  // home directory — never read from config.json.
   variant: string;
 }
 
 export const DEFAULT_HOME_DIR = '.memento';
-
-export const DEFAULT_VARIANT = 'baseline';
 
 export const DEFAULT_CONFIG: MementoConfig = {
   schema_version: 1,

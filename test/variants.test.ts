@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { baselineDescriptions } from '../src/variants/descriptions.js';
+import { plainDescriptions, triggerListDescriptions } from '../src/variants/descriptions.js';
 import { USAGE_PROTOCOL } from '../src/variants/instructions.js';
 import { CREATE_SUCCESS_NUDGE, EMPTY_SEARCH_NUDGE } from '../src/variants/nudges.js';
 import { DEFAULT_VARIANT, listVariants, resolveVariant } from '../src/variants/index.js';
@@ -14,11 +14,23 @@ const TOOL_NAMES = [
 ] as const;
 
 describe('resolveVariant', () => {
-  test('defaults to baseline and is a behavioral no-op', () => {
+  test('defaults to shipped (real-world trigger-list behavior)', () => {
     const variant = resolveVariant();
     expect(variant.name).toBe(DEFAULT_VARIANT);
-    expect(variant.name).toBe('baseline');
-    expect(variant.descriptions).toEqual(baselineDescriptions);
+    expect(variant.name).toBe('shipped');
+    expect(variant.descriptions).toEqual(triggerListDescriptions);
+    expect(variant.instructions).toBeUndefined();
+    expect(variant.nudges).toEqual({});
+  });
+
+  test('there is no variant named baseline (collides with baseline-0)', () => {
+    expect(listVariants()).not.toContain('baseline');
+    expect(() => resolveVariant('baseline')).toThrow(/Unknown MEMENTO_VARIANT/);
+  });
+
+  test('plain is baseline-0: neutral descriptions, no instructions, no nudges', () => {
+    const variant = resolveVariant('plain');
+    expect(variant.descriptions).toEqual(plainDescriptions);
     expect(variant.instructions).toBeUndefined();
     expect(variant.nudges).toEqual({});
   });
@@ -32,22 +44,29 @@ describe('resolveVariant', () => {
     }
   });
 
-  test('server-instructions adds the usage protocol and nothing else', () => {
-    const variant = resolveVariant('server-instructions');
-    expect(variant.instructions).toBe(USAGE_PROTOCOL);
-    expect(variant.descriptions).toEqual(baselineDescriptions);
-    expect(variant.nudges).toEqual({});
+  test('the descriptions knob is a real ablation: plain strips §11 guidance', () => {
+    expect(triggerListDescriptions.search_memory).toMatch(/self-contained edits/);
+    expect(plainDescriptions.search_memory).not.toMatch(/self-contained edits/);
+    for (const tool of TOOL_NAMES) {
+      expect(plainDescriptions[tool]).not.toBe(triggerListDescriptions[tool]);
+    }
   });
 
-  test('result-nudges sets both nudges and leaves instructions empty', () => {
-    const variant = resolveVariant('result-nudges');
-    expect(variant.instructions).toBeUndefined();
-    expect(variant.nudges.emptySearch).toBe(EMPTY_SEARCH_NUDGE);
-    expect(variant.nudges.createSuccess).toBe(CREATE_SUCCESS_NUDGE);
+  test('single-knob variants flip one dimension from the plain floor', () => {
+    const instructions = resolveVariant('server-instructions');
+    expect(instructions.descriptions).toEqual(plainDescriptions);
+    expect(instructions.instructions).toBe(USAGE_PROTOCOL);
+    expect(instructions.nudges).toEqual({});
+
+    const nudges = resolveVariant('result-nudges');
+    expect(nudges.descriptions).toEqual(plainDescriptions);
+    expect(nudges.instructions).toBeUndefined();
+    expect(nudges.nudges.emptySearch).toBe(EMPTY_SEARCH_NUDGE);
+    expect(nudges.nudges.createSuccess).toBe(CREATE_SUCCESS_NUDGE);
   });
 
   test('throws a helpful error for an unknown variant', () => {
     expect(() => resolveVariant('nope')).toThrow(/Unknown MEMENTO_VARIANT "nope"/);
-    expect(() => resolveVariant('nope')).toThrow(/baseline/);
+    expect(() => resolveVariant('nope')).toThrow(/plain/);
   });
 });
