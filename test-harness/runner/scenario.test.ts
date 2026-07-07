@@ -54,7 +54,7 @@ describe('loadScenario', () => {
         count++;
       }
     }
-    expect(count).toBeGreaterThanOrEqual(7); // read(1) + no-read(3) + no-write(3) so far
+    expect(count).toBeGreaterThanOrEqual(9); // read(3) + no-read(3) + no-write(3) so far
   });
 });
 

@@ -32,18 +32,19 @@ bun run typecheck:harness
 
 ## Status
 
-Build order (§11): variant switch (done) → fixtures/corpus/scenarios (in
-progress) → runner (done) → scorers → report → stub server. The runner executes
-the hermetic per-rep lifecycle (§7.2) under the spend cap and flake policy
-(§7.4) and appends a record per rep to `results/results.jsonl`. Scoring is next
-(§11.4): reps currently log session diagnostics with placeholder scores, and
-the crowded env is deferred with the stub server (§11 step 6).
+Build order (§11): variant switch (done) → fixtures/corpus/scenarios (2a done;
+2b with scorers) → runner (done) → scorers → report → stub server. The runner
+executes the hermetic per-rep lifecycle (§7.2) under the spend cap and flake
+policy (§7.4) and appends a record per rep to `results/results.jsonl`. Scoring
+is next (§11 step 4): reps currently log session diagnostics with placeholder
+scores, and the crowded env is deferred with the stub server (§11 step 6).
 
-Scenarios so far: `read/email-provider` (should-retrieve); three `no-read/*`
-should-not-retrieve probes (rename, guard, typo); and three `no-write/*`
-should-not-capture probes (lowercase, add-test, extract-helper). The should-not-*
-scenarios stage a green saas-app via the `saas-app-mailer` overlay so routine
-work keeps the oracle passing — any memento retrieval (no-read) or create/update
-(no-write) there is a false positive. Still to author: more `read/*`, and
-`write/*` capture scenarios (the last need discovery overlays and the capture
-rubric, so they land alongside the scorer).
+Scenarios: three `read/*` should-retrieve (email provider, reset-link domain,
+security contact — each seeds an unguessable fact into the corpus and checks it
+lands in the diff); three `no-read/*` should-not-retrieve probes (rename, guard,
+typo); and three `no-write/*` should-not-capture probes (lowercase, add-test,
+extract-helper). All but `read/email-provider` stage a green saas-app through the
+`saas-app-mailer` overlay. This completes 2a (retrieve / no-retrieve /
+no-capture); the `write/*` should-capture class (2b) needs discovery overlays and
+the capture rubric, so it lands with the scorer (§11 step 4). Thematic diversity
+within saas-app is limited by design — `bigger-app` in Phase 2 is the fix (§12).

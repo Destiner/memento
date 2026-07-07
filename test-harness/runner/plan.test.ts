@@ -23,14 +23,23 @@ describe('resolveConfigs', () => {
 });
 
 describe('resolveScenarios', () => {
-  test('expands a group glob to the scenarios that exist', () => {
+  test('expands a group glob to the scenarios that exist, sorted by id', () => {
     const scenarios = resolveScenarios(HARNESS_ROOT, ['read/*']);
-    expect(scenarios.map((s) => s.id)).toEqual(['read/email-provider']);
+    expect(scenarios.map((s) => s.id)).toEqual([
+      'read/email-provider',
+      'read/reset-link-domain',
+      'read/support-contact',
+    ]);
+    expect(scenarios.every((s) => s.class === 'should-retrieve')).toBe(true);
   });
 
   test('matches an exact id and dedups against an overlapping glob', () => {
     const scenarios = resolveScenarios(HARNESS_ROOT, ['read/*', 'read/email-provider']);
-    expect(scenarios.map((s) => s.id)).toEqual(['read/email-provider']);
+    expect(scenarios.map((s) => s.id)).toEqual([
+      'read/email-provider',
+      'read/reset-link-domain',
+      'read/support-contact',
+    ]);
   });
 
   test('throws when a glob matches no scenarios (e.g. a nonexistent group)', () => {
@@ -65,7 +74,7 @@ describe('planRun', () => {
       reps: 2,
       max_spend_usd: 5,
       configs: ['baseline-0', 'baseline-no-memento'],
-      scenarios: ['read/*'],
+      scenarios: ['read/email-provider'], // exact id → count-independent of read/*
     });
     const plan = planRun(HARNESS_ROOT, manifest);
     // 2 configs × 1 scenario × 2 reps.

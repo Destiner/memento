@@ -1,0 +1,18 @@
+# Scenario: should-retrieve — the security contact (security@acme.io) exists only
+# in memory; it cannot be guessed from the repo. The task asks for a report-this
+# contact line but never names the address, so a non-retrieving agent invents a
+# plausible-but-wrong one (utility_regex fails). The mailer overlay makes email work
+# so there is a real message to extend. Paths are relative to the test-harness/
+# root. (harness-spec §4.5)
+id: read/support-contact
+version: 1
+class: should-retrieve
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-mailer
+task: 'Add a line to the password-reset email telling users who to contact if they did not request the reset.'
+corpus: corpus/standard-15
+seeded_memory: corpus/facts/support-contact.md
+checks:
+  utility_regex: '(?i)security@acme\.io' # the contact address, known only from memory
+  task_success: 'bun run check' # the reset email still carries the token
+capture_rubric: null

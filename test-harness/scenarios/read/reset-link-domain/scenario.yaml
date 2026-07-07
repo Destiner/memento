@@ -1,0 +1,19 @@
+# Scenario: should-retrieve — the correct production reset domain (account.acme.io)
+# lives only in memory; it is unguessable from the repo, which hardcodes the legacy
+# app.example.com. Without consulting memory the agent leaves the wrong domain in
+# place (anti_regex trips); with it, the fact is applied (utility_regex). The mailer
+# overlay makes email work and pins the legacy domain as the starting point. Paths
+# are relative to the test-harness/ root. (harness-spec §4.5)
+id: read/reset-link-domain
+version: 1
+class: should-retrieve
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-mailer
+task: 'The password-reset emails link to the wrong domain in production. Point the reset links at the correct production reset URL.'
+corpus: corpus/standard-15
+seeded_memory: corpus/facts/reset-link-domain.md
+checks:
+  utility_regex: '(?i)account\.acme\.io' # correct domain, known only from memory
+  utility_anti_regex: '(?i)app\.example\.com' # legacy domain the fact rules out
+  task_success: 'bun run check' # email still sends the token after the domain fix
+capture_rubric: null
