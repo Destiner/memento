@@ -6,17 +6,29 @@
 // injected — so the scheduling logic is testable without spawning Claude Code.
 //
 // makeRunCell is the real RunCell: it materializes the hermetic sandbox, runs one
-// `claude -p` session, and appends a results record. Scoring (§11.4) slots in
-// before cleanup, where the sandbox's event log, transcript, and fixture diff are
-// still on disk; until then reps record UNSCORED placeholders.
+// `claude -p` session, scores the rep against the sandbox's event log and fixture
+// diff (§11.4), and appends a results record — all before cleanup, while the
+// sandbox is still on disk. Invalid reps (timed out/crashed) are excluded from
+// scoring (§7.4) and record UNSCORED placeholders.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 import { type Cell } from './plan.js';
-import { buildRecord, UNSCORED, type RepStatus, type ResultRecord } from './record.js';
+import {
+  buildRecord,
+  UNSCORED,
+  type RepStatus,
+  type ResultRecord,
+  type ScoredFacts,
+} from './record.js';
 import { createSandbox } from './sandbox.js';
+import { scoreRep } from './score.js';
 import { buildClaudeInvocation, parseSessionResult, runSession } from './session.js';
+
+// Timeout for a scenario's task_success oracle (§5.3). Separate from the per-rep
+// session timeout (§7.4): the oracle is a quick typecheck + test, not a model run.
+export const ORACLE_TIMEOUT_S = 300;
 
 export interface RepOutcome {
   status: RepStatus;
@@ -100,6 +112,7 @@ export interface RunContext {
   mementoVersion: string;
   configHashes: Map<string, string>; // config name → config_hash
   transcriptsDir: string; // absolute; per-run transcript directory
+  oracleTimeoutS: number; // per-scenario task_success budget (§5.3)
 }
 
 /** Build the real RunCell that spawns a session and records the rep. */
@@ -127,9 +140,13 @@ export function makeRunCell(ctx: RunContext): RunCell {
       const status: RepStatus = invalid ? 'invalid' : 'ok';
       const transcriptPath = saveTranscript(ctx, cell, run.stdout);
 
-      // Scoring (§11.4) belongs here — before cleanup, while the sandbox's event
-      // log, transcript, and fixture diff are still on disk. Reps are UNSCORED
-      // until it lands.
+      // Score before cleanup, while the sandbox's event log, captured memories,
+      // and fixture diff are still on disk. Invalid reps are excluded from
+      // scoring (§7.4); a scoring failure degrades to UNSCORED rather than losing
+      // the whole rep — the session's own diagnostics are still recorded.
+      const scored =
+        status === 'ok' ? scoreOrWarn(ctx, cell, sandbox.mementoHome, sandbox.repoDir) : UNSCORED;
+
       const record = buildRecord({
         run: ctx.run,
         timestamp: new Date().toISOString(),
@@ -147,7 +164,7 @@ export function makeRunCell(ctx: RunContext): RunCell {
           tokens_in: session.tokensIn,
           tokens_out: session.tokensOut,
         },
-        scored: UNSCORED,
+        scored,
         transcriptPath,
       });
       return { status, costUsd: session.costUsd ?? 0, record };
@@ -155,6 +172,32 @@ export function makeRunCell(ctx: RunContext): RunCell {
       sandbox.cleanup();
     }
   };
+}
+
+// Score a rep, or warn and fall back to UNSCORED. A scorer failure (a bad
+// scenario regex, a git/oracle hiccup) must not abort the run and lose the other
+// cells; it is logged so it does not pass silently.
+function scoreOrWarn(
+  ctx: RunContext,
+  cell: Cell,
+  mementoHome: string,
+  repoDir: string,
+): ScoredFacts {
+  try {
+    return scoreRep({
+      scenario: cell.scenario,
+      harnessRoot: ctx.harnessRoot,
+      mementoHome,
+      repoDir,
+      oracleTimeoutS: ctx.oracleTimeoutS,
+    });
+  } catch (error) {
+    console.error(
+      `Scoring failed for ${cell.config.name} × ${cell.scenario.id} rep ${cell.rep}:`,
+      error,
+    );
+    return UNSCORED;
+  }
 }
 
 // Persist a rep's raw transcript under the run's transcript dir, returning a

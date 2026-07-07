@@ -94,12 +94,43 @@ describe('scenarioSchema', () => {
       checks: { task_success: 'x' },
     };
     expect(scenarioSchema.safeParse(capture).success).toBe(false); // capture_rubric is null
-    expect(scenarioSchema.safeParse({ ...capture, capture_rubric: { must: [] } }).success).toBe(
-      true,
-    );
+    expect(
+      scenarioSchema.safeParse({ ...capture, capture_rubric: { insight_regex: '(?i)rate limit' } })
+        .success,
+    ).toBe(true);
     expect(
       scenarioSchema.safeParse({ ...capture, class: 'should-not-capture', capture_rubric: null })
         .success,
+    ).toBe(true);
+  });
+
+  test('capture_rubric requires insight_regex and rejects unknown fields (strict)', () => {
+    const capture = {
+      ...VALID,
+      class: 'should-capture',
+      seeded_memory: undefined,
+      checks: { task_success: 'x' },
+    };
+    // Missing insight_regex → invalid.
+    expect(scenarioSchema.safeParse({ ...capture, capture_rubric: {} }).success).toBe(false);
+    // Unknown rubric key → invalid.
+    expect(
+      scenarioSchema.safeParse({
+        ...capture,
+        capture_rubric: { insight_regex: 'x', oops: 1 },
+      }).success,
+    ).toBe(false);
+    // Full rubric with optional fields → valid.
+    expect(
+      scenarioSchema.safeParse({
+        ...capture,
+        capture_rubric: {
+          insight_regex: '(?i)10 req',
+          insight_anti_regex: '(?i)unlimited',
+          expected_scope: ['cross_project', 'external_tooling'],
+          task_log_anti_regex: '(?i)done',
+        },
+      }).success,
     ).toBe(true);
   });
 });

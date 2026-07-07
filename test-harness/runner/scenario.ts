@@ -28,6 +28,30 @@ const checksSchema = z
   })
   .strict();
 
+// Capture-quality rubric (§5.2). A should-capture scenario declares the
+// content-specific checks that make its planted insight a *good* capture, not
+// merely a write; the structural criteria (a create/update happened, the body is
+// usable) are the scorer's and apply to every capture. Two bits are inherently
+// per-scenario: which insight the memory must record, and which layer/scope a
+// correctly-classified capture belongs in (§3 boundary). The scorer
+// (runner/capture.ts) evaluates the five binary criteria against this.
+const captureRubricSchema = z
+  .object({
+    // C2: the planted insight must appear in the captured memory (title + body).
+    insight_regex: nonEmpty,
+    // C2 (optional): a wrong/contradictory value whose presence fails the capture.
+    insight_anti_regex: nonEmpty.optional(),
+    // C4 (optional): scopes a correctly-layered capture may carry (§3 boundary).
+    // Omitted → any valid scope passes (the server already enforces the vocab).
+    expected_scope: z.array(nonEmpty).min(1).optional(),
+    // C3 (optional): a task-log anti-pattern beyond the built-in one (§8 "do not
+    // create a memory for"), matched against the memory's title and summary.
+    task_log_anti_regex: nonEmpty.optional(),
+  })
+  .strict();
+
+export type CaptureRubric = z.infer<typeof captureRubricSchema>;
+
 export const scenarioSchema = z
   .object({
     id: z.string().regex(/^[a-z-]+\/[a-z0-9-]+$/, 'id must look like "<group>/<name>"'),
@@ -39,7 +63,7 @@ export const scenarioSchema = z
     corpus: nonEmpty,
     seeded_memory: nonEmpty.optional(),
     checks: checksSchema,
-    capture_rubric: z.unknown().nullable().optional(),
+    capture_rubric: captureRubricSchema.nullable().optional(), // should-capture only (§5.2)
   })
   .strict()
   .superRefine((s, ctx) => {

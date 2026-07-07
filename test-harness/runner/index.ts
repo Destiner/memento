@@ -5,8 +5,7 @@
 //
 // Loads a run manifest, plans its cells, and executes the hermetic per-rep
 // lifecycle (§7.2) under the spend cap and flake policy (§7.4), appending one
-// results record per rep to results/results.jsonl (§8.2). Scoring lands next
-// (§11.4); reps currently record session diagnostics with UNSCORED placeholders.
+// scored results record per rep to results/results.jsonl (§8.2, §11.4).
 
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
@@ -16,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { loadManifest } from './manifest.js';
 import { planRun } from './plan.js';
 import { configHash } from './record.js';
-import { executeCells, makeRunCell, type RunContext } from './run.js';
+import { executeCells, makeRunCell, ORACLE_TIMEOUT_S, type RunContext } from './run.js';
 
 const HARNESS_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO_ROOT = resolve(HARNESS_ROOT, '..');
@@ -60,6 +59,7 @@ async function main(argv: string[]): Promise<void> {
     mementoVersion: readMementoVersion(),
     configHashes,
     transcriptsDir,
+    oracleTimeoutS: ORACLE_TIMEOUT_S,
   };
 
   console.error(
