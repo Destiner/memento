@@ -34,7 +34,17 @@ describe('resolveScenarios', () => {
   });
 
   test('throws when a glob matches no scenarios (e.g. an empty class)', () => {
-    expect(() => resolveScenarios(HARNESS_ROOT, ['no-read/*'])).toThrow(/matched no scenarios/);
+    expect(() => resolveScenarios(HARNESS_ROOT, ['no-write/*'])).toThrow(/matched no scenarios/);
+  });
+
+  test('expands the should-not-retrieve group to its committed scenarios', () => {
+    const scenarios = resolveScenarios(HARNESS_ROOT, ['no-read/*']);
+    expect(scenarios.map((s) => s.id)).toEqual([
+      'no-read/fix-typo',
+      'no-read/guard-empty-email',
+      'no-read/rename-constant',
+    ]);
+    expect(scenarios.every((s) => s.class === 'should-not-retrieve')).toBe(true);
   });
 });
 

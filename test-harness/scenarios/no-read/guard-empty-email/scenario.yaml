@@ -1,0 +1,15 @@
+# Scenario: should-not-retrieve — add a defensive input check. It touches the
+# email-sending path, so the corpus's email/deliverability memories are tempting
+# but irrelevant (they cover webhook lag, not input validation): a stronger false-
+# positive probe than a pure rename. Any memento call is a false positive (§4.1).
+# Paths are relative to the test-harness/ root. (harness-spec §4.5)
+id: no-read/guard-empty-email
+version: 1
+class: should-not-retrieve
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-mailer
+task: 'Make `requestPasswordReset` in src/auth/password-reset.ts throw an Error when called with an empty email string, before it issues a token.'
+corpus: corpus/standard-15 # email memories present but none about input validation
+checks:
+  task_success: 'bun run check' # the existing happy-path test still passes
+capture_rubric: null

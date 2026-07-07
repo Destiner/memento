@@ -1,0 +1,15 @@
+# Scenario: should-not-retrieve — a trivial, self-contained rename. Nothing in the
+# corpus bears on it, so any memento call is a false positive (§4.1). The mailer
+# overlay completes the app so a correct rename keeps the oracle green; task_success
+# is a guardrail here (did the edit break the build?), not the metric — read_fp_rate
+# is. Paths are relative to the test-harness/ root. (harness-spec §4.5)
+id: no-read/rename-constant
+version: 1
+class: should-not-retrieve
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-mailer
+task: 'Rename the `RESET_URL_BASE` constant in src/auth/password-reset.ts to `PASSWORD_RESET_URL_BASE`, updating every use.'
+corpus: corpus/standard-15 # populated with distractors; none relevant to a rename
+checks:
+  task_success: 'bun run check' # typecheck + tests still pass after the edit
+capture_rubric: null

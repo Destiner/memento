@@ -1,0 +1,14 @@
+# Scenario: should-not-retrieve — fix a one-word typo in a comment. The most self-
+# contained edit there is; nothing in the corpus bears on it, so any memento call
+# is a false positive (§4.1). The typo ("isse") is planted by the mailer overlay.
+# Paths are relative to the test-harness/ root. (harness-spec §4.5)
+id: no-read/fix-typo
+version: 1
+class: should-not-retrieve
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-mailer
+task: 'Fix the typo in the comment above `requestPasswordReset` in src/auth/password-reset.ts: "isse" should read "issue".'
+corpus: corpus/standard-15 # nothing relevant to a comment typo
+checks:
+  task_success: 'bun run check' # a comment edit leaves the build green
+capture_rubric: null
