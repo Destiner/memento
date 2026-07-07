@@ -6,12 +6,13 @@
 // The memento server is launched straight from the repo source (no build step)
 // with the rep's MEMENTO_HOME (seeded corpus) and MEMENTO_VARIANT (the config's
 // knob bundle) in its env. baseline-no-memento passes `memento: null`, yielding
-// an empty server list — Memento is simply absent (§10). The crowded arm adds
-// fixed stub servers (§7.3); those land with the stub server in a later step
-// (§11 step 6), so requesting `crowded` throws until then rather than silently
-// running clean.
+// an empty server list — Memento is simply absent (§10). The crowded arm adds a
+// fixed set of stub servers (§7.3) for deferred-tool discoverability pressure;
+// each is the same stub binary under a different profile/server name.
 
 import { join } from 'node:path';
+
+import { CROWDED_PROFILES, getStubProfile } from '../stubs/profiles.js';
 
 export interface McpServerSpec {
   command: string;
@@ -29,6 +30,10 @@ export interface MementoOptions {
   variant: string; // MEMENTO_VARIANT (the config's knob bundle)
 }
 
+export interface StubOptions {
+  stubsDir: string; // test-harness/stubs — where server.ts lives
+}
+
 /** The memento MCP server descriptor: `bun run <repo>/src/main.ts` over stdio. */
 export function mementoServer(opts: MementoOptions): McpServerSpec {
   return {
@@ -38,17 +43,28 @@ export function mementoServer(opts: MementoOptions): McpServerSpec {
   };
 }
 
+/** A stub MCP server descriptor: `bun run <stubs>/server.ts` for one profile. */
+export function stubServer(stubsDir: string, profileId: string): McpServerSpec {
+  return {
+    command: 'bun',
+    args: ['run', join(stubsDir, 'server.ts')],
+    env: { STUB_PROFILE: profileId },
+  };
+}
+
 /** Build the full `mcpServers` object for a rep. `memento: null` registers none. */
 export function generateMcpConfig(opts: {
   memento: MementoOptions | null;
   env: 'clean' | 'crowded';
+  stubs?: StubOptions; // required when env === 'crowded'
 }): McpConfig {
-  if (opts.env === 'crowded') {
-    throw new Error(
-      'crowded environment is not yet implemented (stub MCP server is harness-spec §11 step 6).',
-    );
-  }
   const mcpServers: Record<string, McpServerSpec> = {};
   if (opts.memento) mcpServers.memento = mementoServer(opts.memento);
+  if (opts.env === 'crowded') {
+    if (!opts.stubs) throw new Error('crowded environment requires stubs.stubsDir.');
+    for (const id of CROWDED_PROFILES) {
+      mcpServers[getStubProfile(id).server] = stubServer(opts.stubs.stubsDir, id);
+    }
+  }
   return { mcpServers };
 }

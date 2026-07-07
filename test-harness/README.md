@@ -46,11 +46,18 @@ bun run typecheck:harness
 ## Status
 
 Build order (§11): variant switch (done) → fixtures/corpus/scenarios (done) →
-runner (done) → scorers (done) → report (done) → stub server. The runner executes
-the hermetic per-rep lifecycle (§7.2) under the spend cap and flake policy (§7.4),
-scores each rep, and appends a record to `results/results.jsonl`; the report
-(`bun run harness:report`) recomputes scores and guardrails from that log. Only the
-crowded env remains, deferred with the stub server (§11 step 6, Phase 2).
+runner (done) → scorers (done) → report (done) → stub server (done). The runner
+executes the hermetic per-rep lifecycle (§7.2) under the spend cap and flake policy
+(§7.4), scores each rep, and appends a record to `results/results.jsonl`; the report
+(`bun run harness:report`) recomputes scores and guardrails from that log.
+
+The crowded env (§7.3) is now available: a single stub MCP server (`stubs/server.ts`)
+is instantiated once per profile in `stubs/profiles.ts` (issue tracker, error
+monitor, feature flags, product analytics), each under its own server name, adding
+~20 no-op tools that reproduce deferred-tool discoverability pressure. The profile
+set is fixed and version-controlled (`CROWDED_PROFILES`); a manifest opts in with
+`env: crowded`. Stubs are pure distractors — deliberately not source-control or
+filesystem tools the agent might legitimately call and then hit a no-op.
 
 Scoring (§5, §11 step 4) reads three sources while the sandbox is still on disk:
 Memento's event log (`$MEMENTO_HOME/logs/`) for the authoritative list of tool

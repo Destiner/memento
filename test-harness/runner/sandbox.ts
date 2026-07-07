@@ -78,6 +78,7 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
             ? null
             : { repoRoot, mementoHome, variant: config.memento_variant },
         env: spec.env,
+        stubs: { stubsDir: join(harnessRoot, 'stubs') },
       }),
     );
 

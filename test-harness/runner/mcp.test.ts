@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
+import { CROWDED_PROFILES, getStubProfile } from '../stubs/profiles.js';
 import { generateMcpConfig } from './mcp.js';
 
 describe('generateMcpConfig', () => {
@@ -20,12 +21,38 @@ describe('generateMcpConfig', () => {
     expect(config.mcpServers).toEqual({});
   });
 
-  test('throws for the crowded env until the stub server exists', () => {
+  test('adds the fixed stub servers alongside memento in the crowded env', () => {
+    const config = generateMcpConfig({
+      memento: { repoRoot: '/repo', mementoHome: '/tmp/home', variant: 'plain' },
+      env: 'crowded',
+      stubs: { stubsDir: '/harness/stubs' },
+    });
+    const stubServers = CROWDED_PROFILES.map((id) => getStubProfile(id).server);
+    expect(Object.keys(config.mcpServers)).toEqual(['memento', ...stubServers]);
+    for (const id of CROWDED_PROFILES) {
+      const spec = config.mcpServers[getStubProfile(id).server];
+      expect(spec?.command).toBe('bun');
+      expect(spec?.args).toEqual(['run', '/harness/stubs/server.ts']);
+      expect(spec?.env).toEqual({ STUB_PROFILE: id });
+    }
+  });
+
+  test('registers stubs even when memento is absent (crowded baseline-no-memento)', () => {
+    const config = generateMcpConfig({
+      memento: null,
+      env: 'crowded',
+      stubs: { stubsDir: '/harness/stubs' },
+    });
+    const stubServers = CROWDED_PROFILES.map((id) => getStubProfile(id).server);
+    expect(Object.keys(config.mcpServers)).toEqual(stubServers);
+  });
+
+  test('throws when the crowded env is requested without a stubs dir', () => {
     expect(() =>
       generateMcpConfig({
         memento: { repoRoot: '/repo', mementoHome: '/tmp/home', variant: 'plain' },
         env: 'crowded',
       }),
-    ).toThrow(/not yet implemented/);
+    ).toThrow(/requires stubs\.stubsDir/);
   });
 });
