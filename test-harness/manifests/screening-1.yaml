@@ -1,0 +1,13 @@
+# Phase 1 — screening (§9): baseline-0 plus single-knob configs, clean env, N=3,
+# scenario subset matched to knob side. Goal: kill obvious losers and produce the
+# first paired deltas against baseline-0. Some referenced knob configs land in
+# later build steps; the runner errors on any config/scenario that can't resolve.
+name: screening-1
+model: claude-opus-4-8 # pinned in Phase 1 (§1); matrix dimension in V2
+env: clean # clean | crowded (§3.3)
+reps: 3
+concurrency: 2
+max_spend_usd: 60
+configs:
+  [baseline-0, baseline-no-memento, tool-desc-trigger, server-instructions, sessionstart-index]
+scenarios: [read/*, no-read/*] # globs over scenario ids
