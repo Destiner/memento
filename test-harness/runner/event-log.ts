@@ -21,6 +21,7 @@ export interface MementoCall {
   outcome: string; // success | error
   memory_type?: string; // create_memory only
   memory_scope?: string; // create_memory only
+  result_count?: number; // search_memory only — hits returned (empty-search-rate diagnostic, §5.4)
 }
 
 const CAPTURE_TOOLS = new Set(['create_memory', 'update_memory']);
@@ -62,6 +63,7 @@ function parseLine(line: string): MementoCall | null {
     outcome: typeof obj.outcome === 'string' ? obj.outcome : 'unknown',
     ...(typeof obj.memory_type === 'string' ? { memory_type: obj.memory_type } : {}),
     ...(typeof obj.memory_scope === 'string' ? { memory_scope: obj.memory_scope } : {}),
+    ...(typeof obj.result_count === 'number' ? { result_count: obj.result_count } : {}),
   };
 }
 

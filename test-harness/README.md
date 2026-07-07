@@ -24,6 +24,19 @@ operational quick reference.
 bun run harness -- test-harness/manifests/<name>.yaml
 ```
 
+Render the results after a run (§8.2) — scores are recomputed from the log every
+time, so a different λ re-scores all history without rerunning anything:
+
+```sh
+bun run harness:report                         # results/results.jsonl
+bun run harness:report -- --lambda-write 1.5   # re-score with a different weight
+bun run harness:report -- --results <path> --baseline baseline-0 --no-color
+```
+
+It prints, per (model, cc, env) group, the config × (read_score, write_score)
+table with guardrail-violating rows dimmed, plus the §5.4 diagnostics; cells with
+>30% invalid reps (§7.4) and scenarios spanning versions (§9) are flagged.
+
 The runner shares the repo's toolchain (no separate package). Typecheck it with:
 
 ```sh
@@ -33,11 +46,11 @@ bun run typecheck:harness
 ## Status
 
 Build order (§11): variant switch (done) → fixtures/corpus/scenarios (done) →
-runner (done) → scorers (done) → report → stub server. The runner executes the
-hermetic per-rep lifecycle (§7.2) under the spend cap and flake policy (§7.4),
-scores each rep, and appends a record to `results/results.jsonl`. Next is the
-report over that log (§11 step 5); the crowded env is deferred with the stub
-server (§11 step 6).
+runner (done) → scorers (done) → report (done) → stub server. The runner executes
+the hermetic per-rep lifecycle (§7.2) under the spend cap and flake policy (§7.4),
+scores each rep, and appends a record to `results/results.jsonl`; the report
+(`bun run harness:report`) recomputes scores and guardrails from that log. Only the
+crowded env remains, deferred with the stub server (§11 step 6, Phase 2).
 
 Scoring (§5, §11 step 4) reads three sources while the sandbox is still on disk:
 Memento's event log (`$MEMENTO_HOME/logs/`) for the authoritative list of tool

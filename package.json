@@ -19,6 +19,7 @@
     "test": "vitest run",
     "report": "bun run src/report/main.ts",
     "harness": "bun run test-harness/runner/index.ts",
+    "harness:report": "bun run test-harness/runner/report-cli.ts",
     "typecheck:harness": "tsc -p test-harness/tsconfig.json",
     "test:harness": "vitest run --config test-harness/vitest.config.ts"
   },
