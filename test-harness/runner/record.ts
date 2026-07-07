@@ -1,0 +1,147 @@
+// The per-rep results record (harness-spec §8.2). One JSON object per rep is
+// appended to results/results.jsonl; scores are always recomputed from this log,
+// never stored as the only copy, so a changed λ or a new diagnostic re-scores all
+// history for free. This module builds the record and computes config_hash — a
+// hash of the config dir's artifacts, so silent config drift is detectable.
+//
+// The `scored` fields (memento_calls, utility_pass, task_success, capture) come
+// from the scorers (§11.4); the lifecycle fills them before appending. Until the
+// scorers land, reps record UNSCORED placeholders and the session diagnostics.
+
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { type Cell } from './plan.js';
+
+export type RepStatus = 'ok' | 'invalid' | 'halted';
+
+// Raw per-rep facts the report re-scores from (§8.2 "raw"). Scored fields are
+// nullable so an unscored (or invalid) rep is still a well-formed record.
+export interface RawFacts {
+  memento_calls: unknown[] | null;
+  utility_pass: boolean | null;
+  task_success: boolean | null;
+  capture: unknown | null;
+  tokens_in: number | null;
+  tokens_out: number | null;
+  cost_usd: number | null;
+  duration_s: number | null;
+  turns: number | null;
+}
+
+export interface SessionFacts {
+  cost_usd: number | null;
+  duration_s: number | null;
+  turns: number | null;
+  tokens_in: number | null;
+  tokens_out: number | null;
+}
+
+export interface ScoredFacts {
+  memento_calls: unknown[] | null;
+  utility_pass: boolean | null;
+  task_success: boolean | null;
+  capture: unknown | null;
+}
+
+/** Placeholder scores for a rep that has not been through the scorers (§11.4). */
+export const UNSCORED: ScoredFacts = {
+  memento_calls: null,
+  utility_pass: null,
+  task_success: null,
+  capture: null,
+};
+
+export interface ResultRecord {
+  run: string;
+  timestamp: string;
+  config: string;
+  config_hash: string;
+  scenario: string;
+  scenario_version: number;
+  rep: number;
+  model: string;
+  cc_version: string;
+  memento_version: string;
+  env: string;
+  status: RepStatus;
+  raw: RawFacts;
+  transcript_path: string;
+}
+
+export interface BuildRecordOptions {
+  run: string;
+  timestamp: string;
+  model: string;
+  ccVersion: string;
+  mementoVersion: string;
+  env: string;
+  cell: Cell;
+  configHash: string;
+  status: RepStatus;
+  session: SessionFacts;
+  scored: ScoredFacts;
+  transcriptPath: string;
+}
+
+export function buildRecord(opts: BuildRecordOptions): ResultRecord {
+  return {
+    run: opts.run,
+    timestamp: opts.timestamp,
+    config: opts.cell.config.name,
+    config_hash: opts.configHash,
+    scenario: opts.cell.scenario.id,
+    scenario_version: opts.cell.scenario.version,
+    rep: opts.cell.rep,
+    model: opts.model,
+    cc_version: opts.ccVersion,
+    memento_version: opts.mementoVersion,
+    env: opts.env,
+    status: opts.status,
+    raw: {
+      memento_calls: opts.scored.memento_calls,
+      utility_pass: opts.scored.utility_pass,
+      task_success: opts.scored.task_success,
+      capture: opts.scored.capture,
+      tokens_in: opts.session.tokens_in,
+      tokens_out: opts.session.tokens_out,
+      cost_usd: opts.session.cost_usd,
+      duration_s: opts.session.duration_s,
+      turns: opts.session.turns,
+    },
+    transcript_path: opts.transcriptPath,
+  };
+}
+
+/**
+ * Hash of a config dir's artifacts, over files sorted by relative path so it is
+ * deterministic and drift-sensitive. Path and content are both mixed in, so a
+ * rename or an edit changes the hash (§8.2 "silent config drift is detectable").
+ */
+export function configHash(configDir: string): string {
+  const hash = createHash('sha256');
+  for (const rel of walkFiles(configDir)) {
+    hash.update(rel);
+    hash.update('\0');
+    hash.update(readFileSync(join(configDir, rel)));
+    hash.update('\0');
+  }
+  return `sha256:${hash.digest('hex')}`;
+}
+
+function walkFiles(dir: string): string[] {
+  const out: string[] = [];
+  const recurse = (current: string, prefix: string): void => {
+    const entries = readdirSync(current, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    for (const entry of entries) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) recurse(join(current, entry.name), rel);
+      else if (entry.isFile()) out.push(rel);
+    }
+  };
+  recurse(dir, '');
+  return out;
+}
