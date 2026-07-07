@@ -1,3 +1,7 @@
 node_modules/
 dist/
 .env
+
+# Harness run outputs (results.jsonl + transcripts); keep the dir, not its contents.
+test-harness/results/*
+!test-harness/results/.gitkeep

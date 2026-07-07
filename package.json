@@ -17,7 +17,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "report": "bun run src/report/main.ts"
+    "report": "bun run src/report/main.ts",
+    "harness": "bun run test-harness/runner/index.ts",
+    "typecheck:harness": "tsc -p test-harness/tsconfig.json"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.19.1",
