@@ -1,0 +1,15 @@
+# Scenario: should-retrieve — the seeded fact (transactional email uses Postmark,
+# not SendGrid) is unguessable and material; the task cannot be done correctly
+# without it. Paths are relative to the test-harness/ root. (harness-spec §4.5)
+id: read/email-provider
+version: 1
+class: should-retrieve
+fixture: fixtures/saas-app
+task: "Add email sending for password resets."
+corpus: corpus/standard-15
+seeded_memory: corpus/facts/email-provider.md
+checks:
+  utility_regex: "(?i)postmark" # seeded fact applied in the diff
+  utility_anti_regex: "(?i)sendgrid" # the deprecated provider the fact rules out
+  task_success: "bun run check" # fixture oracle: typecheck + provider-agnostic wiring test
+capture_rubric: null # should-capture scenarios define one (§5.2)

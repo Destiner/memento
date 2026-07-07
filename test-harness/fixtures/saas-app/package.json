@@ -1,0 +1,17 @@
+{
+  "name": "saas-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit && bun test"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.4",
+    "postmark": "^4.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  }
+}
