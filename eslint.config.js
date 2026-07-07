@@ -4,7 +4,8 @@ import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**'],
+    // Fixtures are test inputs (often deliberately incomplete), not project code.
+    ignores: ['dist/**', 'node_modules/**', 'test-harness/fixtures/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

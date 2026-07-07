@@ -5,11 +5,11 @@ id: read/email-provider
 version: 1
 class: should-retrieve
 fixture: fixtures/saas-app
-task: "Add email sending for password resets."
+task: 'Add email sending for password resets.'
 corpus: corpus/standard-15
 seeded_memory: corpus/facts/email-provider.md
 checks:
-  utility_regex: "(?i)postmark" # seeded fact applied in the diff
-  utility_anti_regex: "(?i)sendgrid" # the deprecated provider the fact rules out
-  task_success: "bun run check" # fixture oracle: typecheck + provider-agnostic wiring test
+  utility_regex: '(?i)postmark' # seeded fact applied in the diff
+  utility_anti_regex: '(?i)sendgrid' # the deprecated provider the fact rules out
+  task_success: 'bun run check' # fixture oracle: typecheck + provider-agnostic wiring test
 capture_rubric: null # should-capture scenarios define one (§5.2)
