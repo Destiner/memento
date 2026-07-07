@@ -31,9 +31,15 @@ export interface MementoPaths {
 export interface ResolvedConfig {
   paths: MementoPaths;
   config: MementoConfig;
+  // Name of the active MEMENTO_VARIANT knob bundle (resolved against the variant
+  // registry in server startup); defaults to 'baseline'. Env-only, like the home
+  // directory — never read from config.json.
+  variant: string;
 }
 
 export const DEFAULT_HOME_DIR = '.memento';
+
+export const DEFAULT_VARIANT = 'baseline';
 
 export const DEFAULT_CONFIG: MementoConfig = {
   schema_version: 1,
@@ -50,6 +56,11 @@ export function resolveHome(env: NodeJS.ProcessEnv = process.env): string {
     return resolve(expandTilde(override));
   }
   return join(homedir(), DEFAULT_HOME_DIR);
+}
+
+/** Resolve the active variant name, honouring MEMENTO_VARIANT (default baseline). */
+export function resolveVariantName(env: NodeJS.ProcessEnv = process.env): string {
+  return env.MEMENTO_VARIANT?.trim() || DEFAULT_VARIANT;
 }
 
 /** Derive the standard subpaths (§6 layout) from a home directory. */
@@ -71,7 +82,7 @@ export function resolvePaths(home: string): MementoPaths {
 export function loadConfig(home: string = resolveHome()): ResolvedConfig {
   const paths = resolvePaths(home);
   const config = mergeConfig(DEFAULT_CONFIG, readConfigFile(paths.config));
-  return { paths, config };
+  return { paths, config, variant: resolveVariantName() };
 }
 
 function expandTilde(input: string): string {

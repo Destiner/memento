@@ -21,6 +21,7 @@ import {
   updateMemoryInputShape,
 } from './store/schema.js';
 import { updateMemory } from './store/update.js';
+import { resolveVariant } from './variants/index.js';
 
 export const SERVER_NAME = 'memento';
 export const SERVER_VERSION = '0.1.0';
@@ -88,21 +89,27 @@ interface ToolCallResult {
 // One choke point for every tool: run the operation, shape the MCP response, and
 // emit an instrumentation event (§13). Success and error both log latency and
 // outcome; `fields` contributes the per-tool, non-sensitive signals derived from
-// the (already validated) result. Logging is fire-and-forget so it never adds
-// disk latency to — or fails — the tool call.
+// the (already validated) result. `nudge` optionally returns advisory text that
+// is appended as an extra content block on success (variant knob §3.1) — the
+// structured payload is never altered. Logging is fire-and-forget so it never
+// adds disk latency to — or fails — the tool call.
 async function runTool<T>(
   tool: string,
   logger: EventLogger,
   exec: () => T | Promise<T>,
   fields?: (result: T) => Partial<ToolEventFields>,
+  nudge?: (result: T) => string | undefined,
 ): Promise<ToolCallResult> {
   const start = performance.now();
   try {
     const result = await exec();
     const latency_ms = Math.round(performance.now() - start);
     void logger.log({ tool, outcome: 'success', latency_ms, ...fields?.(result) });
+    const content: ToolCallResult['content'] = [{ type: 'text', text: JSON.stringify(result) }];
+    const note = nudge?.(result);
+    if (note) content.push({ type: 'text', text: note });
     return {
-      content: [{ type: 'text', text: JSON.stringify(result) }],
+      content,
       structuredContent: result as unknown as Record<string, unknown>,
     };
   } catch (error) {
@@ -129,10 +136,11 @@ function usedFilters(args: Record<string, unknown>, keys: readonly string[]): st
 const SEARCH_FILTER_KEYS = ['project', 'types', 'scopes', 'entities', 'tags', 'status'] as const;
 
 export async function createServer(resolved: ResolvedConfig = loadConfig()): Promise<McpServer> {
-  const server = new McpServer({
-    name: SERVER_NAME,
-    version: SERVER_VERSION,
-  });
+  const variant = resolveVariant(resolved.variant);
+  const server = new McpServer(
+    { name: SERVER_NAME, version: SERVER_VERSION },
+    variant.instructions ? { instructions: variant.instructions } : undefined,
+  );
 
   const logger = createLogger({
     logsDir: resolved.paths.logs,
@@ -150,13 +158,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
   server.registerTool(
     'create_memory',
     {
-      description:
-        'Create a durable, cross-task memory as a canonical markdown file. ' +
-        'Create only when a reusable insight emerged that is not repo-owned truth ' +
-        '(architecture rationale, third-party service quirks, cross-repo decisions, ' +
-        'testing strategy, incident learnings). Prefer update_memory over creating a ' +
-        'near-duplicate. Do not record repo-local facts (they belong in the repository) ' +
-        'or routine task status.',
+      description: variant.descriptions.create_memory,
       inputSchema: createMemoryInputShape,
       outputSchema: createMemoryOutputShape,
     },
@@ -166,15 +168,14 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
         logger,
         () => createMemory(args, { memoriesDir: resolved.paths.memories, index }),
         () => ({ memory_type: args.type, memory_scope: args.scope }),
+        () => variant.nudges.createSuccess,
       ),
   );
 
   server.registerTool(
     'read_memory',
     {
-      description:
-        'Read one memory in full by its stable ID. Use to pull up the complete ' +
-        'content of a promising result after search_memory, not to browse.',
+      description: variant.descriptions.read_memory,
       inputSchema: readMemoryInputShape,
       outputSchema: readMemoryOutputShape,
     },
@@ -187,10 +188,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
   server.registerTool(
     'update_memory',
     {
-      description:
-        'Edit an existing memory in place (metadata changes and/or an exact-match ' +
-        'body edit). Prefer this over create_memory when the insight already exists ' +
-        'and needs correcting, extending, or a status/confidence change.',
+      description: variant.descriptions.update_memory,
       inputSchema: updateMemoryInputShape,
       outputSchema: updateMemoryOutputShape,
     },
@@ -203,13 +201,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
   server.registerTool(
     'search_memory',
     {
-      description:
-        'Search stored memories by plain-language query plus optional filters. ' +
-        'Run one targeted search at the start of a nontrivial task involving ' +
-        'planning or architecture, cross-repo work, product rationale, third-party ' +
-        'services, testing strategy, or incident triage, then read only the top one ' +
-        'or two results. Do not search for simple, self-contained edits, and treat ' +
-        'code and current repository docs as more authoritative than memory.',
+      description: variant.descriptions.search_memory,
       inputSchema: searchMemoryInputShape,
       outputSchema: searchMemoryOutputShape,
     },
@@ -229,17 +221,14 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
           query_length: args.query.length,
           filters_used: usedFilters(args as Record<string, unknown>, SEARCH_FILTER_KEYS),
         }),
+        (result) => (result.result_count === 0 ? variant.nudges.emptySearch : undefined),
       ),
   );
 
   server.registerTool(
     'answer_memory',
     {
-      description:
-        'Ask an answer-shaped question and get a compact, source-backed answer ' +
-        'synthesized from stored memories, with source IDs and a caveat. Use when ' +
-        'you want a direct answer rather than a ranked list; the same when-to-query ' +
-        'guidance as search_memory applies.',
+      description: variant.descriptions.answer_memory,
       inputSchema: answerMemoryInputShape,
       outputSchema: answerMemoryOutputShape,
     },

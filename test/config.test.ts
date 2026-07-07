@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
-import { DEFAULT_CONFIG, loadConfig, resolveHome } from '../src/config.js';
+import { DEFAULT_CONFIG, loadConfig, resolveHome, resolveVariantName } from '../src/config.js';
 
 describe('resolveHome', () => {
   test('defaults to ~/.memento when unset', () => {
@@ -21,6 +21,23 @@ describe('resolveHome', () => {
 
   test('resolves a relative override to an absolute path', () => {
     expect(resolveHome({ MEMENTO_HOME: 'rel/mem' })).toBe(resolve('rel/mem'));
+  });
+});
+
+describe('resolveVariantName', () => {
+  test('defaults to baseline when unset', () => {
+    expect(resolveVariantName({})).toBe('baseline');
+  });
+
+  test('honours a MEMENTO_VARIANT override', () => {
+    expect(resolveVariantName({ MEMENTO_VARIANT: 'server-instructions' })).toBe(
+      'server-instructions',
+    );
+  });
+
+  test('trims whitespace and falls back to baseline when blank', () => {
+    expect(resolveVariantName({ MEMENTO_VARIANT: '  result-nudges  ' })).toBe('result-nudges');
+    expect(resolveVariantName({ MEMENTO_VARIANT: '   ' })).toBe('baseline');
   });
 });
 
