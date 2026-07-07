@@ -39,6 +39,12 @@ describe('scenarioSchema', () => {
     expect(scenarioSchema.safeParse({ ...VALID, oops: 1 }).success).toBe(false);
   });
 
+  test('accepts an optional overlay path', () => {
+    const parsed = scenarioSchema.safeParse({ ...VALID, overlay: 'overlays/saas-app-mailer' });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.overlay).toBe('overlays/saas-app-mailer');
+  });
+
   test('should-retrieve requires a seeded_memory and utility_regex', () => {
     expect(scenarioSchema.safeParse({ ...VALID, seeded_memory: undefined }).success).toBe(false);
     expect(scenarioSchema.safeParse({ ...VALID, checks: { task_success: 'x' } }).success).toBe(

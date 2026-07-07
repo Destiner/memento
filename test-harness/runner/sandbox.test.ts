@@ -23,8 +23,27 @@ beforeAll(() => {
   writeFileSync(join(harnessRoot, 'corpus', 'mini', 'notes.txt'), 'ignored\n'); // non-.md skipped
   mkdirSync(join(harnessRoot, 'facts'), { recursive: true });
   writeFileSync(join(harnessRoot, 'facts', 'planted.md'), '# planted\n');
-  mkdirSync(join(harnessRoot, 'fixtures', 'mini', 'src'), { recursive: true });
+  mkdirSync(join(harnessRoot, 'fixtures', 'mini', 'src', 'sub'), { recursive: true });
   writeFileSync(join(harnessRoot, 'fixtures', 'mini', 'src', 'index.ts'), 'export const x = 1;\n');
+  writeFileSync(
+    join(harnessRoot, 'fixtures', 'mini', 'src', 'sub', 'deep.ts'),
+    'export const z = 1;\n',
+  );
+  // An overlay that overwrites base files (including a nested one) and adds a new
+  // file — the nesting mirrors real overlays and guards the overwrite path.
+  mkdirSync(join(harnessRoot, 'overlays', 'mini-staged', 'src', 'sub'), { recursive: true });
+  writeFileSync(
+    join(harnessRoot, 'overlays', 'mini-staged', 'src', 'index.ts'),
+    'export const x = 42;\n',
+  );
+  writeFileSync(
+    join(harnessRoot, 'overlays', 'mini-staged', 'src', 'extra.ts'),
+    'export const y = 2;\n',
+  );
+  writeFileSync(
+    join(harnessRoot, 'overlays', 'mini-staged', 'src', 'sub', 'deep.ts'),
+    'export const z = 99;\n',
+  );
   mkdirSync(join(harnessRoot, 'configs', 'with-claude-md'), { recursive: true });
   writeFileSync(join(harnessRoot, 'configs', 'with-claude-md', 'CLAUDE.md'), 'use memento\n');
   mkdirSync(join(harnessRoot, 'configs', 'with-settings'), { recursive: true });
@@ -81,6 +100,22 @@ describe('createSandbox', () => {
     const sandbox = open({ config: BASELINE_0, scenario: RETRIEVE_SCENARIO });
     const seeded = readdirSync(join(sandbox.mementoHome, 'memories')).sort();
     expect(seeded).toEqual(['a.md', 'b.md', 'planted.md']);
+  });
+
+  test('applies a scenario overlay on top of the fixture', () => {
+    const scenario: Scenario = { ...RETRIEVE_SCENARIO, overlay: 'overlays/mini-staged' };
+    const sandbox = open({ config: BASELINE_0, scenario });
+    // Overlay overwrites a base file, including a nested one...
+    expect(readFileSync(join(sandbox.repoDir, 'src', 'index.ts'), 'utf8')).toBe(
+      'export const x = 42;\n',
+    );
+    expect(readFileSync(join(sandbox.repoDir, 'src', 'sub', 'deep.ts'), 'utf8')).toBe(
+      'export const z = 99;\n',
+    );
+    // ...and adds a new one, all landing in the baseline commit.
+    expect(readFileSync(join(sandbox.repoDir, 'src', 'extra.ts'), 'utf8')).toBe(
+      'export const y = 2;\n',
+    );
   });
 
   test('copies the fixture into a git repo with a baseline commit', () => {

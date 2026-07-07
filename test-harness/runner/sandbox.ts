@@ -6,7 +6,7 @@
 //
 // Layout under a fresh temp root:
 //   memento-home/memories/  seeded corpus (distractors + the planted fact)
-//   repo/                   fixture copy, git-initialised with a baseline commit
+//   repo/                   fixture copy (+ optional overlay), git-initialised
 //   cc-config/settings.json isolated Claude Code config home (CLAUDE_CONFIG_DIR)
 //   mcp.json                the --mcp-config server list (--strict-mcp-config)
 
@@ -113,6 +113,37 @@ function copyFixture(harnessRoot: string, scenario: Scenario, repoDir: string): 
   );
   // Fixtures are plain dirs; drop any stray .git so the baseline commit is ours.
   cpSync(fixtureDir, repoDir, { recursive: true, filter: (src) => basename(src) !== '.git' });
+
+  // An optional overlay is copied on top, overwriting base files. It stages the
+  // scenario's baseline without forking the whole fixture: e.g. completing an app
+  // so a should-not-* edit keeps the oracle green, or planting a discovery
+  // artifact for should-capture (§4.3). The overlay is part of the baseline
+  // commit, so it never shows up in the session diff the scorer reads.
+  if (scenario.overlay) {
+    const overlayDir = requirePath(
+      join(harnessRoot, scenario.overlay),
+      `overlay "${scenario.overlay}"`,
+    );
+    overlayOnto(overlayDir, repoDir);
+  }
+}
+
+// Copy every file in src over dest, overwriting and creating dirs as needed,
+// skipping .git. Not cpSync: under Bun (the runner's runtime) cpSync silently
+// refuses to overwrite existing files when a `filter` is supplied, so a filtered
+// overlay copy would leave the base files untouched.
+function overlayOnto(src: string, dest: string): void {
+  for (const entry of readdirSync(src, { withFileTypes: true })) {
+    if (entry.name === '.git') continue;
+    const from = join(src, entry.name);
+    const to = join(dest, entry.name);
+    if (entry.isDirectory()) {
+      mkdirSync(to, { recursive: true });
+      overlayOnto(from, to);
+    } else {
+      copyFileSync(from, to);
+    }
+  }
 }
 
 // A baseline commit so the scorer can diff the session's changes (§5.1 "output/diff").

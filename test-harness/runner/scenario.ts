@@ -1,9 +1,10 @@
 // Scenario definition schema + loader (harness-spec §4.5). One scenario.yaml per
-// directory declares the fixture, task, seeded corpus, and checks. The loader
-// parses and validates both shape and class-consistency, so a malformed or
-// mis-calibrated scenario (e.g. a should-retrieve with no planted fact) fails
-// loudly before a run spends budget on it. Path fields are relative to the
-// test-harness root; resolving and existence-checking them is the runner's job.
+// directory declares the fixture, task, seeded corpus, an optional overlay, and
+// checks. The loader parses and validates both shape and class-consistency, so a
+// malformed or mis-calibrated scenario (e.g. a should-retrieve with no planted
+// fact) fails loudly before a run spends budget on it. Path fields are relative
+// to the test-harness root; resolving and existence-checking them is the runner's
+// job.
 
 import { readFileSync } from 'node:fs';
 
@@ -33,6 +34,7 @@ export const scenarioSchema = z
     version: z.number().int().min(1),
     class: z.enum(SCENARIO_CLASSES),
     fixture: nonEmpty,
+    overlay: nonEmpty.optional(), // dir copied on top of the fixture to stage this scenario (§4.3)
     task: nonEmpty,
     corpus: nonEmpty,
     seeded_memory: nonEmpty.optional(),
