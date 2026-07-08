@@ -55,15 +55,15 @@ describe('checkUtility', () => {
     const correct = [
       '+++ b/src/email.ts',
       '+// Postmark replaces the deprecated SendGrid integration.',
-      "+const token = env.POSTMARK_SERVER_TOKEN;",
+      '+const token = env.POSTMARK_SERVER_TOKEN;',
     ].join('\n');
-    expect(
-      checkUtility(correct, { utility_regex: '(?i)postmark', utility_anti_regex: anti }),
-    ).toBe(true);
+    expect(checkUtility(correct, { utility_regex: '(?i)postmark', utility_anti_regex: anti })).toBe(
+      true,
+    );
     const wrong = "+++ b/src/email.ts\n+import sg from '@sendgrid/mail'; // postmark later";
-    expect(
-      checkUtility(wrong, { utility_regex: '(?i)postmark', utility_anti_regex: anti }),
-    ).toBe(false);
+    expect(checkUtility(wrong, { utility_regex: '(?i)postmark', utility_anti_regex: anti })).toBe(
+      false,
+    );
   });
 
   test('fails when the fact never appears in added lines', () => {

@@ -74,6 +74,11 @@ export interface ResultRecord {
   status: RepStatus;
   raw: RawFacts;
   transcript_path: string;
+  // Session diff saved beside the transcript, or null when unavailable (invalid
+  // rep, halted cell, or a diff failure). Lets utility verdicts be audited after
+  // the sandbox is gone — screening-2's false negatives were unprovable without it.
+  // Optional so records written before this field existed still parse.
+  diff_path?: string | null;
 }
 
 export interface BuildRecordOptions {
@@ -89,6 +94,7 @@ export interface BuildRecordOptions {
   session: SessionFacts;
   scored: ScoredFacts;
   transcriptPath: string;
+  diffPath: string | null;
 }
 
 export function buildRecord(opts: BuildRecordOptions): ResultRecord {
@@ -118,6 +124,7 @@ export function buildRecord(opts: BuildRecordOptions): ResultRecord {
       turns: opts.session.turns,
     },
     transcript_path: opts.transcriptPath,
+    diff_path: opts.diffPath,
   };
 }
 

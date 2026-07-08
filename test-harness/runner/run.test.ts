@@ -51,6 +51,7 @@ function outcome(cell: Cell, status: RepStatus, costUsd: number): RepOutcome {
     session: { cost_usd: costUsd, duration_s: 1, turns: 1, tokens_in: 1, tokens_out: 1 },
     scored: UNSCORED,
     transcriptPath: 't',
+    diffPath: null,
   });
   return { status, costUsd, record };
 }

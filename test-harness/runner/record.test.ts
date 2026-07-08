@@ -46,6 +46,7 @@ describe('buildRecord', () => {
       session: { cost_usd: 0.42, duration_s: 141, turns: 9, tokens_in: 1050, tokens_out: 200 },
       scored: UNSCORED,
       transcriptPath: 'results/transcripts/screening-1/x.json',
+      diffPath: 'results/transcripts/screening-1/x.diff',
     });
     expect(record.config).toBe('baseline-0');
     expect(record.scenario).toBe('read/email-provider');

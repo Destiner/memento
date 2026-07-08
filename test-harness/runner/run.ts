@@ -31,6 +31,7 @@ import {
   runSession,
   type SessionResult,
 } from './session.js';
+import { sessionDiff } from './utility.js';
 
 // Timeout for a scenario's task_success oracle (§5.3). Separate from the per-rep
 // session timeout (§7.4): the oracle is a quick typecheck + test, not a model run.
@@ -192,6 +193,7 @@ export function makeHaltedRecord(ctx: RunContext): (cell: Cell) => ResultRecord 
       session: { cost_usd: null, duration_s: null, turns: null, tokens_in: null, tokens_out: null },
       scored: UNSCORED,
       transcriptPath: '',
+      diffPath: null,
     });
 }
 
@@ -228,6 +230,8 @@ export function makeRunCell(ctx: RunContext): RunCell {
         );
       }
       const transcriptPath = saveTranscript(ctx, cell, run.stdout);
+      const diffPath =
+        status === 'ok' ? saveDiff(ctx, cell, sandbox.repoDir, sandbox.baselineRef) : null;
 
       // Score before cleanup, while the sandbox's event log, captured memories,
       // and fixture diff are still on disk. Invalid reps are excluded from
@@ -258,6 +262,7 @@ export function makeRunCell(ctx: RunContext): RunCell {
         },
         scored,
         transcriptPath,
+        diffPath,
       });
       return { status, costUsd: accountedCostUsd(session, ctx.invalidRepCostUsd), record };
     } finally {
@@ -321,4 +326,24 @@ function saveTranscript(ctx: RunContext, cell: Cell, stdout: string): string {
   const abs = join(ctx.transcriptsDir, file);
   writeFileSync(abs, stdout);
   return relative(ctx.harnessRoot, abs);
+}
+
+// Persist the session diff beside the transcript so a utility verdict can be
+// audited after the sandbox is deleted. Never fatal: a git hiccup here loses one
+// diagnostic artifact, not the rep.
+function saveDiff(
+  ctx: RunContext,
+  cell: Cell,
+  repoDir: string,
+  baselineRef: string,
+): string | null {
+  try {
+    const scenario = cell.scenario.id.replace(/\//g, '-');
+    const abs = join(ctx.transcriptsDir, `${cell.config.name}__${scenario}__rep${cell.rep}.diff`);
+    writeFileSync(abs, sessionDiff(repoDir, baselineRef));
+    return relative(ctx.harnessRoot, abs);
+  } catch (error) {
+    console.error(`Diff save failed for ${cell.config.name} × ${cell.scenario.id}:`, error);
+    return null;
+  }
 }
