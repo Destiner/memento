@@ -48,6 +48,24 @@ describe('checkUtility', () => {
     ).toBe(false);
   });
 
+  test('a usage-shaped anti-regex ignores prose mentions of the ruled-out value', () => {
+    // email-provider v2: naming the deprecated provider in a comment (or cleaning
+    // up its dependency) is not the same as using it — only imports/API usage fail.
+    const anti = '(?i)@sendgrid/mail|api\\.sendgrid\\.com';
+    const correct = [
+      '+++ b/src/email.ts',
+      '+// Postmark replaces the deprecated SendGrid integration.',
+      "+const token = env.POSTMARK_SERVER_TOKEN;",
+    ].join('\n');
+    expect(
+      checkUtility(correct, { utility_regex: '(?i)postmark', utility_anti_regex: anti }),
+    ).toBe(true);
+    const wrong = "+++ b/src/email.ts\n+import sg from '@sendgrid/mail'; // postmark later";
+    expect(
+      checkUtility(wrong, { utility_regex: '(?i)postmark', utility_anti_regex: anti }),
+    ).toBe(false);
+  });
+
   test('fails when the fact never appears in added lines', () => {
     const unrelated = '+++ b/src/x.ts\n+const x = 1;';
     expect(checkUtility(unrelated, { utility_regex: '(?i)postmark' })).toBe(false);
