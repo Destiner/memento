@@ -1,6 +1,15 @@
-import { describe, expect, test } from 'vitest';
+import { EventEmitter } from 'node:events';
 
-import { buildClaudeInvocation, parseSessionResult } from './session.js';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+
+import {
+  buildClaudeInvocation,
+  parseSessionResult,
+  runSession,
+  WATCHDOG_GRACE_S,
+  type Invocation,
+  type Spawn,
+} from './session.js';
 
 describe('buildClaudeInvocation', () => {
   const inv = buildClaudeInvocation({
@@ -76,5 +85,105 @@ describe('parseSessionResult', () => {
     expect(result.parsed).toBe(true);
     expect(result.tokensIn).toBeNull();
     expect(result.tokensOut).toBeNull();
+  });
+});
+
+describe('runSession', () => {
+  const INV: Invocation = { command: 'claude', args: [], env: {}, cwd: '/tmp' };
+
+  // A ChildProcess stand-in: EventEmitter with stdout/stderr streams and a
+  // kill() we can assert on, so the timeout/watchdog wiring is exercised without
+  // spawning a real process.
+  function fakeChild(): EventEmitter & {
+    stdout: EventEmitter;
+    stderr: EventEmitter;
+    kill: ReturnType<typeof vi.fn>;
+    pid: number;
+    exitCode: number | null;
+  } {
+    const child = new EventEmitter() as EventEmitter & Record<string, unknown>;
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.pid = 4242;
+    child.exitCode = null;
+    child.kill = vi.fn(() => true);
+    return child as never;
+  }
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  test('resolves on close with captured output and no timeout', async () => {
+    const child = fakeChild();
+    const spawnFn = (() => child) as unknown as Spawn;
+    const promise = runSession(
+      INV,
+      600,
+      () => Date.now(),
+      () => {},
+      spawnFn,
+    );
+
+    child.stdout.emit('data', Buffer.from('{"ok":true}'));
+    child.exitCode = 0;
+    child.emit('close', 0);
+
+    const run = await promise;
+    expect(run.stdout).toBe('{"ok":true}');
+    expect(run.exitCode).toBe(0);
+    expect(run.timedOut).toBe(false);
+    expect(child.kill).not.toHaveBeenCalled();
+  });
+
+  test('watchdog force-resolves when close never fires after the SIGKILL', async () => {
+    const child = fakeChild();
+    const spawnFn = (() => child) as unknown as Spawn;
+    const log = vi.fn();
+    const promise = runSession(INV, 600, () => Date.now(), log, spawnFn);
+
+    // Soft timeout fires and SIGKILLs, but grandchildren hold the pipes open so
+    // 'close' never comes — without the watchdog this promise would hang forever.
+    await vi.advanceTimersByTimeAsync(600 * 1000);
+    expect(child.kill).toHaveBeenCalledWith('SIGKILL');
+
+    // The hard deadline is the backstop that unblocks it.
+    await vi.advanceTimersByTimeAsync(WATCHDOG_GRACE_S * 1000);
+    const run = await promise;
+    expect(run.timedOut).toBe(true);
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(run.stderr).toContain('[watchdog] hard deadline exceeded');
+  });
+
+  test('watchdog fires even if the soft timer never SIGKILLed', async () => {
+    // Covers the "timeout either didn't fire" arm: the hard deadline still resolves.
+    const child = fakeChild();
+    const spawnFn = (() => child) as unknown as Spawn;
+    const log = vi.fn();
+    const promise = runSession(INV, 600, () => Date.now(), log, spawnFn);
+
+    await vi.advanceTimersByTimeAsync((600 + WATCHDOG_GRACE_S) * 1000);
+    const run = await promise;
+    expect(run.timedOut).toBe(true);
+    expect(log).toHaveBeenCalledTimes(1);
+  });
+
+  test('a late close after the watchdog does not double-resolve', async () => {
+    const child = fakeChild();
+    const spawnFn = (() => child) as unknown as Spawn;
+    const promise = runSession(
+      INV,
+      600,
+      () => Date.now(),
+      () => {},
+      spawnFn,
+    );
+
+    await vi.advanceTimersByTimeAsync((600 + WATCHDOG_GRACE_S) * 1000);
+    const run = await promise;
+    expect(run.timedOut).toBe(true);
+
+    // The orphaned pipes finally close much later; finish() must ignore it.
+    expect(() => child.emit('close', 137)).not.toThrow();
+    expect(run.exitCode).toBeNull();
   });
 });

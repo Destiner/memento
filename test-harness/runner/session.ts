@@ -11,7 +11,7 @@
 // turns, and tokens. It is lenient — a crashed or timed-out session leaves no
 // parseable result, which the caller treats as an invalid rep (§7.4).
 
-import { spawn } from 'node:child_process';
+import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
 
 export interface Invocation {
   command: string;
@@ -116,30 +116,55 @@ export interface SessionRun {
   durationS: number;
 }
 
+// Injected so the timeout/watchdog wiring can be unit-tested without spawning a
+// real `claude` (see session.test.ts). Defaults to node:child_process.spawn.
+export type Spawn = (
+  command: string,
+  args: string[],
+  opts: { cwd: string; env: NodeJS.ProcessEnv },
+) => ChildProcess;
+
+// Grace window after the soft `timeoutS` before the watchdog force-resolves.
+// SIGKILL kills `claude` itself, but its MCP-server grandchildren (spawned via
+// --mcp-config) inherit the stdio pipes; if they outlive the parent the pipes
+// stay open and the child's 'close' never fires, so the promise would hang
+// forever. This backstop makes runSession un-hangable past timeoutS + this (§7.4).
+export const WATCHDOG_GRACE_S = 30;
+
 /**
  * Spawn a `claude -p` session and capture its output, SIGKILLing it after
- * `timeoutS` (§7.4). Never rejects: a spawn error or timeout resolves with the
- * captured streams and a flag the caller reads to mark the rep invalid.
+ * `timeoutS` (§7.4). Never rejects and never hangs: a spawn error, a timeout, or
+ * a child whose 'close' never arrives all resolve with the captured streams and a
+ * `timedOut` flag the caller reads to mark the rep invalid.
+ *
+ * A soft timer SIGKILLs at `timeoutS` and lets the normal 'close' path resolve
+ * with full output. A hard-deadline watchdog at `timeoutS + WATCHDOG_GRACE_S` is
+ * the backstop: it force-resolves regardless, covering both failure modes seen in
+ * testing — a soft timer that never fired, and a SIGKILL whose 'close' never came
+ * because orphaned pipe holders kept the streams open. `log` receives a single
+ * watchdog line when that backstop trips.
  */
 export function runSession(
   inv: Invocation,
   timeoutS: number,
   now: () => number,
+  log: (msg: string) => void = () => {},
+  spawnFn: Spawn = (command, args, opts) => nodeSpawn(command, args, opts),
 ): Promise<SessionRun> {
   return new Promise((resolve) => {
     const started = now();
-    const child = spawn(inv.command, inv.args, { cwd: inv.cwd, env: inv.env });
+    const child = spawnFn(inv.command, inv.args, { cwd: inv.cwd, env: inv.env });
     let stdout = '';
     let stderr = '';
     let timedOut = false;
-
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill('SIGKILL');
-    }, timeoutS * 1000);
+    let settled = false;
 
     const finish = (exitCode: number | null, extraStderr = ''): void => {
+      // A late 'close' can still arrive after the watchdog forced us out; ignore it.
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
+      clearTimeout(watchdog);
       resolve({
         stdout,
         stderr: stderr + extraStderr,
@@ -149,8 +174,33 @@ export function runSession(
       });
     };
 
-    child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
-    child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+    // Soft timeout: SIGKILL and let the normal 'close' path resolve with output.
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGKILL');
+    }, timeoutS * 1000);
+
+    // Hard deadline: force-resolve so a dead-but-unclosed child can never wedge a
+    // scheduler worker slot forever (§7.4).
+    const watchdog = setTimeout(
+      () => {
+        timedOut = true;
+        log(
+          `watchdog: session past ${timeoutS + WATCHDOG_GRACE_S}s hard deadline; forcing ` +
+            `resolution (pid ${child.pid ?? '?'}, exit ${child.exitCode ?? 'null'}) — 'close' ` +
+            'never fired, likely orphaned MCP-server pipe holders',
+        );
+        child.kill('SIGKILL');
+        finish(
+          child.exitCode ?? null,
+          '\n[watchdog] hard deadline exceeded; output may be truncated',
+        );
+      },
+      (timeoutS + WATCHDOG_GRACE_S) * 1000,
+    );
+
+    child.stdout?.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
+    child.stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
     child.on('error', (err: Error) => finish(null, String(err)));
     child.on('close', (code) => finish(code));
   });

@@ -213,7 +213,9 @@ export function makeRunCell(ctx: RunContext): RunCell {
         task: cell.scenario.task,
         model: ctx.model,
       });
-      const run = await runSession(invocation, ctx.timeoutS, Date.now);
+      const run = await runSession(invocation, ctx.timeoutS, Date.now, (msg) =>
+        console.error(`[${cell.config.name} × ${cell.scenario.id} rep ${cell.rep}] ${msg}`),
+      );
       const session = parseSessionResult(run.stdout);
       // Invalid = timed out or crashed (§7.4), not a task the agent merely failed.
       const invalid = run.timedOut || run.exitCode !== 0 || !session.parsed || session.isError;
