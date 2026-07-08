@@ -1,0 +1,13 @@
+# Phase 0 — calibration (§9): baseline-no-memento across ALL scenarios, N=2.
+# Validates the instruments before spending on knobs: seeded facts must be
+# unguessable (utility ≈ 0 with Memento unregistered) and tasks completable
+# (task-success baseline for the §5.3 guardrail). Doubles as the guardrail
+# baseline, so this spend serves twice.
+name: calibration
+model: claude-opus-4-8 # pinned in Phase 1 (§1); matrix dimension in V2
+env: clean
+reps: 2
+concurrency: 2
+max_spend_usd: 25
+configs: [baseline-no-memento]
+scenarios: [read/*, no-read/*, write/*, no-write/*]

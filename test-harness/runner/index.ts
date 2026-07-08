@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import { loadManifest } from './manifest.js';
 import { planRun } from './plan.js';
+import { preflightMemento } from './preflight.js';
 import { configHash } from './record.js';
 import {
   DEFAULT_INVALID_REP_COST_USD,
@@ -42,6 +43,15 @@ async function main(argv: string[]): Promise<void> {
 
   const manifest = loadManifest(resolved);
   const plan = planRun(HARNESS_ROOT, manifest);
+
+  // Abort before spending: a memento server that can't handshake would record
+  // zero tool calls on every rep, indistinguishable from real behavior (§7.2).
+  const variants = plan.configs
+    .map((config) => config.memento_variant)
+    .filter((variant): variant is string => variant !== null);
+  await preflightMemento(REPO_ROOT, variants);
+  if (variants.length > 0)
+    console.error(`Preflight ok: memento handshake for [${[...new Set(variants)].join(', ')}].`);
 
   const resultsDir = join(HARNESS_ROOT, 'results');
   const resultsLog = join(resultsDir, 'results.jsonl');

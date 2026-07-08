@@ -11,8 +11,8 @@ describe('generateMcpConfig', () => {
     });
     expect(Object.keys(config.mcpServers)).toEqual(['memento']);
     const memento = config.mcpServers.memento;
-    expect(memento?.command).toBe('bun');
-    expect(memento?.args).toEqual(['run', '/repo/src/main.ts']);
+    expect(memento?.command).toBe('node');
+    expect(memento?.args).toEqual(['/repo/dist/main.js']);
     expect(memento?.env).toEqual({ MEMENTO_HOME: '/tmp/home', MEMENTO_VARIANT: 'plain' });
   });
 

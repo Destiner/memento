@@ -3,9 +3,13 @@
 // sees exactly these servers and nothing from the operator's machine — a leak
 // here silently invalidates results (§7.2).
 //
-// The memento server is launched straight from the repo source (no build step)
-// with the rep's MEMENTO_HOME (seeded corpus) and MEMENTO_VARIANT (the config's
-// knob bundle) in its env. baseline-no-memento passes `memento: null`, yielding
+// The memento server is launched as `node dist/main.js` — NOT `bun run
+// src/main.ts`: the store uses node:sqlite, which Bun does not implement, so a
+// bun-launched server dies at import and Claude Code reports it as eternally
+// "connecting" while every rep silently sees zero memento tools (the screening-1
+// failure). The runner's preflight (preflight.ts) keeps dist/ fresh and proves
+// the handshake before any paid session. The rep's MEMENTO_HOME (seeded corpus)
+// and MEMENTO_VARIANT (the config's knob bundle) ride in the server env. baseline-no-memento passes `memento: null`, yielding
 // an empty server list — Memento is simply absent (§10). The crowded arm adds a
 // fixed set of stub servers (§7.3) for deferred-tool discoverability pressure;
 // each is the same stub binary under a different profile/server name.
@@ -34,11 +38,11 @@ export interface StubOptions {
   stubsDir: string; // test-harness/stubs — where server.ts lives
 }
 
-/** The memento MCP server descriptor: `bun run <repo>/src/main.ts` over stdio. */
+/** The memento MCP server descriptor: `node <repo>/dist/main.js` over stdio. */
 export function mementoServer(opts: MementoOptions): McpServerSpec {
   return {
-    command: 'bun',
-    args: ['run', join(opts.repoRoot, 'src', 'main.ts')],
+    command: 'node',
+    args: [join(opts.repoRoot, 'dist', 'main.js')],
     env: { MEMENTO_HOME: opts.mementoHome, MEMENTO_VARIANT: opts.variant },
   };
 }

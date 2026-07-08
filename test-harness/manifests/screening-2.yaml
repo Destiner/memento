@@ -1,0 +1,14 @@
+# Rerun of screening-1's memento-registered configs. In screening-1 the memento
+# server was launched via `bun run src/main.ts` and died at import (node:sqlite
+# is not implemented in Bun), so no rep ever saw the tools; those 72 records are
+# quarantined in results/quarantine-screening-1.jsonl. baseline-no-memento is
+# omitted — its 43 reps (calibration + screening-1) were unaffected and stay valid.
+# The runner now preflights the memento handshake before spending (preflight.ts).
+name: screening-2
+model: claude-opus-4-8
+env: clean
+reps: 3
+concurrency: 2
+max_spend_usd: 45
+configs: [baseline-0, tool-desc-trigger, server-instructions, sessionstart-index]
+scenarios: [read/*, no-read/*]
