@@ -1,0 +1,18 @@
+# sessionstart-index: user-installed read-side knob (§3.2, Claude Code-specific).
+# A SessionStart hook injects the memory index (titles) into the session context so
+# the agent knows what memory holds before deciding to search. MEMENTO_VARIANT=plain
+# so the hook is the only intervention over the baseline-0 floor — the delta isolates
+# it. The runner installs the hook script into the config home and the settings
+# fragment wires it to the SessionStart event ({{HOOKS_DIR}}/{{MEMENTO_HOME}} resolved
+# per rep by the sandbox).
+name: sessionstart-index
+description: SessionStart hook injecting the memory index (titles) — plain variant, read side.
+knob: sessionstart-hook
+variant: index
+side: read
+portability: non-portable
+memento_variant: plain
+install:
+  hooks:
+    - sessionstart-index.ts
+  settings: settings.json

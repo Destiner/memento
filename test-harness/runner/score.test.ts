@@ -18,10 +18,15 @@ function git(args: string[]): void {
   execFileSync('git', args, { cwd: repo, env: GIT_ENV, stdio: 'ignore' });
 }
 
-function commitBaseline(): void {
+function commitBaseline(): string {
   git(['init', '-q', '-b', 'main']);
   git(['add', '-A']);
   git(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'base', '--no-gpg-sign']);
+  return execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: repo,
+    env: GIT_ENV,
+    encoding: 'utf8',
+  }).trim();
 }
 
 function writeEvents(events: Array<Record<string, unknown>>): void {
@@ -46,7 +51,7 @@ afterEach(() => {
 describe('scoreRep', () => {
   test('should-retrieve: computes utility from the diff, calls from the log, oracle guardrail', () => {
     writeFileSync(join(repo, 'mail.ts'), 'export const provider = "todo";\n');
-    commitBaseline();
+    const baselineRef = commitBaseline();
     writeFileSync(join(repo, 'mail.ts'), 'export const provider = "postmark";\n');
     writeEvents([{ tool: 'search_memory', outcome: 'success' }]);
 
@@ -66,6 +71,7 @@ describe('scoreRep', () => {
       harnessRoot: root,
       mementoHome: home,
       repoDir: repo,
+      baselineRef,
       oracleTimeoutS: 10,
     });
     expect(scored.utility_pass).toBe(true);
@@ -76,7 +82,7 @@ describe('scoreRep', () => {
 
   test('should-not-retrieve: no utility/capture scoring, just calls and the guardrail', () => {
     writeFileSync(join(repo, 'x.ts'), 'const x = 1;\n');
-    commitBaseline();
+    const baselineRef = commitBaseline();
     writeEvents([{ tool: 'search_memory', outcome: 'success' }]); // an FP the report will count
 
     const scenario: Scenario = {
@@ -94,6 +100,7 @@ describe('scoreRep', () => {
       harnessRoot: root,
       mementoHome: home,
       repoDir: repo,
+      baselineRef,
       oracleTimeoutS: 10,
     });
     expect(scored.utility_pass).toBeNull();
@@ -122,7 +129,7 @@ describe('scoreRep', () => {
     writeEvents([{ tool: 'create_memory', outcome: 'success', memory_type: 'integration' }]);
 
     writeFileSync(join(repo, 'x.ts'), 'const x = 1;\n');
-    commitBaseline();
+    const baselineRef = commitBaseline();
 
     const scenario: Scenario = {
       id: 'write/mini',
@@ -143,6 +150,7 @@ describe('scoreRep', () => {
       harnessRoot: root,
       mementoHome: home,
       repoDir: repo,
+      baselineRef,
       oracleTimeoutS: 10,
     });
     expect(scored.utility_pass).toBeNull();

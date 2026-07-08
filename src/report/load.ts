@@ -7,9 +7,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { LoggedEvent } from '../logging/events.js';
-
-const LOG_FILE_PATTERN = /^events-\d{4}-\d{2}-\d{2}\.jsonl$/;
+import { LOG_FILE_PATTERN, type LoggedEvent } from '../logging/events.js';
 
 export async function loadEvents(logsDir: string): Promise<LoggedEvent[]> {
   let entries: string[];

@@ -28,17 +28,23 @@ export interface UtilityChecks {
 }
 
 /**
- * The session's changes vs the fixture baseline commit as a unified diff. Stages
- * everything first so new (untracked) files are included; the sandbox is
- * disposable, so mutating its index is harmless.
+ * The session's changes vs the recorded fixture baseline commit, as a unified
+ * diff. Stages everything first so new (untracked) files are included; the sandbox
+ * is disposable, so mutating its index is harmless.
+ *
+ * `baseline` is the baseline commit SHA captured at git init (sandbox.ts), *not*
+ * HEAD: a session that git-commits its own work moves HEAD onto that commit, so
+ * `--cached HEAD` would see an empty diff and score a false utility miss. Diffing
+ * the staged working tree against the fixed baseline SHA captures every change
+ * since checkout regardless of any commits the session made.
  */
-export function sessionDiff(repoDir: string): string {
+export function sessionDiff(repoDir: string, baseline: string): string {
   execFileSync('git', ['add', '-A', ...PATHSPEC], {
     cwd: repoDir,
     env: GIT_ENV,
     stdio: 'ignore',
   });
-  return execFileSync('git', ['diff', '--cached', 'HEAD', ...PATHSPEC], {
+  return execFileSync('git', ['diff', '--cached', baseline, ...PATHSPEC], {
     cwd: repoDir,
     env: GIT_ENV,
     encoding: 'utf8',

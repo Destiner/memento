@@ -30,6 +30,7 @@ function record(over: {
   cc_version?: string;
   env?: string;
   scenario_version?: number;
+  scenario_class?: ScenarioClass;
 }): ResultRecord {
   const raw: RawFacts = {
     memento_calls: [],
@@ -50,6 +51,7 @@ function record(over: {
     config_hash: 'sha256:x',
     scenario: over.scenario,
     scenario_version: over.scenario_version ?? 1,
+    ...(over.scenario_class ? { scenario_class: over.scenario_class } : {}),
     rep: 1,
     model: over.model ?? 'claude-opus-4-8',
     cc_version: over.cc_version ?? '1.6.9',
@@ -236,6 +238,28 @@ describe('aggregate — flake and grouping', () => {
     expect(c.diagnostics.invalid_rate).toBeCloseTo(2 / 3, 6);
   });
 
+  test('halted cells are recorded, excluded from scoring, and surfaced as incompleteness (§7.4)', () => {
+    const records = [
+      record({ config: 'knob', scenario: 'read/a', status: 'ok', raw: { utility_pass: true } }),
+      record({
+        config: 'knob',
+        scenario: 'read/b',
+        status: 'halted',
+        raw: { utility_pass: null, memento_calls: null },
+      }),
+    ];
+    const group = only(aggregate(records, EMPTY_CLASSES, DEFAULT_OPTIONS));
+    const knob = configNamed(group, 'knob');
+    expect(knob.halted_cells).toBe(1);
+    // A halted cell is not a completed attempt: it neither flags a cell nor counts
+    // toward invalid_rate, and it never enters scoring.
+    expect(group.flagged_cells).toHaveLength(0);
+    expect(knob.diagnostics.invalid_rate).toBe(0);
+    expect(knob.rates.utility_rate).toBe(1); // from the one ok rep only
+    const out = renderReport([group], DEFAULT_OPTIONS, { color: false });
+    expect(out).toContain('halted at the spend cap');
+  });
+
   test('records split into one group per (model, cc, env)', () => {
     const records = [
       record({ config: 'c', scenario: 'read/a', raw: { utility_pass: true } }),
@@ -274,6 +298,32 @@ describe('aggregate — diagnostics (§5.4)', () => {
     expect(c.diagnostics.searches_per_session).toBe(1); // one each
     expect(c.diagnostics.empty_search_rate).toBe(0.5); // one of two searches empty
     expect(c.diagnostics.capture_attempts_per_session).toBe(0.5); // one create across two reps
+  });
+});
+
+describe('classOf — persisted scenario class (§8.2)', () => {
+  test('a persisted class survives a rename the disk map and inference both miss', () => {
+    // A retired/renamed dir: no scenario.yaml (empty class map), an unmapped group
+    // prefix, and no scored class signal — inference alone would drop it to null and
+    // it would vanish from the read-FP denominator. Its persisted class rescues it.
+    const records = [
+      record({
+        config: 'c',
+        scenario: 'archived/typo',
+        scenario_class: 'should-not-retrieve',
+        raw: { memento_calls: [search(0)] },
+      }),
+    ];
+    const c = configNamed(only(aggregate(records, EMPTY_CLASSES, DEFAULT_OPTIONS)), 'c');
+    expect(c.rates.read_fp_rate).toBe(1); // counted, not dropped
+  });
+
+  test('falls back to inference when a record carries no persisted class', () => {
+    const records = [
+      record({ config: 'c', scenario: 'no-read/a', raw: { memento_calls: [search(0)] } }),
+    ];
+    const c = configNamed(only(aggregate(records, EMPTY_CLASSES, DEFAULT_OPTIONS)), 'c');
+    expect(c.rates.read_fp_rate).toBe(1);
   });
 });
 

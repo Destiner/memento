@@ -15,7 +15,14 @@ import { fileURLToPath } from 'node:url';
 import { loadManifest } from './manifest.js';
 import { planRun } from './plan.js';
 import { configHash } from './record.js';
-import { executeCells, makeRunCell, ORACLE_TIMEOUT_S, type RunContext } from './run.js';
+import {
+  DEFAULT_INVALID_REP_COST_USD,
+  executeCells,
+  makeHaltedRecord,
+  makeRunCell,
+  ORACLE_TIMEOUT_S,
+  type RunContext,
+} from './run.js';
 
 const HARNESS_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO_ROOT = resolve(HARNESS_ROOT, '..');
@@ -60,6 +67,7 @@ async function main(argv: string[]): Promise<void> {
     configHashes,
     transcriptsDir,
     oracleTimeoutS: ORACLE_TIMEOUT_S,
+    invalidRepCostUsd: DEFAULT_INVALID_REP_COST_USD,
   };
 
   console.error(
@@ -77,11 +85,13 @@ async function main(argv: string[]): Promise<void> {
     },
     makeRunCell(ctx),
     (record) => appendFileSync(resultsLog, JSON.stringify(record) + '\n'),
+    makeHaltedRecord(ctx),
   );
 
   console.error(
     `Done: ${summary.ok} ok, ${summary.invalid} invalid, $${summary.spentUsd.toFixed(2)} spent` +
-      `${summary.halted ? ' (halted at spend cap)' : ''}. Records → ${resultsLog}`,
+      `${summary.halted ? ` (halted at spend cap; ${summary.skipped} cells skipped)` : ''}. ` +
+      `Records → ${resultsLog}`,
   );
 }
 

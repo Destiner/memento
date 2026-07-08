@@ -50,6 +50,7 @@ describe('buildRecord', () => {
     expect(record.config).toBe('baseline-0');
     expect(record.scenario).toBe('read/email-provider');
     expect(record.scenario_version).toBe(3);
+    expect(record.scenario_class).toBe('should-retrieve'); // persisted so the report never reconstructs it
     expect(record.rep).toBe(2);
     expect(record.status).toBe('ok');
     expect(record.raw.cost_usd).toBe(0.42);

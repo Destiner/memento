@@ -1,0 +1,11 @@
+# server-instructions: the MCP `instructions` field knob ON (§3.1). Plain
+# descriptions plus the usage-protocol instructions the client hoists into the
+# system prompt — one dimension flipped from the baseline-0 floor. No user-side
+# artifacts; it rides on MEMENTO_VARIANT alone.
+name: server-instructions
+description: MCP server instructions knob ON — usage-protocol text over plain descriptions.
+knob: server-instructions
+variant: on
+side: both
+portability: portable
+memento_variant: server-instructions

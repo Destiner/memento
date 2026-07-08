@@ -32,7 +32,7 @@ describe('buildEvent', () => {
   it('wraps fields in the shared envelope with second-precision timestamp', () => {
     const event = buildEvent(
       { tool: 'search_memory', outcome: 'success', latency_ms: 42, result_count: 3 },
-      { serverVersion: '0.1.0', now: FIXED_NOW, eventId: 'evt_TEST' },
+      { serverVersion: '0.1.0', variant: 'plain', now: FIXED_NOW, eventId: 'evt_TEST' },
     );
 
     expect(event).toEqual({
@@ -43,13 +43,14 @@ describe('buildEvent', () => {
       latency_ms: 42,
       result_count: 3,
       server_version: '0.1.0',
+      variant: 'plain',
     });
   });
 
   it('generates a sortable evt_ id when none is supplied', () => {
     const event = buildEvent(
       { tool: 'read_memory', outcome: 'error', latency_ms: 1, error_code: 'not_found' },
-      { serverVersion: '0.1.0', now: FIXED_NOW },
+      { serverVersion: '0.1.0', variant: 'plain', now: FIXED_NOW },
     );
     expect(event.event_id).toMatch(/^evt_[0-9A-HJKMNP-TV-Z]{26}$/);
   });
@@ -68,6 +69,7 @@ describe('createLogger', () => {
       logsDir,
       enabled: true,
       serverVersion: '0.1.0',
+      variant: 'plain',
       now: () => FIXED_NOW,
     });
 
@@ -93,6 +95,7 @@ describe('createLogger', () => {
       latency_ms: 5,
       memory_type: 'decision',
       server_version: '0.1.0',
+      variant: 'plain', // resolved MEMENTO_VARIANT stamped on every event (§10)
     });
     expect(first.event_id).toMatch(/^evt_/);
     expect(first.timestamp).toBe('2026-07-04T15:03:12Z');
@@ -100,7 +103,12 @@ describe('createLogger', () => {
 
   it('is an inert no-op when logging is disabled (writes nothing)', async () => {
     const logsDir = await makeLogsDir();
-    const logger = createLogger({ logsDir, enabled: false, serverVersion: '0.1.0' });
+    const logger = createLogger({
+      logsDir,
+      enabled: false,
+      serverVersion: '0.1.0',
+      variant: 'plain',
+    });
 
     await logger.log({ tool: 'read_memory', outcome: 'success', latency_ms: 1 });
 
@@ -118,6 +126,7 @@ describe('createLogger', () => {
       logsDir: join(blockedDir, 'logs'),
       enabled: true,
       serverVersion: '0.1.0',
+      variant: 'plain',
     });
 
     await expect(

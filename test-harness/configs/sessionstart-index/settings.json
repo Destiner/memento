@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "MEMENTO_HOME='{{MEMENTO_HOME}}' bun run '{{HOOKS_DIR}}/sessionstart-index.ts'"
+          }
+        ]
+      }
+    ]
+  }
+}

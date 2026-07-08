@@ -1,0 +1,11 @@
+# tool-desc-trigger: the tool-descriptions knob's strong arm (§3.1). The shipped
+# trigger-list descriptions (commit 8db547f) measured from the plain floor that
+# baseline-0 pins — MEMENTO_VARIANT=shipped, no user-side artifacts. The variant
+# registry has no `baseline` name on purpose (§10); `shipped` is that arm.
+name: tool-desc-trigger
+description: Tool-descriptions knob ON — the shipped trigger-list descriptions (8db547f).
+knob: tool-descriptions
+variant: trigger-list
+side: both
+portability: portable
+memento_variant: shipped

@@ -9,7 +9,7 @@
 // discovery task from the fixture's pre-existing unimplemented paths.
 
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,6 +62,33 @@ describe('should-capture scenarios calibrate', () => {
   test('the overlay greens bun run check (guardrail baseline)', () => {
     // Throws if check fails, failing the test with the tsc/bun output.
     execFileSync('bun', ['run', 'check'], { cwd: repo, encoding: 'utf8' });
+  });
+
+  // Guard against the answer key leaking into the repo the agent explores. An
+  // overlay dir is copied verbatim over the fixture (runner/sandbox.ts), so any
+  // operator doc inside it reaches the agent — which once shipped the capture
+  // answers (each scenario's insight_regex) and a "captures are scored" hint,
+  // making good_capture_rate measure prompt leakage rather than the knob. Two
+  // invariants: overlay dirs carry no README, and the applied repo's README
+  // (and no other agent-visible file bar the discovery scripts) states an insight.
+  test('overlay dirs ship no operator docs and leak no capture answers', () => {
+    const overlaysDir = join(HARNESS_ROOT, 'overlays');
+    for (const entry of readdirSync(overlaysDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const stray = readdirSync(join(overlaysDir, entry.name)).filter((n) => /^readme/i.test(n));
+      expect(stray, `overlays/${entry.name} must not ship operator docs`).toEqual([]);
+    }
+
+    const readmePath = join(repo, 'README.md');
+    expect(existsSync(readmePath)).toBe(true);
+    const readme = readFileSync(readmePath, 'utf8');
+    for (const c of CASES) {
+      const scenario = loadScenario(join(HARNESS_ROOT, 'scenarios', c.id, 'scenario.yaml'));
+      expect(
+        compilePattern(scenario.capture_rubric!.insight_regex).test(readme),
+        `README must not reveal ${c.id}'s insight`,
+      ).toBe(false);
+    }
   });
 
   for (const c of CASES) {

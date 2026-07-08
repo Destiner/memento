@@ -33,9 +33,15 @@ describe('resolveVariantName', () => {
     expect(resolveVariantName({ MEMENTO_VARIANT: 'plain' })).toBe('plain');
   });
 
-  test('trims whitespace and falls back to the default when blank', () => {
+  test('trims surrounding whitespace from an override', () => {
     expect(resolveVariantName({ MEMENTO_VARIANT: '  result-nudges  ' })).toBe('result-nudges');
-    expect(resolveVariantName({ MEMENTO_VARIANT: '   ' })).toBe('shipped');
+  });
+
+  test('throws when set but blank, instead of silently defaulting (§10)', () => {
+    // A blank value is an env-plumbing bug; falling back to the default silently
+    // would poison a harness baseline every knob is paired against.
+    expect(() => resolveVariantName({ MEMENTO_VARIANT: '   ' })).toThrow(/set but blank/);
+    expect(() => resolveVariantName({ MEMENTO_VARIANT: '' })).toThrow(/set but blank/);
   });
 });
 

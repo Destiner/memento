@@ -27,6 +27,7 @@ export interface ScoreInput {
   harnessRoot: string; // resolves the scenario's seeded corpus (capture baseline)
   mementoHome: string; // event log + captured memory files
   repoDir: string; // fixture copy — session diff + oracle
+  baselineRef: string; // fixture baseline commit SHA — the diff base (utility.ts)
   oracleTimeoutS: number;
 }
 
@@ -36,7 +37,7 @@ export function scoreRep(input: ScoreInput): ScoredFacts {
 
   let utility_pass: boolean | null = null;
   if (scenario.class === 'should-retrieve' && scenario.checks.utility_regex) {
-    utility_pass = checkUtility(sessionDiff(repoDir), {
+    utility_pass = checkUtility(sessionDiff(repoDir, input.baselineRef), {
       utility_regex: scenario.checks.utility_regex,
       utility_anti_regex: scenario.checks.utility_anti_regex,
     });

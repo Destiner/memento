@@ -1,7 +1,10 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "rootDir": ".",
+    // Repo root, not test-harness/: the harness imports shared server modules
+    // (e.g. the event-log partition format from src/logging), so those files must
+    // sit under rootDir. noEmit means rootDir only gates that check, not output.
+    "rootDir": "..",
     "noEmit": true,
     "types": ["node"]
   },

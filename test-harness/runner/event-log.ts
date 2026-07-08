@@ -14,6 +14,12 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+// The event-file partition format is the server's, imported from the one place
+// that also produces it (src/logging/events.ts): if the server changes filenames
+// or partitioning, this matcher moves with it instead of silently matching zero
+// files and deflating every rep to "no memento calls" (harness-spec §5).
+import { LOG_FILE_PATTERN } from '../../src/logging/events.js';
+
 // The non-sensitive fields the scorer keeps from each event. Names only — the log
 // never records raw query/body text (§13 privacy defaults), and neither do we.
 export interface MementoCall {
@@ -22,10 +28,10 @@ export interface MementoCall {
   memory_type?: string; // create_memory only
   memory_scope?: string; // create_memory only
   result_count?: number; // search_memory only — hits returned (empty-search-rate diagnostic, §5.4)
+  variant?: string; // resolved MEMENTO_VARIANT the server logged (§10 contamination guard)
 }
 
 const CAPTURE_TOOLS = new Set(['create_memory', 'update_memory']);
-const EVENT_FILE_RE = /^events-\d{4}-\d{2}-\d{2}\.jsonl$/;
 
 /** Every Memento tool call the session made, oldest partition first. */
 export function readMementoCalls(mementoHome: string): MementoCall[] {
@@ -34,7 +40,7 @@ export function readMementoCalls(mementoHome: string): MementoCall[] {
 
   const calls: MementoCall[] = [];
   const files = readdirSync(logsDir)
-    .filter((name) => EVENT_FILE_RE.test(name))
+    .filter((name) => LOG_FILE_PATTERN.test(name))
     .sort();
   for (const file of files) {
     const raw = readFileSync(join(logsDir, file), 'utf8');
@@ -64,7 +70,21 @@ function parseLine(line: string): MementoCall | null {
     ...(typeof obj.memory_type === 'string' ? { memory_type: obj.memory_type } : {}),
     ...(typeof obj.memory_scope === 'string' ? { memory_scope: obj.memory_scope } : {}),
     ...(typeof obj.result_count === 'number' ? { result_count: obj.result_count } : {}),
+    ...(typeof obj.variant === 'string' ? { variant: obj.variant } : {}),
   };
+}
+
+/**
+ * The resolved MEMENTO_VARIANT the server stamped on this rep's events, or null if
+ * none did (no memento calls, or a log predating the field). Lets the runner assert
+ * the server actually ran the variant the config declared — a blanked/corrupted env
+ * would otherwise poison a baseline undetectably (harness-spec §10).
+ */
+export function loggedVariant(calls: MementoCall[]): string | null {
+  for (const call of calls) {
+    if (call.variant) return call.variant;
+  }
+  return null;
 }
 
 /** ≥1 Memento tool call — a false positive for should-not-retrieve (§5.1). */

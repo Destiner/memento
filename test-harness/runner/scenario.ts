@@ -18,6 +18,8 @@ export const SCENARIO_CLASSES = [
   'should-not-capture',
 ] as const;
 
+export type ScenarioClass = (typeof SCENARIO_CLASSES)[number];
+
 const nonEmpty = z.string().trim().min(1);
 
 const checksSchema = z

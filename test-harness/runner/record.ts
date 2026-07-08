@@ -13,6 +13,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { type Cell } from './plan.js';
+import { type ScenarioClass } from './scenario.js';
 
 export type RepStatus = 'ok' | 'invalid' | 'halted';
 
@@ -60,6 +61,11 @@ export interface ResultRecord {
   config_hash: string;
   scenario: string;
   scenario_version: number;
+  // The scenario's class, persisted so the report never has to reconstruct it from
+  // on-disk scenario dirs — a renamed or retired scenario would otherwise drop out
+  // of its rate denominator silently (§5, §8.2). Optional: records written before
+  // this field lack it, and the report falls back to disk/inference for those.
+  scenario_class?: ScenarioClass;
   rep: number;
   model: string;
   cc_version: string;
@@ -93,6 +99,7 @@ export function buildRecord(opts: BuildRecordOptions): ResultRecord {
     config_hash: opts.configHash,
     scenario: opts.cell.scenario.id,
     scenario_version: opts.cell.scenario.version,
+    scenario_class: opts.cell.scenario.class,
     rep: opts.cell.rep,
     model: opts.model,
     cc_version: opts.ccVersion,

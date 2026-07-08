@@ -146,6 +146,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
     logsDir: resolved.paths.logs,
     enabled: resolved.config.logging_enabled,
     serverVersion: SERVER_VERSION,
+    variant: variant.name,
   });
 
   // Open the derived index once at startup, rebuilding from markdown if it is

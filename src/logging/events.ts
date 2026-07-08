@@ -34,24 +34,31 @@ export interface ToolEventFields {
 }
 
 // A fully-assembled log record: the caller's fields plus the envelope shared by
-// every event. `event_id` and `timestamp` come first for scannability.
+// every event. `event_id` and `timestamp` come first for scannability. `variant`
+// records the resolved MEMENTO_VARIANT the server ran, so a reader can tell which
+// knob arm produced the events — and a harness rep can assert it ran the arm its
+// config declared, catching a blanked/corrupted env before it poisons a baseline
+// (harness-spec §10). Optional on the type because logs written before it existed
+// lack it; buildEvent always sets it, so every new event carries it.
 export interface LoggedEvent extends ToolEventFields {
   event_id: string;
   timestamp: string;
   server_version: string;
+  variant?: string;
 }
 
 // Assemble a complete record from a handler's fields. Pure and deterministic
 // given `now`/`eventId`, so both the logger and its tests share one shape.
 export function buildEvent(
   fields: ToolEventFields,
-  meta: { serverVersion: string; now: number; eventId?: string },
+  meta: { serverVersion: string; variant: string; now: number; eventId?: string },
 ): LoggedEvent {
   return {
     event_id: meta.eventId ?? generateEventId(meta.now),
     timestamp: isoSeconds(meta.now),
     ...fields,
     server_version: meta.serverVersion,
+    variant: meta.variant,
   };
 }
 
@@ -61,3 +68,10 @@ export function buildEvent(
 export function logFilename(timestamp: string): string {
   return `events-${timestamp.slice(0, 10)}.jsonl`;
 }
+
+// Matches the files `logFilename` produces. The single source of truth every
+// reader filters partitions by — the server report (src/report/load.ts) and the
+// test harness (test-harness/runner/event-log.ts) both import it, so a change to
+// the partition format lands here and can't silently leave a reader matching zero
+// files (a binding test asserts logFilename's output satisfies it).
+export const LOG_FILE_PATTERN = /^events-\d{4}-\d{2}-\d{2}\.jsonl$/;

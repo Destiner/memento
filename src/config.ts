@@ -58,9 +58,27 @@ export function resolveHome(env: NodeJS.ProcessEnv = process.env): string {
   return join(homedir(), DEFAULT_HOME_DIR);
 }
 
-/** Resolve the active variant name, honouring MEMENTO_VARIANT (default baseline). */
+/**
+ * Resolve the active variant name, honouring MEMENTO_VARIANT (default when unset).
+ *
+ * A *set-but-blank* value throws rather than falling back to the default: an empty
+ * MEMENTO_VARIANT means the env plumbing dropped a value that was meant to be
+ * there, and silently running the default would poison a harness baseline every
+ * knob is paired against (harness-spec §10). Unset stays a clean default for
+ * normal (non-harness) use.
+ */
 export function resolveVariantName(env: NodeJS.ProcessEnv = process.env): string {
-  return env.MEMENTO_VARIANT?.trim() || DEFAULT_VARIANT;
+  const raw = env.MEMENTO_VARIANT;
+  if (raw === undefined) return DEFAULT_VARIANT;
+  const trimmed = raw.trim();
+  if (trimmed === '') {
+    throw new Error(
+      'MEMENTO_VARIANT is set but blank. Refusing to fall back to the default variant silently — ' +
+        'a blank value is an env-plumbing bug that would poison a harness baseline (§10). ' +
+        'Unset it to use the default, or set a valid variant name.',
+    );
+  }
+  return trimmed;
 }
 
 /** Derive the standard subpaths (§6 layout) from a home directory. */

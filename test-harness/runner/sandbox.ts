@@ -44,6 +44,7 @@ export interface Sandbox {
   mementoHome: string; // MEMENTO_HOME for the memento server
   ccConfigDir: string; // CLAUDE_CONFIG_DIR — the isolated config home
   mcpConfigPath: string; // path passed to --mcp-config
+  baselineRef: string; // fixture baseline commit SHA — the diff base (utility.ts)
   cleanup: () => void;
 }
 
@@ -63,7 +64,7 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
 
     const repoDir = join(root, 'repo');
     copyFixture(harnessRoot, scenario, repoDir);
-    gitInit(repoDir);
+    const baselineRef = gitInit(repoDir);
 
     const ccConfigDir = join(root, 'cc-config');
     mkdirSync(ccConfigDir, { recursive: true });
@@ -82,7 +83,7 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
       }),
     );
 
-    return { root, repoDir, mementoHome, ccConfigDir, mcpConfigPath, cleanup };
+    return { root, repoDir, mementoHome, ccConfigDir, mcpConfigPath, baselineRef, cleanup };
   } catch (error) {
     cleanup();
     throw error;
@@ -148,26 +149,47 @@ function overlayOnto(src: string, dest: string): void {
 }
 
 // A baseline commit so the scorer can diff the session's changes (§5.1 "output/diff").
-function gitInit(repoDir: string): void {
+// Returns the baseline commit SHA: the diff base (utility.ts) is this fixed SHA,
+// not HEAD, so a session that commits its own work can't move the base out from
+// under the scorer and produce a false utility miss.
+function gitInit(repoDir: string): string {
   const git = (args: string[]) =>
     execFileSync('git', args, { cwd: repoDir, env: GIT_ENV, stdio: 'ignore' });
   git(['init', '-q', '-b', 'main']);
   git(['add', '-A']);
   git([...GIT_IDENTITY, 'commit', '-q', '-m', 'fixture baseline', '--no-gpg-sign']);
+  return execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: repoDir,
+    env: GIT_ENV,
+    encoding: 'utf8',
+  }).trim();
 }
 
 // Write the isolated Claude Code config home: settings (memento pre-allowed plus
-// the config's optional fragment) and any user-side artifacts the config installs.
+// the config's optional fragment) and any user-side artifacts the config installs
+// (CLAUDE.md, hook scripts, a skill dir — §3.2, §7.2 step 2).
 function writeConfigHome(
   spec: SandboxSpec,
   paths: { mementoHome: string; repoDir: string; ccConfigDir: string },
 ): void {
   const { config } = spec;
   const configDir = join(spec.harnessRoot, 'configs', config.name);
+  const hooksDir = join(paths.ccConfigDir, 'hooks');
 
+  // Per-rep paths a committed settings fragment can't hardcode (the sandbox is a
+  // fresh temp tree each rep). A fragment references them by token — e.g. a hook
+  // command as `bun run '{{HOOKS_DIR}}/x.ts'` — and the installer resolves them.
+  const tokens: Record<string, string> = {
+    '{{MEMENTO_HOME}}': paths.mementoHome,
+    '{{HOOKS_DIR}}': hooksDir,
+    '{{REPO_DIR}}': paths.repoDir,
+    '{{CONFIG_DIR}}': paths.ccConfigDir,
+  };
+
+  const fragment = readSettingsFragment(configDir, config);
   const settings = generateSettings({
     mementoRegistered: config.memento_variant !== null,
-    fragment: readSettingsFragment(configDir, config),
+    fragment: fragment && (substituteTokens(fragment, tokens) as Record<string, unknown>),
   });
   writeJson(join(paths.ccConfigDir, 'settings.json'), settings);
 
@@ -180,11 +202,24 @@ function writeConfigHome(
     writeFileSync(join(paths.repoDir, 'CLAUDE.md'), readFileSync(src, 'utf8'));
   }
 
-  if (config.install?.hooks?.length || config.install?.skill) {
-    throw new Error(
-      `config "${config.name}": hook/skill install is not yet supported by the sandbox ` +
-        '(added alongside those knobs, §3.2).',
+  // Hook scripts land in the config home's hooks/ dir; the settings fragment wires
+  // them into the SessionStart/UserPromptSubmit/Stop events via {{HOOKS_DIR}} (§3.2).
+  for (const rel of config.install?.hooks ?? []) {
+    const src = requirePath(join(configDir, rel), `config "${config.name}" install.hooks entry`);
+    mkdirSync(hooksDir, { recursive: true });
+    copyFileSync(src, join(hooksDir, basename(rel)));
+  }
+
+  // A skill dir is copied under the config home's skills/ so Claude Code discovers
+  // it in the isolated home and nothing leaks from the operator's own skills (§3.2).
+  if (config.install?.skill) {
+    const src = requirePath(
+      join(configDir, config.install.skill),
+      `config "${config.name}" install.skill`,
     );
+    const dest = join(paths.ccConfigDir, 'skills', basename(config.install.skill));
+    mkdirSync(dest, { recursive: true });
+    cpSync(src, dest, { recursive: true });
   }
 }
 
@@ -204,6 +239,29 @@ function readSettingsFragment(
     throw new Error(`config "${config.name}" settings fragment must be a JSON object.`);
   }
   return parsed as Record<string, unknown>;
+}
+
+// Replace {{TOKEN}} occurrences in every string of a settings fragment with the
+// rep's resolved paths. Post-parse (walking the value) so path characters never
+// need JSON-escaping into the fragment source.
+function substituteTokens(value: unknown, tokens: Record<string, string>): unknown {
+  if (typeof value === 'string') {
+    let out = value;
+    for (const [token, replacement] of Object.entries(tokens)) {
+      out = out.split(token).join(replacement);
+    }
+    return out;
+  }
+  if (Array.isArray(value)) return value.map((item) => substituteTokens(item, tokens));
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [
+        k,
+        substituteTokens(v, tokens),
+      ]),
+    );
+  }
+  return value;
 }
 
 function requirePath(path: string, label: string): string {

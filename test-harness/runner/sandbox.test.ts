@@ -51,6 +51,30 @@ beforeAll(() => {
     join(harnessRoot, 'configs', 'with-settings', 'frag.json'),
     JSON.stringify({ permissions: { allow: ['Bash(bun run:*)'] } }),
   );
+  // A hook config: a settings fragment wiring a SessionStart command that
+  // references the per-rep {{HOOKS_DIR}}/{{MEMENTO_HOME}} tokens, plus the script.
+  mkdirSync(join(harnessRoot, 'configs', 'with-hook'), { recursive: true });
+  writeFileSync(
+    join(harnessRoot, 'configs', 'with-hook', 'settings.json'),
+    JSON.stringify({
+      hooks: {
+        SessionStart: [
+          {
+            hooks: [
+              {
+                type: 'command',
+                command: "MEMENTO_HOME='{{MEMENTO_HOME}}' bun '{{HOOKS_DIR}}/h.ts'",
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+  writeFileSync(join(harnessRoot, 'configs', 'with-hook', 'h.ts'), 'process.stdout.write("hi");\n');
+  // A skill config: a skill directory copied into the isolated config home.
+  mkdirSync(join(harnessRoot, 'configs', 'with-skill', 'skill'), { recursive: true });
+  writeFileSync(join(harnessRoot, 'configs', 'with-skill', 'skill', 'SKILL.md'), '# skill\n');
 });
 
 afterEach(() => {
@@ -126,6 +150,8 @@ describe('createSandbox', () => {
       encoding: 'utf8',
     }).trim();
     expect(head).toMatch(/^[0-9a-f]{40}$/);
+    // The recorded baseline SHA is the diff base the scorer uses (utility.ts).
+    expect(sandbox.baselineRef).toBe(head);
   });
 
   test('writes an MCP config and settings that register and pre-allow memento', () => {
@@ -169,13 +195,38 @@ describe('createSandbox', () => {
     });
   });
 
-  test('rejects hook/skill installs until the sandbox supports them', () => {
+  test('installs hook scripts and resolves per-rep tokens in the settings command', () => {
     const config: Config = {
       ...BASELINE_0,
+      name: 'with-hook',
       knob: 'sessionstart-hook',
-      install: { hooks: ['h.ts'] },
+      install: { hooks: ['h.ts'], settings: 'settings.json' },
     };
-    expect(() => open({ config, scenario: RETRIEVE_SCENARIO })).toThrow(/not yet supported/);
+    const sandbox = open({ config, scenario: RETRIEVE_SCENARIO });
+    // The hook script is copied into the config home's hooks/ dir.
+    expect(readFileSync(join(sandbox.ccConfigDir, 'hooks', 'h.ts'), 'utf8')).toBe(
+      'process.stdout.write("hi");\n',
+    );
+    // {{HOOKS_DIR}} and {{MEMENTO_HOME}} in the command resolve to the rep's paths.
+    const settings = readJson(join(sandbox.ccConfigDir, 'settings.json'));
+    const hooks = settings.hooks as { SessionStart: Array<{ hooks: Array<{ command: string }> }> };
+    const command = hooks.SessionStart[0]!.hooks[0]!.command;
+    expect(command).toContain(join(sandbox.ccConfigDir, 'hooks', 'h.ts'));
+    expect(command).toContain(sandbox.mementoHome);
+    expect(command).not.toContain('{{');
+  });
+
+  test('installs a skill directory into the isolated config home', () => {
+    const config: Config = {
+      ...BASELINE_0,
+      name: 'with-skill',
+      knob: 'memento-skill',
+      install: { skill: 'skill' },
+    };
+    const sandbox = open({ config, scenario: RETRIEVE_SCENARIO });
+    expect(readFileSync(join(sandbox.ccConfigDir, 'skills', 'skill', 'SKILL.md'), 'utf8')).toBe(
+      '# skill\n',
+    );
   });
 
   test('cleanup removes the whole sandbox tree', () => {

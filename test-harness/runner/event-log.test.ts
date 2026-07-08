@@ -8,6 +8,7 @@ import {
   anyCaptureAttempt,
   anyCaptureSuccess,
   anyMementoCall,
+  loggedVariant,
   readMementoCalls,
 } from './event-log.js';
 
@@ -91,5 +92,27 @@ describe('call predicates', () => {
     expect(anyCaptureSuccess([{ tool: 'create_memory', outcome: 'error' }])).toBe(false);
     expect(anyCaptureSuccess([{ tool: 'create_memory', outcome: 'success' }])).toBe(true);
     expect(anyCaptureSuccess([{ tool: 'search_memory', outcome: 'success' }])).toBe(false);
+  });
+
+  test('loggedVariant returns the resolved variant the server stamped, or null (§10)', () => {
+    expect(loggedVariant([])).toBeNull();
+    expect(loggedVariant([{ tool: 'search_memory', outcome: 'success' }])).toBeNull();
+    expect(
+      loggedVariant([
+        { tool: 'search_memory', outcome: 'success' },
+        { tool: 'read_memory', outcome: 'success', variant: 'plain' },
+      ]),
+    ).toBe('plain');
+  });
+});
+
+describe('readMementoCalls — variant', () => {
+  test('captures the resolved MEMENTO_VARIANT the server logged', () => {
+    writeLog('events-2026-07-07.jsonl', [
+      { tool: 'search_memory', outcome: 'success', result_count: 2, variant: 'plain' },
+    ]);
+    expect(readMementoCalls(home)).toEqual([
+      { tool: 'search_memory', outcome: 'success', result_count: 2, variant: 'plain' },
+    ]);
   });
 });

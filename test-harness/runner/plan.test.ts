@@ -1,8 +1,9 @@
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, test } from 'vitest';
 
-import { manifestSchema } from './manifest.js';
+import { loadManifest, manifestSchema } from './manifest.js';
 import { planRun, resolveConfigs, resolveScenarios } from './plan.js';
 
 const HARNESS_ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -68,6 +69,23 @@ describe('resolveScenarios', () => {
 });
 
 describe('planRun', () => {
+  test('the committed screening-1 manifest resolves end to end', () => {
+    // Regression: every config the committed manifest names must have a config dir,
+    // and every hook/skill knob it references must be installable — the runner
+    // resolves and plans it without throwing (harness-spec §8.1, §9).
+    const manifest = loadManifest(join(HARNESS_ROOT, 'manifests', 'screening-1.yaml'));
+    const plan = planRun(HARNESS_ROOT, manifest);
+    expect(plan.configs.map((c) => c.name).sort()).toEqual([
+      'baseline-0',
+      'baseline-no-memento',
+      'server-instructions',
+      'sessionstart-index',
+      'tool-desc-trigger',
+    ]);
+    expect(plan.scenarios.length).toBeGreaterThan(0);
+    expect(plan.cells).toHaveLength(plan.configs.length * plan.scenarios.length * manifest.reps);
+  });
+
   test('enumerates config × scenario × rep cells', () => {
     const manifest = manifestSchema.parse({
       name: 'plan-test',

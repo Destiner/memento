@@ -22,6 +22,7 @@ export interface LoggerOptions {
   logsDir: string;
   enabled: boolean;
   serverVersion: string;
+  variant: string; // resolved MEMENTO_VARIANT, stamped on every event (§10)
   // Injectable for deterministic tests; defaults to wall-clock.
   now?: () => number;
 }
@@ -38,7 +39,11 @@ export function createLogger(options: LoggerOptions): EventLogger {
   return {
     async log(fields) {
       try {
-        const event = buildEvent(fields, { serverVersion: options.serverVersion, now: now() });
+        const event = buildEvent(fields, {
+          serverVersion: options.serverVersion,
+          variant: options.variant,
+          now: now(),
+        });
         const file = join(options.logsDir, logFilename(event.timestamp));
         await mkdir(options.logsDir, { recursive: true });
         await appendFile(file, JSON.stringify(event) + '\n', 'utf8');

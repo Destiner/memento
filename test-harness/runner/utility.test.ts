@@ -74,9 +74,7 @@ describe('sessionDiff', () => {
     execFileSync('git', args, { cwd: repo, env: GIT_ENV, stdio: 'ignore' });
   }
 
-  test('captures modified and new files vs the baseline commit', () => {
-    repo = mkdtempSync(join(tmpdir(), 'memento-diff-'));
-    writeFileSync(join(repo, 'a.ts'), 'const a = 1;\n');
+  function commitBaseline(): string {
     git(['init', '-q', '-b', 'main']);
     git(['add', '-A']);
     git([
@@ -90,14 +88,51 @@ describe('sessionDiff', () => {
       'base',
       '--no-gpg-sign',
     ]);
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: repo,
+      env: GIT_ENV,
+      encoding: 'utf8',
+    }).trim();
+  }
+
+  test('captures modified and new files vs the baseline commit', () => {
+    repo = mkdtempSync(join(tmpdir(), 'memento-diff-'));
+    writeFileSync(join(repo, 'a.ts'), 'const a = 1;\n');
+    const baseline = commitBaseline();
 
     // The session modifies a tracked file and adds an untracked one.
     writeFileSync(join(repo, 'a.ts'), 'const a = 2;\n');
     writeFileSync(join(repo, 'b.ts'), 'const b = 3;\n');
 
-    const diff = sessionDiff(repo);
+    const diff = sessionDiff(repo, baseline);
     expect(diff).toContain('const a = 2;'); // modification
     expect(diff).toContain('const b = 3;'); // new untracked file
     expect(diff).toContain('-const a = 1;'); // baseline preserved on removal line
+  });
+
+  test('a session that commits its own work still diffs against the baseline SHA', () => {
+    // Regression: diffing against HEAD would see nothing here, because the agent's
+    // own commit moved HEAD onto its changes — a false utility miss (harness-spec §5.1).
+    repo = mkdtempSync(join(tmpdir(), 'memento-diff-commit-'));
+    writeFileSync(join(repo, 'a.ts'), 'const a = 1;\n');
+    const baseline = commitBaseline();
+
+    writeFileSync(join(repo, 'a.ts'), 'const a = 2;\n');
+    git(['add', '-A']);
+    git([
+      '-c',
+      'user.name=t',
+      '-c',
+      'user.email=t@t',
+      'commit',
+      '-q',
+      '-m',
+      'agent work',
+      '--no-gpg-sign',
+    ]);
+
+    const diff = sessionDiff(repo, baseline);
+    expect(diff).toContain('const a = 2;'); // the change survives the intermediate commit
+    expect(diff).toContain('-const a = 1;');
   });
 });
