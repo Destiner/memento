@@ -1,0 +1,15 @@
+# stop-capture-gate: user-installed write-side knob (§3.2), the Stop-hook "hard
+# gate" variant. Once per session, finishing is blocked with a prompt to decide
+# whether a durable insight emerged (stop_hook_active guards the second pass, so
+# the gate cannot loop). MEMENTO_VARIANT=plain isolates the hook's delta.
+name: stop-capture-gate
+description: Stop hook gating session end on an explicit capture decision — plain variant.
+knob: stop-hook
+variant: gate
+side: write
+portability: non-portable
+memento_variant: plain
+install:
+  hooks:
+    - stop-capture-gate.ts
+  settings: settings.json

@@ -1,0 +1,11 @@
+# result-nudges: product-shipped knob (§3.1), tool-result nudges ON. Plain
+# descriptions plus appended result prompts (empty search → consider create_memory
+# after the task; create success → reinforce the search habit) — one dimension
+# flipped from the baseline-0 floor. No user-side artifacts.
+name: result-nudges
+description: Tool-result nudges knob ON — empty-search and create-success nudges over plain.
+knob: result-nudges
+variant: on
+side: both
+portability: portable
+memento_variant: result-nudges

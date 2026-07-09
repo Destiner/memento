@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run '{{HOOKS_DIR}}/stop-capture-gate.ts'"
+          }
+        ]
+      }
+    ]
+  }
+}
