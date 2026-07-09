@@ -1,0 +1,12 @@
+# Write-side data for server-instructions: its USAGE_PROTOCOL carries the same
+# capture clause as claude-md-trigger's fragment, but screening-2 only measured
+# it on read. If it lands near claude-md's 1.00 write score, the auto knob
+# already replicates the winner and the trigger-list *text* is what matters.
+name: screening-5
+model: claude-opus-4-8
+env: clean
+reps: 3
+concurrency: 2
+max_spend_usd: 8
+configs: [server-instructions]
+scenarios: [write/*, no-write/*]
