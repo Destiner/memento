@@ -1,0 +1,12 @@
+# Phase 1 screening, read side for the dual-side knobs from screening-3.
+# baseline-0's read data already exists (screening-2 + email-recal at scenario
+# v2), so only the two knob configs run; the report pools within (model, cc,
+# scenario_version) as usual. Completes the read×write table for §6 ranking.
+name: screening-4
+model: claude-opus-4-8
+env: clean
+reps: 3
+concurrency: 2
+max_spend_usd: 15
+configs: [result-nudges, claude-md-trigger]
+scenarios: [read/*, no-read/*]
