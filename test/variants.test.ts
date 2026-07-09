@@ -14,10 +14,18 @@ const TOOL_NAMES = [
 ] as const;
 
 describe('resolveVariant', () => {
-  test('defaults to shipped (real-world trigger-list behavior)', () => {
+  test('defaults to shipped-v2 (all screening-cleared auto knobs on)', () => {
     const variant = resolveVariant();
     expect(variant.name).toBe(DEFAULT_VARIANT);
-    expect(variant.name).toBe('shipped');
+    expect(variant.name).toBe('shipped-v2');
+    expect(variant.descriptions).toEqual(triggerListDescriptions);
+    expect(variant.instructions).toBeTruthy();
+    expect(variant.nudges.emptySearch).toBeTruthy();
+    expect(variant.nudges.createSuccess).toBeTruthy();
+  });
+
+  test('shipped stays the pre-experiment behavior verbatim (descriptions arm)', () => {
+    const variant = resolveVariant('shipped');
     expect(variant.descriptions).toEqual(triggerListDescriptions);
     expect(variant.instructions).toBeUndefined();
     expect(variant.nudges).toEqual({});

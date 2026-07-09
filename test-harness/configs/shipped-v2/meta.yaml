@@ -1,0 +1,11 @@
+# shipped-v2: the auto-combo — every screening-cleared product knob ON
+# (trigger-list descriptions + instructions field + result nudges). This is the
+# real-world DEFAULT_VARIANT as of Phase 1; the harness arm measures the
+# combination the defaults actually ship, vs its single-knob components.
+name: shipped-v2
+description: Combined auto defaults — trigger descriptions + instructions + nudges.
+knob: auto-combo
+variant: on
+side: both
+portability: portable
+memento_variant: shipped-v2

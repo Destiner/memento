@@ -25,8 +25,8 @@ describe('resolveHome', () => {
 });
 
 describe('resolveVariantName', () => {
-  test('defaults to shipped when unset', () => {
-    expect(resolveVariantName({})).toBe('shipped');
+  test('defaults to shipped-v2 when unset', () => {
+    expect(resolveVariantName({})).toBe('shipped-v2');
   });
 
   test('honours a MEMENTO_VARIANT override', () => {

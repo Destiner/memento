@@ -10,11 +10,11 @@
 //
 // baseline-0 (the harness 0-line, §10) is `plain`: neutral descriptions, no
 // instructions, no nudges. Each single-knob variant flips exactly one dimension
-// from that floor. `shipped` is the real-world default — today's trigger-list
-// descriptions (commit 8db547f) — which is itself the descriptions knob's strong
-// arm, deliberately *not* baseline-0. There is intentionally no variant named
-// `baseline`: it would collide with baseline-0 and let a misconfigured rep pass
-// silently.
+// from that floor. `shipped` is the pre-experiment behavior (trigger-list
+// descriptions, commit 8db547f) kept verbatim as the descriptions arm;
+// `shipped-v2` is the real-world default. There is intentionally no variant
+// named `baseline`: it would collide with baseline-0 and let a misconfigured
+// rep pass silently.
 
 import { plainDescriptions, triggerListDescriptions, type DescriptionSet } from './descriptions.js';
 import { USAGE_PROTOCOL } from './instructions.js';
@@ -31,8 +31,13 @@ export interface VariantConfig {
   nudges: NudgeSet;
 }
 
-// Default for normal (non-harness) operation: the shipped trigger-list behavior.
-export const DEFAULT_VARIANT = 'shipped';
+// Default for normal (non-harness) operation. `shipped-v2` combines the auto
+// knobs that individually cleared screening (Phase 1, 2026-07): trigger-list
+// descriptions (+0.22 read), the instructions field (+0.33 read / 1.00 write,
+// zero false positives), and result nudges (no measured cost; instructions
+// resolve their needs-first-call bootstrap problem). The combination itself is
+// validated in vivo and by the queued combo screening arm.
+export const DEFAULT_VARIANT = 'shipped-v2';
 
 const VARIANTS: Record<string, VariantConfig> = {
   // baseline-0: neutral floor every knob is measured against.
@@ -41,11 +46,22 @@ const VARIANTS: Record<string, VariantConfig> = {
     descriptions: plainDescriptions,
     nudges: {},
   },
-  // Real-world default; = descriptions knob ON, everything else at the floor.
+  // Pre-experiment shipped behavior; = descriptions knob ON, everything else at
+  // the floor. Kept verbatim: harness configs pin it as the descriptions arm.
   shipped: {
     name: 'shipped',
     descriptions: triggerListDescriptions,
     nudges: {},
+  },
+  // Real-world default: every screening-cleared auto knob ON (see DEFAULT_VARIANT).
+  'shipped-v2': {
+    name: 'shipped-v2',
+    descriptions: triggerListDescriptions,
+    instructions: USAGE_PROTOCOL,
+    nudges: {
+      emptySearch: EMPTY_SEARCH_NUDGE,
+      createSuccess: CREATE_SUCCESS_NUDGE,
+    },
   },
   // Instructions knob ON (plain descriptions + usage-protocol instructions).
   'server-instructions': {
