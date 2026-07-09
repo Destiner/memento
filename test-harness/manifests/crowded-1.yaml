@@ -1,0 +1,13 @@
+# Crowded-env spot check (§3.3, §7.3): does the ship candidate survive
+# deferred-tool discoverability pressure? server-instructions vs baseline-0 on
+# the read side, with the fixed stub-server fleet registered alongside memento.
+# baseline-0 reruns here because tok×/FP baselines are env-specific. First real
+# exercise of the crowded harness arm ahead of Phase 2.
+name: crowded-1
+model: claude-opus-4-8
+env: crowded
+reps: 3
+concurrency: 2
+max_spend_usd: 25
+configs: [baseline-0, server-instructions]
+scenarios: [read/*, no-read/*]
