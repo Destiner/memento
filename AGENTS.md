@@ -14,9 +14,9 @@ Local, file-owned memory layer for coding agents, exposed as an MCP server.
 
 ## Stack
 
-- Language: TypeScript (ESM, `NodeNext`), runtime Node >=20, managed with Bun
+- Language: TypeScript (ESM, `NodeNext`), runtime Node >=22.5, managed with Bun
 - Protocol: MCP via `@modelcontextprotocol/sdk`
-- Store: markdown files (YAML front matter) + SQLite FTS5 search index
+- Store: markdown files (YAML front matter) + SQLite FTS5 search index via `node:sqlite`, which is what pins the Node floor to 22.5
 - Test runner: Vitest
 
 ## Structure
