@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'vitest';
 
@@ -238,7 +238,30 @@ describe('createSandbox', () => {
       scenario: RETRIEVE_SCENARIO,
     });
     expect(existsSync(sandbox.root)).toBe(true);
+    expect(existsSync(sandbox.repoDir)).toBe(true);
     sandbox.cleanup();
     expect(existsSync(sandbox.root)).toBe(false);
+    expect(existsSync(sandbox.repoDir)).toBe(false);
+  });
+
+  test('private state is not reachable by exploring up from the session cwd', () => {
+    // Regression (codex-screening-1): with memento-home/ a sibling of repo/, one
+    // `ls ..` handed the agent the seeded corpus as plain files — utility "passed"
+    // with zero MCP calls. The workspace must sit in its own temp root.
+    const sandbox = createSandbox({
+      harnessRoot,
+      repoRoot: '/repo',
+      env: 'clean',
+      config: BASELINE_0,
+      scenario: RETRIEVE_SCENARIO,
+    });
+    try {
+      const workParent = dirname(sandbox.repoDir);
+      expect(readdirSync(workParent)).toEqual(['repo']);
+      expect(sandbox.mementoHome.startsWith(workParent)).toBe(false);
+      expect(sandbox.ccConfigDir.startsWith(workParent)).toBe(false);
+    } finally {
+      sandbox.cleanup();
+    }
   });
 });

@@ -4,11 +4,12 @@
 // module materializes that tree and returns its paths; spawning `claude -p` in it
 // and tearing it down is the orchestrator's job (§7.2 steps 3–5).
 //
-// Layout under a fresh temp root:
-//   memento-home/memories/  seeded corpus (distractors + the planted fact)
-//   repo/                   fixture copy (+ optional overlay), git-initialised
-//   cc-config/settings.json isolated Claude Code config home (CLAUDE_CONFIG_DIR)
-//   mcp.json                the --mcp-config server list (--strict-mcp-config)
+// Layout across TWO fresh temp roots (the agent's `..` must expose nothing):
+//   private root:  memento-home/memories/  seeded corpus (distractors + fact)
+//                  cc-config/              isolated config home
+//                  mcp.json / config.toml  MCP registration (per adapter)
+//   work root:     repo/                   fixture copy (+ overlay), git repo —
+//                                          the ONLY tree the session cwd can see
 
 import { execFileSync } from 'node:child_process';
 import {
@@ -61,13 +62,21 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
   const { harnessRoot, repoRoot, config, scenario } = spec;
   const adapter = spec.adapter ?? makeAdapter('claude-code');
   const root = mkdtempSync(join(tmpdir(), 'memento-rep-'));
-  const cleanup = () => rmSync(root, { recursive: true, force: true });
+  // The agent's workspace lives in its OWN temp root: `..` from the session cwd
+  // must expose nothing. With repo/ as a sibling of memento-home/, one `ls ..`
+  // hands the agent the whole seeded corpus as plain files — codex-screening-1
+  // "passed" utility this way with zero MCP calls (§7.2 hermetic isolation).
+  const workRoot = mkdtempSync(join(tmpdir(), 'memento-work-'));
+  const cleanup = () => {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(workRoot, { recursive: true, force: true });
+  };
 
   try {
     const mementoHome = join(root, 'memento-home');
     seedCorpus(harnessRoot, scenario, join(mementoHome, 'memories'));
 
-    const repoDir = join(root, 'repo');
+    const repoDir = join(workRoot, 'repo');
     copyFixture(harnessRoot, scenario, repoDir);
     const baselineRef = gitInit(repoDir);
 
