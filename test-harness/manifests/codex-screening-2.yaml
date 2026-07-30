@@ -1,0 +1,15 @@
+# Codex screening, write side (§9): the portable knobs on capture — Claude's
+# strongest side (claude-md-trigger and server-instructions both hit 1.00
+# there). If codex nulls here too, the ecosystem conclusion is complete: the
+# text knobs move Claude, not gpt-5.6-sol. Runs on the bundled-server sandbox
+# (no breadcrumbs to the harness repo); corpus_file_access is recorded per rep.
+# Codex reports no dollar cost: the cap is a rep-count cap (72 × $2 = $144).
+name: codex-screening-2
+harness: codex
+model: gpt-5.6-sol
+env: clean
+reps: 3
+concurrency: 2
+max_spend_usd: 160
+configs: [baseline-0, server-instructions, claude-md-trigger, shipped-v2]
+scenarios: [write/*, no-write/*]
