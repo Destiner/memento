@@ -99,6 +99,12 @@ const codexAdapter: HarnessAdapter = {
     writeFileSync(path, mcpConfigToToml(mcp));
     return path;
   },
+  // Approvals/sandbox fully bypassed, matching the claude-code arm's
+  // bypassPermissions (§3.2 measures propensity, not permission friction). This
+  // is load-bearing for MCP: as of codex-cli 0.145, non-interactive `codex exec`
+  // auto-cancels every MCP tool call ("user cancelled MCP tool call") under ANY
+  // approval_policy — the first 240 codex reps recorded zero memento calls
+  // because every attempt was silently refused, not because the model declined.
   buildInvocation: (input) => ({
     command: 'codex',
     args: [
@@ -106,8 +112,7 @@ const codexAdapter: HarnessAdapter = {
       '--json',
       '-m',
       input.model,
-      '-s',
-      'workspace-write',
+      '--dangerously-bypass-approvals-and-sandbox',
       '--skip-git-repo-check',
       input.task,
     ],

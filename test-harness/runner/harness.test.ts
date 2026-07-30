@@ -27,8 +27,7 @@ describe('codex adapter', () => {
       '--json',
       '-m',
       'gpt-5.6-sol',
-      '-s',
-      'workspace-write',
+      '--dangerously-bypass-approvals-and-sandbox',
       '--skip-git-repo-check',
       'Fix the bug.',
     ]);
