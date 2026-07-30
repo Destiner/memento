@@ -6,13 +6,13 @@ import { generateMcpConfig } from './mcp.js';
 describe('generateMcpConfig', () => {
   test('registers memento with its home and variant in the clean env', () => {
     const config = generateMcpConfig({
-      memento: { repoRoot: '/repo', mementoHome: '/tmp/home', variant: 'plain' },
+      memento: { serverEntry: '/srv/server.js', mementoHome: '/tmp/home', variant: 'plain' },
       env: 'clean',
     });
     expect(Object.keys(config.mcpServers)).toEqual(['memento']);
     const memento = config.mcpServers.memento;
     expect(memento?.command).toBe('node');
-    expect(memento?.args).toEqual(['/repo/dist/main.js']);
+    expect(memento?.args).toEqual(['/srv/server.js']);
     expect(memento?.env).toEqual({ MEMENTO_HOME: '/tmp/home', MEMENTO_VARIANT: 'plain' });
   });
 
@@ -23,7 +23,7 @@ describe('generateMcpConfig', () => {
 
   test('adds the fixed stub servers alongside memento in the crowded env', () => {
     const config = generateMcpConfig({
-      memento: { repoRoot: '/repo', mementoHome: '/tmp/home', variant: 'plain' },
+      memento: { serverEntry: '/srv/server.js', mementoHome: '/tmp/home', variant: 'plain' },
       env: 'crowded',
       stubs: { stubsDir: '/harness/stubs' },
     });
@@ -50,7 +50,7 @@ describe('generateMcpConfig', () => {
   test('throws when the crowded env is requested without a stubs dir', () => {
     expect(() =>
       generateMcpConfig({
-        memento: { repoRoot: '/repo', mementoHome: '/tmp/home', variant: 'plain' },
+        memento: { serverEntry: '/srv/server.js', mementoHome: '/tmp/home', variant: 'plain' },
         env: 'crowded',
       }),
     ).toThrow(/requires stubs\.stubsDir/);

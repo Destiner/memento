@@ -21,6 +21,7 @@ export type RepStatus = 'ok' | 'invalid' | 'halted';
 // nullable so an unscored (or invalid) rep is still a well-formed record.
 export interface RawFacts {
   memento_calls: unknown[] | null;
+  corpus_file_access?: boolean;
   utility_pass: boolean | null;
   task_success: boolean | null;
   capture: unknown | null;
@@ -33,6 +34,11 @@ export interface RawFacts {
 
 export interface SessionFacts {
   cost_usd: number | null;
+  // Transcript contains the private memento-home path: the agent reached the
+  // corpus as files rather than through MCP (a real access path for a
+  // file-first store, but a distinct channel; codex transcripts carry command
+  // output, claude-code result-only transcripts mostly can't show it).
+  corpus_file_access?: boolean;
   duration_s: number | null;
   turns: number | null;
   tokens_in: number | null;
@@ -126,6 +132,7 @@ export function buildRecord(opts: BuildRecordOptions): ResultRecord {
       tokens_in: opts.session.tokens_in,
       tokens_out: opts.session.tokens_out,
       cost_usd: opts.session.cost_usd,
+      corpus_file_access: opts.session.corpus_file_access,
       duration_s: opts.session.duration_s,
       turns: opts.session.turns,
     },

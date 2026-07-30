@@ -7,7 +7,7 @@
 // the run loudly, not fabricate a behavioral result.
 
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -25,22 +25,21 @@ const INITIALIZE_REQUEST =
     },
   }) + '\n';
 
-/** Rebuild dist/ when missing or older than any file under src/. */
-export function ensureMementoBuilt(repoRoot: string): void {
-  const entry = join(repoRoot, 'dist', 'main.js');
-  if (!existsSync(entry) || statSync(entry).mtimeMs < newestMtime(join(repoRoot, 'src'))) {
-    execFileSync('bun', ['run', 'build'], { cwd: repoRoot, stdio: 'ignore' });
-  }
-}
-
-function newestMtime(dir: string): number {
-  let newest = 0;
-  for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
-    if (entry.isFile()) {
-      newest = Math.max(newest, statSync(join(entry.parentPath, entry.name)).mtimeMs);
-    }
-  }
-  return newest;
+/**
+ * Bundle the memento server into a single self-contained file in a neutral temp
+ * dir and return its path. Reps launch THIS file, not the dev checkout's dist/:
+ * the server path in the rep's MCP config is a breadcrumb an exploring agent
+ * will follow, and dist/main.js led codex sessions straight to the harness repo
+ * — scenario definitions, answer regexes, corpus sources (§7.2 isolation).
+ */
+export function bundleMementoServer(repoRoot: string): string {
+  const out = join(mkdtempSync(join(tmpdir(), 'mcp-server-')), 'server.js');
+  execFileSync(
+    'bun',
+    ['build', join(repoRoot, 'src', 'main.ts'), '--target=node', `--outfile=${out}`],
+    { cwd: repoRoot, stdio: 'ignore' },
+  );
+  return out;
 }
 
 /**
@@ -94,16 +93,21 @@ export function probeMcpServer(spec: McpServerSpec, timeoutMs = 10_000): Promise
   });
 }
 
-/** Build memento and prove the handshake for each variant the run uses. */
-export async function preflightMemento(repoRoot: string, variants: string[]): Promise<void> {
-  if (variants.length === 0) return;
-  ensureMementoBuilt(repoRoot);
+/**
+ * Bundle memento and prove the handshake for each variant the run uses, probing
+ * the same bundle the reps will launch. Returns the bundle path ('' when the run
+ * registers no memento at all).
+ */
+export async function preflightMemento(repoRoot: string, variants: string[]): Promise<string> {
+  if (variants.length === 0) return '';
+  const serverEntry = bundleMementoServer(repoRoot);
   for (const variant of [...new Set(variants)]) {
     const home = mkdtempSync(join(tmpdir(), 'memento-preflight-'));
     try {
-      await probeMcpServer(mementoServer({ repoRoot, mementoHome: home, variant }));
+      await probeMcpServer(mementoServer({ serverEntry, mementoHome: home, variant }));
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
   }
+  return serverEntry;
 }

@@ -157,7 +157,7 @@ export async function executeCells(
 export interface RunContext {
   run: string;
   harnessRoot: string;
-  repoRoot: string;
+  serverEntry: string; // bundled memento server (preflight.ts); '' if unused
   model: string;
   env: 'clean' | 'crowded';
   timeoutS: number;
@@ -200,7 +200,7 @@ export function makeRunCell(ctx: RunContext): RunCell {
   return async (cell) => {
     const sandbox = createSandbox({
       harnessRoot: ctx.harnessRoot,
-      repoRoot: ctx.repoRoot,
+      serverEntry: ctx.serverEntry,
       config: cell.config,
       scenario: cell.scenario,
       env: ctx.env,
@@ -256,6 +256,10 @@ export function makeRunCell(ctx: RunContext): RunCell {
         status,
         session: {
           cost_usd: session.costUsd,
+          // Lower-bound signal for the file-access channel: codex transcripts
+          // carry command output; claude-code result-only transcripts mostly don't.
+          corpus_file_access:
+            run.stdout.includes(sandbox.mementoHome) || run.stdout.includes('memento-home'),
           duration_s: session.durationS ?? run.durationS,
           turns: session.turns,
           tokens_in: session.tokensIn,

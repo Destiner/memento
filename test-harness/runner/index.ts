@@ -49,7 +49,7 @@ async function main(argv: string[]): Promise<void> {
   const variants = plan.configs
     .map((config) => config.memento_variant)
     .filter((variant): variant is string => variant !== null);
-  await preflightMemento(REPO_ROOT, variants);
+  const serverEntry = await preflightMemento(REPO_ROOT, variants);
   if (variants.length > 0)
     console.error(`Preflight ok: memento handshake for [${[...new Set(variants)].join(', ')}].`);
 
@@ -69,7 +69,7 @@ async function main(argv: string[]): Promise<void> {
   const ctx: RunContext = {
     run: manifest.name,
     harnessRoot: HARNESS_ROOT,
-    repoRoot: REPO_ROOT,
+    serverEntry,
     model: manifest.model,
     env: manifest.env,
     timeoutS: manifest.timeout_s,

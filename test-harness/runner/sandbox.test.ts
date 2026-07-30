@@ -86,7 +86,7 @@ afterAll(() => rmSync(harnessRoot, { recursive: true, force: true }));
 function open(spec: { config: Config; scenario: Scenario; env?: 'clean' | 'crowded' }): Sandbox {
   const sandbox = createSandbox({
     harnessRoot,
-    repoRoot: '/repo',
+    serverEntry: '/srv/server.js',
     env: spec.env ?? 'clean',
     config: spec.config,
     scenario: spec.scenario,
@@ -232,7 +232,7 @@ describe('createSandbox', () => {
   test('cleanup removes the whole sandbox tree', () => {
     const sandbox = createSandbox({
       harnessRoot,
-      repoRoot: '/repo',
+      serverEntry: '/srv/server.js',
       env: 'clean',
       config: BASELINE_0,
       scenario: RETRIEVE_SCENARIO,
@@ -250,7 +250,7 @@ describe('createSandbox', () => {
     // with zero MCP calls. The workspace must sit in its own temp root.
     const sandbox = createSandbox({
       harnessRoot,
-      repoRoot: '/repo',
+      serverEntry: '/srv/server.js',
       env: 'clean',
       config: BASELINE_0,
       scenario: RETRIEVE_SCENARIO,

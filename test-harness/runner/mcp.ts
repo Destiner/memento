@@ -29,7 +29,7 @@ export interface McpConfig {
 }
 
 export interface MementoOptions {
-  repoRoot: string; // Memento checkout the server is launched from
+  serverEntry: string; // bundled server file — no path back to the dev checkout (§7.2)
   mementoHome: string; // seeded MEMENTO_HOME for this rep
   variant: string; // MEMENTO_VARIANT (the config's knob bundle)
 }
@@ -38,11 +38,11 @@ export interface StubOptions {
   stubsDir: string; // test-harness/stubs — where server.ts lives
 }
 
-/** The memento MCP server descriptor: `node <repo>/dist/main.js` over stdio. */
+/** The memento MCP server descriptor: `node <bundle>.js` over stdio. */
 export function mementoServer(opts: MementoOptions): McpServerSpec {
   return {
     command: 'node',
-    args: [join(opts.repoRoot, 'dist', 'main.js')],
+    args: [opts.serverEntry],
     env: { MEMENTO_HOME: opts.mementoHome, MEMENTO_VARIANT: opts.variant },
   };
 }

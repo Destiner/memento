@@ -34,7 +34,7 @@ import { generateSettings } from './settings.js';
 
 export interface SandboxSpec {
   harnessRoot: string; // resolves the scenario's fixture/corpus/seeded_memory
-  repoRoot: string; // Memento checkout the MCP server is launched from
+  serverEntry: string; // bundled memento server file (preflight.ts)
   config: Config;
   scenario: Scenario;
   env: 'clean' | 'crowded';
@@ -59,7 +59,7 @@ const GIT_ENV = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYS
 const GIT_IDENTITY = ['-c', 'user.name=harness', '-c', 'user.email=harness@memento.test'];
 
 export function createSandbox(spec: SandboxSpec): Sandbox {
-  const { harnessRoot, repoRoot, config, scenario } = spec;
+  const { harnessRoot, serverEntry, config, scenario } = spec;
   const adapter = spec.adapter ?? makeAdapter('claude-code');
   const root = mkdtempSync(join(tmpdir(), 'memento-rep-'));
   // The agent's workspace lives in its OWN temp root: `..` from the session cwd
@@ -90,7 +90,7 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
         memento:
           config.memento_variant === null
             ? null
-            : { repoRoot, mementoHome, variant: config.memento_variant },
+            : { serverEntry, mementoHome, variant: config.memento_variant },
         env: spec.env,
         stubs: { stubsDir: join(harnessRoot, 'stubs') },
       }),
