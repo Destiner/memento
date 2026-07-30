@@ -86,6 +86,32 @@ describe('planRun', () => {
     expect(plan.cells).toHaveLength(plan.configs.length * plan.scenarios.length * manifest.reps);
   });
 
+  test('rejects non-portable configs at plan time under a non-claude-code harness', () => {
+    // sessionstart-index installs hooks + a settings fragment; codex has neither
+    // mechanism (§3.2 portability), so the run must die before any paid session.
+    const manifest = manifestSchema.parse({
+      name: 'plan-test',
+      harness: 'codex',
+      reps: 1,
+      max_spend_usd: 5,
+      configs: ['baseline-0', 'sessionstart-index'],
+      scenarios: ['read/email-provider'],
+    });
+    expect(() => planRun(HARNESS_ROOT, manifest)).toThrow(/does not support/);
+  });
+
+  test('portable configs plan fine under codex', () => {
+    const manifest = manifestSchema.parse({
+      name: 'plan-test',
+      harness: 'codex',
+      reps: 1,
+      max_spend_usd: 5,
+      configs: ['baseline-0', 'server-instructions', 'claude-md-trigger'],
+      scenarios: ['read/email-provider'],
+    });
+    expect(planRun(HARNESS_ROOT, manifest).cells).toHaveLength(3);
+  });
+
   test('enumerates config × scenario × rep cells', () => {
     const manifest = manifestSchema.parse({
       name: 'plan-test',

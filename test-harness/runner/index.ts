@@ -7,11 +7,11 @@
 // lifecycle (§7.2) under the spend cap and flake policy (§7.4), appending one
 // scored results record per rep to results/results.jsonl (§8.2, §11.4).
 
-import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { makeAdapter } from './harness.js';
 import { loadManifest } from './manifest.js';
 import { planRun } from './plan.js';
 import { preflightMemento } from './preflight.js';
@@ -65,6 +65,7 @@ async function main(argv: string[]): Promise<void> {
     ]),
   );
 
+  const adapter = makeAdapter(manifest.harness);
   const ctx: RunContext = {
     run: manifest.name,
     harnessRoot: HARNESS_ROOT,
@@ -72,7 +73,8 @@ async function main(argv: string[]): Promise<void> {
     model: manifest.model,
     env: manifest.env,
     timeoutS: manifest.timeout_s,
-    ccVersion: detectClaudeVersion(),
+    adapter,
+    ccVersion: adapter.detectVersion(),
     mementoVersion: readMementoVersion(),
     configHashes,
     transcriptsDir,
@@ -103,12 +105,6 @@ async function main(argv: string[]): Promise<void> {
       `${summary.halted ? ` (halted at spend cap; ${summary.skipped} cells skipped)` : ''}. ` +
       `Records → ${resultsLog}`,
   );
-}
-
-// Claude Code version recorded in every rep (§8.2); baselines rerun on change (§10).
-function detectClaudeVersion(): string {
-  const raw = execFileSync('claude', ['--version'], { encoding: 'utf8' }).trim();
-  return /\d+\.\d+\.\d+/.exec(raw)?.[0] ?? raw;
 }
 
 function readMementoVersion(): string {

@@ -105,6 +105,18 @@ export function resolveScenarios(harnessRoot: string, globs: string[]): Scenario
  */
 export function planRun(harnessRoot: string, manifest: Manifest): RunPlan {
   const configs = resolveConfigs(harnessRoot, manifest.configs);
+  // Portability gate (§3.2): non-claude-code harnesses have no hooks, skills, or
+  // settings fragments. Fail at plan time, before any paid session.
+  if (manifest.harness !== 'claude-code') {
+    for (const config of configs) {
+      if (config.install?.hooks?.length || config.install?.skill || config.install?.settings) {
+        throw new Error(
+          `Config "${config.name}" installs hooks/skill/settings, which "${manifest.harness}" ` +
+            'does not support — drop it from this manifest or run it under claude-code.',
+        );
+      }
+    }
+  }
   const scenarios = resolveScenarios(harnessRoot, manifest.scenarios);
   const cells: Cell[] = [];
   for (const config of configs) {

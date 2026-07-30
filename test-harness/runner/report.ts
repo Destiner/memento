@@ -106,6 +106,7 @@ export interface VersionConflict {
 }
 
 export interface GroupReport {
+  harness: string; // 'claude-code' for pre-codex records (field absent)
   model: string;
   cc_version: string;
   env: string;
@@ -218,7 +219,7 @@ export function aggregate(
 ): GroupReport[] {
   const groups = new Map<string, ResultRecord[]>();
   for (const rec of records) {
-    const key = [rec.model, rec.cc_version, rec.env].join(GROUP_SEP);
+    const key = [rec.harness ?? 'claude-code', rec.model, rec.cc_version, rec.env].join(GROUP_SEP);
     let bucket = groups.get(key);
     if (!bucket) groups.set(key, (bucket = []));
     bucket.push(rec);
@@ -227,6 +228,7 @@ export function aggregate(
   const reports = [...groups.values()].map((group) => buildGroup(group, classMap, options));
   reports.sort(
     (a, b) =>
+      a.harness.localeCompare(b.harness) ||
       a.model.localeCompare(b.model) ||
       a.cc_version.localeCompare(b.cc_version) ||
       a.env.localeCompare(b.env),
@@ -272,6 +274,7 @@ function buildGroup(
     );
 
   return {
+    harness: first.harness ?? 'claude-code',
     model: first.model,
     cc_version: first.cc_version,
     env: first.env,
@@ -542,7 +545,7 @@ function renderGroup(group: GroupReport, options: ScoreOptions, render: RenderOp
   const dim = group.configs.map((c) => c.guardrails.disqualified);
   const lines: string[] = [];
   lines.push(
-    `═══ model ${group.model} · cc ${group.cc_version} · env ${group.env} ` +
+    `═══ ${group.harness} · model ${group.model} · v${group.cc_version} · env ${group.env} ` +
       `(${group.configs.length} config${group.configs.length === 1 ? '' : 's'}) ═══`,
   );
   lines.push('');

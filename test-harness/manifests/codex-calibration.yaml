@@ -1,0 +1,14 @@
+# Phase 0 under Codex (§9): baseline-no-memento across all scenarios, N=2 —
+# fresh calibration because the model family changed (unguessability and the
+# task-success floor are model-dependent). Codex reports no dollar cost, so
+# every rep charges the $2 fallback: the cap below is a rep-count cap
+# (24 reps × $2 = $48, with headroom for retries).
+name: codex-calibration
+harness: codex
+model: gpt-5.6-sol
+env: clean
+reps: 2
+concurrency: 2
+max_spend_usd: 60
+configs: [baseline-no-memento]
+scenarios: [read/*, no-read/*, write/*, no-write/*]

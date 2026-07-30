@@ -14,6 +14,8 @@ import { basename } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
+import { HARNESSES } from './harness.js';
+
 // Controlled dimension, not a knob (§3.3): clean = Memento is the only MCP
 // server; crowded = Memento plus fixed stub servers for discoverability pressure.
 export const ENVIRONMENTS = ['clean', 'crowded'] as const;
@@ -32,6 +34,9 @@ const positiveInt = z.number().int().positive();
 export const manifestSchema = z
   .object({
     name: slug,
+    // Which coding agent runs the reps (harness.ts adapter). Defaulted so every
+    // pre-codex manifest keeps meaning claude-code.
+    harness: z.enum(HARNESSES).default('claude-code'),
     model: nonEmpty.default(DEFAULT_MODEL),
     env: z.enum(ENVIRONMENTS).default('clean'),
     reps: positiveInt,

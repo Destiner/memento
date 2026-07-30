@@ -154,6 +154,10 @@ export function runSession(
   return new Promise((resolve) => {
     const started = now();
     const child = spawnFn(inv.command, inv.args, { cwd: inv.cwd, env: inv.env });
+    // Close stdin immediately: `codex exec` treats piped stdin as extra prompt
+    // input and blocks until EOF ("Reading additional input from stdin...");
+    // `claude -p` ignores stdin when the prompt is an argument. Harmless for both.
+    child.stdin?.end();
     let stdout = '';
     let stderr = '';
     let timedOut = false;

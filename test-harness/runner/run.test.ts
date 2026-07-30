@@ -52,6 +52,7 @@ function outcome(cell: Cell, status: RepStatus, costUsd: number): RepOutcome {
     scored: UNSCORED,
     transcriptPath: 't',
     diffPath: null,
+    harness: 'claude-code',
   });
   return { status, costUsd, record };
 }

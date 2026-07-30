@@ -79,6 +79,11 @@ export interface ResultRecord {
   // the sandbox is gone — screening-2's false negatives were unprovable without it.
   // Optional so records written before this field existed still parse.
   diff_path?: string | null;
+  // Which coding agent ran the rep. Optional for pre-codex records, which are all
+  // claude-code; readers treat absence as 'claude-code'. For non-claude-code
+  // records, cc_version carries that harness's version (name kept for
+  // compatibility with the pre-codex log).
+  harness?: string;
 }
 
 export interface BuildRecordOptions {
@@ -95,6 +100,7 @@ export interface BuildRecordOptions {
   scored: ScoredFacts;
   transcriptPath: string;
   diffPath: string | null;
+  harness: string;
 }
 
 export function buildRecord(opts: BuildRecordOptions): ResultRecord {
@@ -125,6 +131,7 @@ export function buildRecord(opts: BuildRecordOptions): ResultRecord {
     },
     transcript_path: opts.transcriptPath,
     diff_path: opts.diffPath,
+    harness: opts.harness,
   };
 }
 

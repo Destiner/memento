@@ -25,12 +25,8 @@ import {
 import { loggedVariant, type MementoCall } from './event-log.js';
 import { createSandbox } from './sandbox.js';
 import { scoreRep } from './score.js';
-import {
-  buildClaudeInvocation,
-  parseSessionResult,
-  runSession,
-  type SessionResult,
-} from './session.js';
+import { type HarnessAdapter } from './harness.js';
+import { runSession, type SessionResult } from './session.js';
 import { sessionDiff } from './utility.js';
 
 // Timeout for a scenario's task_success oracle (§5.3). Separate from the per-rep
@@ -165,7 +161,8 @@ export interface RunContext {
   model: string;
   env: 'clean' | 'crowded';
   timeoutS: number;
-  ccVersion: string;
+  adapter: HarnessAdapter; // invocation/parse/config-home seam (harness.ts)
+  ccVersion: string; // adapter's version (name kept from the pre-codex log)
   mementoVersion: string;
   configHashes: Map<string, string>; // config name → config_hash
   transcriptsDir: string; // absolute; per-run transcript directory
@@ -194,6 +191,7 @@ export function makeHaltedRecord(ctx: RunContext): (cell: Cell) => ResultRecord 
       scored: UNSCORED,
       transcriptPath: '',
       diffPath: null,
+      harness: ctx.adapter.name,
     });
 }
 
@@ -206,11 +204,12 @@ export function makeRunCell(ctx: RunContext): RunCell {
       config: cell.config,
       scenario: cell.scenario,
       env: ctx.env,
+      adapter: ctx.adapter,
     });
     try {
-      const invocation = buildClaudeInvocation({
+      const invocation = ctx.adapter.buildInvocation({
         repoDir: sandbox.repoDir,
-        ccConfigDir: sandbox.ccConfigDir,
+        configHome: sandbox.ccConfigDir,
         mcpConfigPath: sandbox.mcpConfigPath,
         task: cell.scenario.task,
         model: ctx.model,
@@ -218,11 +217,13 @@ export function makeRunCell(ctx: RunContext): RunCell {
       const run = await runSession(invocation, ctx.timeoutS, Date.now, (msg) =>
         console.error(`[${cell.config.name} × ${cell.scenario.id} rep ${cell.rep}] ${msg}`),
       );
-      const session = parseSessionResult(run.stdout);
+      const session = ctx.adapter.parseResult(run.stdout);
       // Invalid = timed out or crashed (§7.4), not a task the agent merely failed.
       const invalid = run.timedOut || run.exitCode !== 0 || !session.parsed || session.isError;
       const status: RepStatus = invalid ? 'invalid' : 'ok';
-      if (costFieldMissing(session)) {
+      // Cost-drift warning only where cost is expected at all: codex never
+      // reports one, so its reps charge the fallback silently by design (§7.4).
+      if (ctx.adapter.costReported && costFieldMissing(session)) {
         console.error(
           `Cost missing for ${cell.config.name} × ${cell.scenario.id} rep ${cell.rep}: ` +
             'Claude Code reported a completed session with no total_cost_usd — the output shape ' +
@@ -263,6 +264,7 @@ export function makeRunCell(ctx: RunContext): RunCell {
         scored,
         transcriptPath,
         diffPath,
+        harness: ctx.adapter.name,
       });
       return { status, costUsd: accountedCostUsd(session, ctx.invalidRepCostUsd), record };
     } finally {

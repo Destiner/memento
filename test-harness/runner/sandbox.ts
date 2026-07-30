@@ -26,6 +26,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
 import { type Config } from './config.js';
+import { makeAdapter, type HarnessAdapter } from './harness.js';
 import { generateMcpConfig } from './mcp.js';
 import { type Scenario } from './scenario.js';
 import { generateSettings } from './settings.js';
@@ -36,6 +37,9 @@ export interface SandboxSpec {
   config: Config;
   scenario: Scenario;
   env: 'clean' | 'crowded';
+  // Defaults to claude-code; codex changes the config-home layout, the MCP
+  // registration format, and the instructions filename (harness.ts).
+  adapter?: HarnessAdapter;
 }
 
 export interface Sandbox {
@@ -55,6 +59,7 @@ const GIT_IDENTITY = ['-c', 'user.name=harness', '-c', 'user.email=harness@memen
 
 export function createSandbox(spec: SandboxSpec): Sandbox {
   const { harnessRoot, repoRoot, config, scenario } = spec;
+  const adapter = spec.adapter ?? makeAdapter('claude-code');
   const root = mkdtempSync(join(tmpdir(), 'memento-rep-'));
   const cleanup = () => rmSync(root, { recursive: true, force: true });
 
@@ -68,11 +73,10 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
 
     const ccConfigDir = join(root, 'cc-config');
     mkdirSync(ccConfigDir, { recursive: true });
-    writeConfigHome(spec, { mementoHome, repoDir, ccConfigDir });
+    writeConfigHome(spec, adapter, { mementoHome, repoDir, ccConfigDir });
 
-    const mcpConfigPath = join(root, 'mcp.json');
-    writeJson(
-      mcpConfigPath,
+    const mcpConfigPath = adapter.writeMcpRegistration(
+      { root, configHome: ccConfigDir },
       generateMcpConfig({
         memento:
           config.memento_variant === null
@@ -170,6 +174,7 @@ function gitInit(repoDir: string): string {
 // (CLAUDE.md, hook scripts, a skill dir — §3.2, §7.2 step 2).
 function writeConfigHome(
   spec: SandboxSpec,
+  adapter: HarnessAdapter,
   paths: { mementoHome: string; repoDir: string; ccConfigDir: string },
 ): void {
   const { config } = spec;
@@ -186,20 +191,29 @@ function writeConfigHome(
     '{{CONFIG_DIR}}': paths.ccConfigDir,
   };
 
-  const fragment = readSettingsFragment(configDir, config);
-  const settings = generateSettings({
-    mementoRegistered: config.memento_variant !== null,
-    fragment: fragment && (substituteTokens(fragment, tokens) as Record<string, unknown>),
-  });
-  writeJson(join(paths.ccConfigDir, 'settings.json'), settings);
+  if (adapter.supportsSettings) {
+    const fragment = readSettingsFragment(configDir, config);
+    const settings = generateSettings({
+      mementoRegistered: config.memento_variant !== null,
+      fragment: fragment && (substituteTokens(fragment, tokens) as Record<string, unknown>),
+    });
+    writeJson(join(paths.ccConfigDir, 'settings.json'), settings);
+  } else if (config.install?.settings || config.install?.hooks?.length || config.install?.skill) {
+    // plan.ts gates non-portable installs per harness; defend anyway so a bypass
+    // fails loudly instead of silently running a knob-less rep (§3.2).
+    throw new Error(
+      `config "${config.name}": settings/hooks/skill installs are not supported by ${adapter.name}.`,
+    );
+  }
 
   if (config.install?.claude_md) {
     const src = requirePath(
       join(configDir, config.install.claude_md),
       `config "${config.name}" install.claude_md`,
     );
-    // Project-level placement; global (CLAUDE_CONFIG_DIR) placement is a later knob.
-    writeFileSync(join(paths.repoDir, 'CLAUDE.md'), readFileSync(src, 'utf8'));
+    // Project-level placement, named per harness (CLAUDE.md / AGENTS.md, §3.2
+    // portability); global (config-home) placement is a later knob.
+    writeFileSync(join(paths.repoDir, adapter.instructionsFile), readFileSync(src, 'utf8'));
   }
 
   // Hook scripts land in the config home's hooks/ dir; the settings fragment wires

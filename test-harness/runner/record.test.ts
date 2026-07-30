@@ -47,6 +47,7 @@ describe('buildRecord', () => {
       scored: UNSCORED,
       transcriptPath: 'results/transcripts/screening-1/x.json',
       diffPath: 'results/transcripts/screening-1/x.diff',
+      harness: 'claude-code',
     });
     expect(record.config).toBe('baseline-0');
     expect(record.scenario).toBe('read/email-provider');
