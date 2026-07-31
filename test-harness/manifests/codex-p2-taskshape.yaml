@@ -2,13 +2,18 @@
 # rephrasings of two build-shaped read scenarios, same fixture/fact/checks. If
 # retrieval tracks task shape more than knob choice, product guidance reframes
 # around when memory is consulted, not just how it is advertised.
-# Rep-count cap: 60 reps × $2 × 1.2.
+# Calibration gate (codex-p2-taskshape-cal): email-provider passed (0/5);
+# support-contact FAILED (2/5 utility, both via corpus file access — the
+# knowledge-shaped phrasing drove filesystem hunting that found the seeded
+# corpus through CODEX_HOME's parent). Only the passing scenario runs; the
+# failed one needs a rewrite and recalibration before use (§9).
+# Rep-count cap: 30 reps × $2 × 1.2.
 name: codex-p2-taskshape
 harness: codex
 model: gpt-5.6-sol
 env: clean
 reps: 10
 concurrency: 3
-max_spend_usd: 150
+max_spend_usd: 75
 configs: [baseline-0, claude-md-trigger, shipped-v2-agents]
-scenarios: [read-kq/*]
+scenarios: [read-kq/email-provider]
