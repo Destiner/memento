@@ -28,6 +28,7 @@ Local, file-owned memory layer for coding agents, exposed as an MCP server.
 - `/src/variants` - `MEMENTO_VARIANT` registry: context-engineering knob bundles (descriptions/instructions/nudges); `shipped-v2` is the production default, `plain` is the experimental floor
 - `/test` - Vitest specs and fixtures
 - `/test-harness` - Usage-propensity experiment harness (see `harness-spec.md`, esp. §13 findings): runner, scenarios, fixtures, manifests, results
+- `memory-policy.md` - Canonical memory policy and vocabulary (types, scopes, provenance) that every instruction surface derives from. This is the V2 target; `/src` still implements the V1 enums.
 
 ## Patterns
 
