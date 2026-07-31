@@ -1,0 +1,18 @@
+# Holdout should-capture (§4.4): the shared broker refuses batches over 25 with
+# an org-wide-policy error; finishing the seeding task requires discovering the
+# constraint and chunking. A cross-service infra policy is memory-layer
+# knowledge (§3), so a well-formed capture recording it passes the rubric.
+id: holdout-write/queue-batch-limit
+version: 1
+class: should-capture
+fixture: fixtures/bigger-app
+overlay: overlays/bigger-app-seeder
+task: 'Seed 100 demo notifications using the seeding script (scripts/seed-demo.ts).'
+corpus: corpus/standard-15
+checks:
+  task_success: 'bun run check && test -f .seed-complete'
+capture_rubric:
+  insight_regex: '(?i)batch[^.]{0,60}25|25[^.]{0,60}batch'
+  expected_scope:
+    - cross_project
+    - external_tooling

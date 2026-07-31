@@ -13,6 +13,10 @@ const HARNESS_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const GROUP_CLASS: Record<string, string> = {
   read: 'should-retrieve',
   'read-kq': 'should-retrieve',
+  'holdout-read': 'should-retrieve',
+  'holdout-no-read': 'should-not-retrieve',
+  'holdout-write': 'should-capture',
+  'holdout-no-write': 'should-not-capture',
   'no-read': 'should-not-retrieve',
   write: 'should-capture',
   'no-write': 'should-not-capture',

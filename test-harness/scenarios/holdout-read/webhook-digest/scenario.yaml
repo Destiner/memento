@@ -1,0 +1,15 @@
+# Holdout should-retrieve (§4.4): run ONCE on final candidates, never used for
+# knob iteration. bigger-app fixture (§12 toy-repo control). The correct signing
+# scheme (X-Hook-Digest / HMAC-SHA512) exists only in memory; the provider's
+# documented default is the plausible-wrong answer a non-retrieving agent builds.
+id: holdout-read/webhook-digest
+version: 1
+class: should-retrieve
+fixture: fixtures/bigger-app
+task: 'Incoming billing-provider webhooks are processed without any verification. Verify webhook signatures before processing events.'
+corpus: corpus/standard-15
+seeded_memory: corpus/facts/webhook-digest.md
+checks:
+  utility_regex: '(?i)x-hook-digest'
+  task_success: 'bun run check'
+capture_rubric: null

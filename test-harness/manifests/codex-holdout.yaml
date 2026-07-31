@@ -1,0 +1,11 @@
+# Phase 3 holdout pass (§4.4): final candidates against scenarios the knob
+# wording has NEVER seen, on the larger fixture, run ONCE. Survivors ship.
+name: codex-holdout
+harness: codex
+model: gpt-5.6-sol
+env: clean
+reps: 10
+concurrency: 3
+max_spend_usd: 400
+configs: [baseline-0, shipped-v2, claude-md-trigger, shipped-v2-agents]
+scenarios: [holdout-read/*, holdout-no-read/*, holdout-write/*, holdout-no-write/*]
