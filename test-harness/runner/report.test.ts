@@ -155,14 +155,14 @@ describe('aggregate — guardrails (§5.3)', () => {
     tokens_out,
   });
 
-  test('token overhead >15% over the baseline disqualifies', () => {
+  test('token overhead >15% over the baseline on a no-* scenario disqualifies', () => {
     const records = [
       record({
         config: 'baseline-0',
-        scenario: 'read/a',
-        raw: { utility_pass: true, ...tok(1000, 0) },
+        scenario: 'no-read/a',
+        raw: { ...tok(1000, 0) },
       }),
-      record({ config: 'knob', scenario: 'read/a', raw: { utility_pass: true, ...tok(1300, 0) } }), // 1.3×
+      record({ config: 'knob', scenario: 'no-read/a', raw: { ...tok(1300, 0) } }), // 1.3×
     ];
     const group = only(aggregate(records, EMPTY_CLASSES, DEFAULT_OPTIONS));
     const knob = configNamed(group, 'knob');
@@ -189,14 +189,17 @@ describe('aggregate — guardrails (§5.3)', () => {
     expect(knob.guardrails.violated).toContain('task');
   });
 
-  test('within-allowance token bump and equal task success pass', () => {
+  test('within-allowance token bump passes; positive-class overhead is exempt (§5.3 rev)', () => {
     const records = [
       record({
         config: 'baseline-0',
-        scenario: 'read/a',
-        raw: { utility_pass: true, ...tok(1000, 0) },
+        scenario: 'no-read/a',
+        raw: { ...tok(1000, 0) },
       }),
-      record({ config: 'knob', scenario: 'read/a', raw: { utility_pass: true, ...tok(1100, 0) } }), // 1.1×
+      record({ config: 'knob', scenario: 'no-read/a', raw: { ...tok(1100, 0) } }), // 1.1× on no-read
+      // 3× on a POSITIVE class: the product doing its job, not guardrail overhead.
+      record({ config: 'knob', scenario: 'read/a', raw: { utility_pass: true, ...tok(3000, 0) } }),
+      record({ config: 'baseline-0', scenario: 'read/a', raw: { ...tok(1000, 0) } }),
     ];
     const knob = configNamed(only(aggregate(records, EMPTY_CLASSES, DEFAULT_OPTIONS)), 'knob');
     expect(knob.guardrails.tokens).toBe('ok');
@@ -344,13 +347,13 @@ describe('renderReport', () => {
   const records = [
     record({
       config: 'baseline-0',
-      scenario: 'read/a',
-      raw: { utility_pass: true, tokens_in: 1000, tokens_out: 0 },
+      scenario: 'no-read/a',
+      raw: { tokens_in: 1000, tokens_out: 0 },
     }),
     record({
       config: 'knob',
-      scenario: 'read/a',
-      raw: { utility_pass: true, tokens_in: 1400, tokens_out: 0 },
+      scenario: 'no-read/a',
+      raw: { tokens_in: 1400, tokens_out: 0 },
     }),
   ];
 

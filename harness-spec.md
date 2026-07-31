@@ -270,7 +270,11 @@ A config violating either is out regardless of scores:
 - **Task success:** `task_success_rate(config) ≥ task_success_rate(config-0) − 5pp`
   (the 5-point allowance absorbs sampling noise at small N).
 - **Token overhead:** total input+output tokens ≤ **+15%** vs config-0,
-  averaged per scenario class.
+  measured **only on the true-negative classes** (should-not-retrieve /
+  should-not-capture), where any extra spend is pure waste. (Revised
+  2026-07-31: the original all-class form counted memory work — searching,
+  reading, writing bodies — as overhead and disqualified every effective
+  knob on short sessions.)
 
 ### 5.4 Diagnostics (logged, never used for decisions)
 

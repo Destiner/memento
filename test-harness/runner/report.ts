@@ -503,6 +503,17 @@ function computeGuardrails(input: ConfigInput): Guardrails {
   };
 }
 
+// Token overhead is measured ONLY on the true-negative classes (§5.3, revised
+// 2026-07-31): on should-not-retrieve/should-not-capture scenarios any extra
+// spend is pure waste, which is what the guardrail exists to catch. On the
+// positive classes, extra tokens are the product working (searching, reading,
+// writing memory bodies) and the old all-class form disqualified every
+// effective knob on short sessions where one search dominates the ratio.
+const TOKEN_GUARDRAIL_CLASSES: readonly ScenarioClass[] = [
+  'should-not-retrieve',
+  'should-not-capture',
+];
+
 function tokenGuardrail(
   config: ResultRecord[],
   baseline: ResultRecord[],
@@ -511,7 +522,7 @@ function tokenGuardrail(
   let maxRatio: number | null = null;
   let fail = false;
   let hasData = false;
-  for (const cls of SCENARIO_CLASSES) {
+  for (const cls of TOKEN_GUARDRAIL_CLASSES) {
     const configMean = mean(numbers(config.filter((r) => classFor(r) === cls).map(tokensOf)));
     const baselineMean = mean(numbers(baseline.filter((r) => classFor(r) === cls).map(tokensOf)));
     if (configMean === null || baselineMean === null || baselineMean === 0) continue;
@@ -654,9 +665,9 @@ function legend(options: ScoreOptions): string {
   return [
     'Legend',
     `  read = utility_rate − ${options.lambdaRead}·read_fp_rate    write = good_capture_rate − ${options.lambdaWrite}·capture_fp_rate`,
-    '  util/gcap: primary rates · r.fp/w.fp: false-positive rates · task%: oracle pass · tok×: tokens vs baseline',
+    '  util/gcap: primary rates · r.fp/w.fp: false-positive rates · task%: oracle pass · tok×: tokens vs baseline on no-* scenarios',
     '  status: base = baseline · ok = within guardrails · DQ:x = disqualified (dimmed) · n/a = no baseline',
-    '  Guardrails (§5.3): task ≥ baseline−5pp, tokens ≤ +15% vs baseline (per class, over shared scenarios).',
+    '  Guardrails (§5.3): task ≥ baseline−5pp, tokens ≤ +15% vs baseline on true-negative (no-*) scenarios only.',
   ].join('\n');
 }
 
