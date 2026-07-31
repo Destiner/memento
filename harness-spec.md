@@ -1,7 +1,9 @@
 # Memento Usage-Propensity Test Harness — Specification
 
-Status: design approved, not yet implemented
-Date: 2026-07-07
+Status: implemented; Phases 0–3 complete on codex, Phase 1 + task-shape spike
+on claude-code; ship decision made (§13). Living document.
+Dates: designed 2026-07-07 · Phase 1 (claude-code) 2026-07-08/09 · codex arm +
+Phase 2/3 2026-07-30/31
 Owner: Timur
 
 This document specifies a test harness that measures how context-engineering
@@ -75,11 +77,12 @@ decision rule (§6), they need only a marginal real improvement to ship.
 | MCP server `instructions` field | empty / usage-protocol text (hoisted into system prompt by the client) | read+write |
 | Tool-result nudges | plain results / appended prompts (empty search → "consider `create_memory` after the task"; create success → reinforce search habit) | read+write |
 
-**Prerequisite product change — status:** the `MEMENTO_VARIANT` switch is
-implemented (`src/variants/`: registry + env var, with `server-instructions`
-and `result-nudges` variants). One piece remains: a **`plain` variant**
-whose descriptions strip the §11 guidance (neutral floor), because
-baseline-0 pins it (§10).
+**Prerequisite product change — status: complete.** The `MEMENTO_VARIANT`
+switch lives in `src/variants/` (registry + env var). Variants: `plain`
+(baseline-0 floor), `shipped` (pre-experiment descriptions, kept verbatim),
+`server-instructions`, `result-nudges`, and `shipped-v2` — the current
+real-world DEFAULT_VARIANT combining all screening-cleared auto knobs
+(descriptions + instructions + nudges).
 
 Note the descriptions knob is an **ablation**: the shipped text already
 embeds the trigger-list guidance (commit `8db547f`), so measured from the
@@ -181,6 +184,10 @@ Inventory:
 run exactly once against the final candidate configs before shipping
 recommendations. If a knob's win doesn't survive the holdout, it doesn't
 ship.
+
+**STATUS: the `holdout-*` groups were SPENT on 2026-07-31** (codex-holdout
+run, §13). They are now ordinary scenarios — any future ship decision needs
+freshly authored holdouts that no knob iteration has touched.
 
 ### 4.5 Scenario definition format
 
@@ -548,3 +555,106 @@ Stated so results are not mistaken for more than they are:
   cross-harness tables answer "does memento work in that ecosystem," never
   "which harness uses memory better." Knob rankings must be established
   within one (harness, model) pair.
+
+---
+
+## 13. Findings and learnings (living — updated 2026-07-31)
+
+Everything below is recomputable from `results.jsonl` (~2,100 valid reps) and
+the memories tagged `evaluation` in the operator's store. Quarantined runs
+live in `results/quarantine-*.jsonl` with reasons in the git history.
+
+### 13.1 Ship decision (§6 endpoint, closed)
+
+**Recommended install: `shipped-v2` server defaults + the trigger-list
+fragment as project instructions (CLAUDE.md / AGENTS.md).** Validated at
+N=10 on claude-code (opus-4-8) and codex (gpt-5.6-sol), formal guardrails,
+one-shot holdout on the bigger-app fixture:
+
+- Read: fragment configs 0.50 utility on an unseen scenario (all via MCP,
+  zero leakage, zero FP) — consistent with screening, not wording-overfit.
+- Write: 1.00 on screening captures, 0.20 on the holdout (see 13.3).
+- False positives: zero for every shipped knob across the entire program.
+- On codex, server-side channels alone (descriptions/instructions/nudges)
+  did not move the holdout: the fragment is the load-bearing intervention
+  there. On claude-code the instructions field carries weight on its own.
+
+Phrasing bake-off (codex, N=10): trigger-list (0.37 read / 1.00 write) >
+capability framing (0.30 / 0.90) > decision-check framing (DQ: it induced
+the only fragment false positives ever observed, 0.37 FP — "always ask" is
+spam wearing a persuasion costume).
+
+### 13.2 Task shape dominates read-side propensity (cross-ecosystem)
+
+Rephrasing the same task from build-shaped ("add email sending") to
+knowledge-shaped ("find out which provider we decided on, then implement")
+moved a bare, knob-less install from 0/10 to 9/10 usage on codex and
+0→7–10/10 on claude-code — a larger effect than any knob tested. Aggregate
+usage rates over unstratified scenario sets mostly measure the task-shape
+mix. Scenario sets MUST stratify by shape; read-side product work should
+target the model's task classification and the application step, not
+louder tool advertising.
+
+### 13.3 Capture tracks discovery drama
+
+Write-side scores were near-perfect on screening captures (incident-grade
+lessons: data corruption, deliverability outages) and fell to 0.20 on the
+holdout's routine org policy discovered via one clean error message. Zero
+FP throughout — agents are well-calibrated against junk, but under-capture
+unremarkable constraints. Capture scenario sets must span the drama
+spectrum. Open product lever: a capture nudge at the workaround moment.
+
+### 13.4 Measurement integrity rules (hard-won; read before trusting any run)
+
+Four "zero tool calls" artifacts were caught this program. The rules they
+taught:
+
+1. **Never trust a zero.** Before believing "the model chose not to", force
+   one tool call through the EXACT production path and verify in the
+   server's own event log. Aggregate metrics cannot distinguish a refused
+   call from a declined one.
+2. **Verify at the layer you measure.** The model's transcript said "Result
+   count: 0" for a call that never executed.
+3. Artifact catalog: (a) `bun` cannot run the server (`node:sqlite`) — dead
+   server reads as eternal "connecting"; (b) headless `codex exec`
+   auto-cancels ALL MCP calls under any approval_policy — requires
+   `--dangerously-bypass-approvals-and-sandbox`; (c) sandbox layout leaks —
+   the corpus, the config home, and the workspace need THREE separate temp
+   roots, because agents explore `..` and `$CODEX_HOME`; (d) the server
+   must run from a bundled file, never the dev checkout — the config path
+   is a breadcrumb agents follow to the answer key.
+4. **Knowledge-shaped prompts induce environment hunting.** gpt-5.6-sol
+   forensically audits env vars → config files → filesystem when a task
+   smells like "find the correct value". `corpus_file_access` (transcript
+   contains the memento-home path) measures the direct file-read channel —
+   philosophically legitimate for a file-first store, but a distinct
+   channel that must not pool with MCP-mediated utility.
+5. **Anti-regexes must match usage, not words** (`@sendgrid/mail`, not
+   `sendgrid`) — prose mentions of a ruled-out option failed correct
+   implementations for a full screening round.
+6. **Calibration gates work.** Every new/edited scenario runs
+   baseline-no-memento first; utility must be ≈0. This caught a guessable
+   fact, two sandbox leaks, and validated instruments before every paid
+   phase. Never skip it.
+7. **Product bug found by the harness:** `read_memory` resolved ids by
+   filename only, so search returned ids read could not open (fixed 0.2.0
+   with a front-matter fallback). All pre-0.2.0 utility-after-search rates
+   are understated; the report groups by `memento_version` so eras never
+   pool.
+
+### 13.5 Null results worth remembering
+
+- Crowded env (codex, N=10): no effect either way. The earlier claude-code
+  "crowding triggers usage" observation was a task-shape artifact at small N.
+- Bare-install propensity is ≈0 on both ecosystems for build-shaped tasks
+  (codex baseline read collapsed from 0.31 to 0.03 once snooping was
+  isolated away — pre-hardening baselines were contaminated).
+- `result-nudges` cannot bootstrap usage (they fire only after a first
+  call) but are free and compound with instruction-driven usage.
+
+### 13.6 Open items
+
+README recommended-install section; capture-nudge knob (13.3); `clientInfo`
+in the event log (reconcile in-vivo usage per client with harness rates);
+claude-code holdout pass; fresh holdout scenarios (§4.4 — spent); multi-turn
+sessions (§12, unchanged); second codex model.
