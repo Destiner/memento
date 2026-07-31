@@ -1,0 +1,12 @@
+# agents-md-capability: phrasing-iteration arm (capability framing, Timur's
+# in-vivo wording). Same channel and floor as claude-md-trigger — only the
+# fragment text differs, so the delta isolates wording.
+name: agents-md-capability
+description: Project fragment, capability framing — plain variant, both sides.
+knob: claude-md
+variant: capability
+side: both
+portability: partial
+memento_variant: plain
+install:
+  claude_md: AGENTS.md
