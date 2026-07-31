@@ -10,5 +10,12 @@ reps: 10
 concurrency: 3
 max_spend_usd: 1730
 configs:
-  [baseline-0, baseline-no-memento, server-instructions, claude-md-trigger, shipped-v2, shipped-v2-agents]
+  [
+    baseline-0,
+    baseline-no-memento,
+    server-instructions,
+    claude-md-trigger,
+    shipped-v2,
+    shipped-v2-agents,
+  ]
 scenarios: [read/*, no-read/*, write/*, no-write/*]
