@@ -109,6 +109,7 @@ export interface GroupReport {
   harness: string; // 'claude-code' for pre-codex records (field absent)
   model: string;
   cc_version: string;
+  memento_version: string; // server version — grouped so a server fix never pools with pre-fix reps
   env: string;
   configs: ConfigReport[];
   flagged_cells: FlaggedCell[];
@@ -219,7 +220,13 @@ export function aggregate(
 ): GroupReport[] {
   const groups = new Map<string, ResultRecord[]>();
   for (const rec of records) {
-    const key = [rec.harness ?? 'claude-code', rec.model, rec.cc_version, rec.env].join(GROUP_SEP);
+    const key = [
+      rec.harness ?? 'claude-code',
+      rec.model,
+      rec.cc_version,
+      rec.memento_version,
+      rec.env,
+    ].join(GROUP_SEP);
     let bucket = groups.get(key);
     if (!bucket) groups.set(key, (bucket = []));
     bucket.push(rec);
@@ -277,6 +284,7 @@ function buildGroup(
     harness: first.harness ?? 'claude-code',
     model: first.model,
     cc_version: first.cc_version,
+    memento_version: first.memento_version ?? 'unknown',
     env: first.env,
     configs,
     flagged_cells,
@@ -556,7 +564,7 @@ function renderGroup(group: GroupReport, options: ScoreOptions, render: RenderOp
   const dim = group.configs.map((c) => c.guardrails.disqualified);
   const lines: string[] = [];
   lines.push(
-    `═══ ${group.harness} · model ${group.model} · v${group.cc_version} · env ${group.env} ` +
+    `═══ ${group.harness} · model ${group.model} · v${group.cc_version} · memento ${group.memento_version} · env ${group.env} ` +
       `(${group.configs.length} config${group.configs.length === 1 ? '' : 's'}) ═══`,
   );
   lines.push('');
