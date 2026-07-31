@@ -23,11 +23,24 @@ import { MementoError } from '../errors.js';
 // filesystem layer.
 const MEMORY_ID_PATTERN = /^mem_[0-9A-Za-z]+$/;
 
+// Same reasoning for project registry ids, which also reach the filesystem as a
+// filename prefix.
+const PROJECT_ID_PATTERN = /^prj_[0-9A-Za-z]+$/;
+
 // Reject any id that is not a plain `mem_`-prefixed token before it is used to
 // match or build a path.
 export function assertSafeMemoryId(id: string): void {
   if (!MEMORY_ID_PATTERN.test(id)) {
     throw new MementoError('validation_error', `Invalid memory id: ${JSON.stringify(id)}.`, { id });
+  }
+}
+
+// Reject any id that is not a plain `prj_`-prefixed token.
+export function assertSafeProjectId(id: string): void {
+  if (!PROJECT_ID_PATTERN.test(id)) {
+    throw new MementoError('validation_error', `Invalid project id: ${JSON.stringify(id)}.`, {
+      id,
+    });
   }
 }
 

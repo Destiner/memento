@@ -14,6 +14,7 @@ const TIME_CHARS = 10;
 const RANDOM_CHARS = 16;
 
 const ID_PREFIX = 'mem_';
+const PROJECT_ID_PREFIX = 'prj_';
 const QUERY_ID_PREFIX = 'qry_';
 const EVENT_ID_PREFIX = 'evt_';
 const DEFAULT_SLUG_MAX = 60;
@@ -46,6 +47,13 @@ export function generateId(now: number = Date.now()): string {
   return ID_PREFIX + encodeTime(now) + encodeRandom();
 }
 
+// A `prj_`-prefixed ULID for a project registry record (V2 §2). Opaque and
+// immutable: a project's name, paths, and remotes all change over its life, and
+// this is the one field that does not.
+export function generateProjectId(now: number = Date.now()): string {
+  return PROJECT_ID_PREFIX + encodeTime(now) + encodeRandom();
+}
+
 // A `qry_`-prefixed ULID for correlating a search call with its log event
 // (§9.3). Same format as a memory id, different namespace so the two never mix.
 export function generateQueryId(now: number = Date.now()): string {
@@ -75,4 +83,9 @@ export function slugify(title: string, maxLength = DEFAULT_SLUG_MAX): string {
 // unique; the slug keeps the directory human-scannable.
 export function memoryFilename(id: string, title: string): string {
   return `${id}-${slugify(title)}.md`;
+}
+
+// Canonical filename for a project registry record: `<id>-<name-slug>.md`.
+export function projectFilename(id: string, name: string): string {
+  return `${id}-${slugify(name)}.md`;
 }

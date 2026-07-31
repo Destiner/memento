@@ -25,6 +25,7 @@ export interface MementoPaths {
   home: string;
   config: string;
   memories: string;
+  projects: string;
   index: string;
   logs: string;
   dashboard: string;
@@ -87,6 +88,7 @@ export function resolvePaths(home: string): MementoPaths {
     home,
     config: join(home, 'config.json'),
     memories: join(home, 'memories'),
+    projects: join(home, 'projects'),
     index: join(home, 'index'),
     logs: join(home, 'logs'),
     dashboard: join(home, 'dashboard'),
