@@ -21,11 +21,15 @@ import { MementoError } from '../errors.js';
 // length — fixtures and the spec use shorter example ids — only the alphabet, so
 // nothing outside [0-9A-Za-z] (no `/`, `\`, `.`, whitespace) can reach the
 // filesystem layer.
-const MEMORY_ID_PATTERN = /^mem_[0-9A-Za-z]+$/;
+//
+// Exported because the schema modules validate the same ids a field at a time
+// (a memory's own id, the project ids it is scoped to) and a second copy of the
+// pattern would be free to drift from the one the filesystem layer trusts.
+export const MEMORY_ID_PATTERN = /^mem_[0-9A-Za-z]+$/;
 
 // Same reasoning for project registry ids, which also reach the filesystem as a
 // filename prefix.
-const PROJECT_ID_PATTERN = /^prj_[0-9A-Za-z]+$/;
+export const PROJECT_ID_PATTERN = /^prj_[0-9A-Za-z]+$/;
 
 // Reject any id that is not a plain `mem_`-prefixed token before it is used to
 // match or build a path.
