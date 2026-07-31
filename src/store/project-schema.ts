@@ -20,10 +20,12 @@ export const projectStatusSchema = z.enum(PROJECT_STATUSES);
 
 const MAX_NAME_LENGTH = 80;
 const MAX_DESCRIPTION_LENGTH = 280;
+const MAX_REASON_LENGTH = 280;
 
 const nonEmpty = z.string().trim().min(1);
 const nameSchema = nonEmpty.max(MAX_NAME_LENGTH);
 const descriptionSchema = nonEmpty.max(MAX_DESCRIPTION_LENGTH);
+const reasonSchema = nonEmpty.max(MAX_REASON_LENGTH);
 
 // Nested rather than flat so a future identifier kind (a package name, an issue
 // tracker key) is an additive field here instead of more top-level sprawl.
@@ -65,9 +67,34 @@ export const createProjectInputShape = {
   aliases: z.array(nameSchema).optional(),
   identifiers: identifiersSchema.optional(),
   working_directories: z.array(nonEmpty).optional(),
+  // The near-duplicate gate's escape hatch, mirroring `create_memory`. It clears
+  // the *similarity* gate only: an exact name or working-directory collision stays
+  // an error, because that is a split identity rather than a judgement call.
+  force_create: z.boolean().optional(),
+  force_create_reason: reasonSchema.optional(),
 } as const;
 
-export const createProjectInputSchema = z.object(createProjectInputShape).strict();
+export const createProjectInputSchema = z
+  .object(createProjectInputShape)
+  .strict()
+  .superRefine((input, ctx) => {
+    if (input.force_create === true && input.force_create_reason === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'force_create requires force_create_reason: say why this is a distinct project ' +
+          'rather than one of the candidates.',
+        path: ['force_create_reason'],
+      });
+    }
+    if (input.force_create_reason !== undefined && input.force_create !== true) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'force_create_reason has no effect without force_create: true.',
+        path: ['force_create'],
+      });
+    }
+  });
 
 // `update_project` input. Array fields merge-append with dedupe by default;
 // `replace: true` overwrites only the arrays actually supplied. The default is
@@ -160,6 +187,15 @@ export interface ProjectSummary {
   name: string;
   description: string;
   status: ProjectStatus;
+}
+
+/**
+ * A project the near-duplicate gate is offering instead of creating, with the
+ * score that surfaced it. The number is reported so an agent can tell a
+ * restatement from a neighbour, not because it is meaningful in itself.
+ */
+export interface ProjectCandidate extends ProjectSummary {
+  similarity: number;
 }
 
 export function toProjectSummary(record: ProjectRecord): ProjectSummary {

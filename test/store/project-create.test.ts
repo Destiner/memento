@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { MementoError } from '../../src/errors.js';
+import { createdProject, gatedProject } from '../helpers/outcomes.js';
 import { parseFrontmatter } from '../../src/store/frontmatter.js';
 import { createProject } from '../../src/store/project-create.js';
 import { validateProjectFrontmatter } from '../../src/store/project-schema.js';
@@ -29,24 +30,27 @@ describe('createProject', () => {
   });
 
   test('writes a canonical registry file and returns its identity', async () => {
-    const result = await createProject(minimal, {
-      projectsDir: dir,
-      now: FIXED_NOW,
-      makeId: () => 'prj_TEST0001',
-    });
+    const result = createdProject(
+      await createProject(minimal, {
+        projectsDir: dir,
+        now: FIXED_NOW,
+        makeId: () => 'prj_TEST0001',
+      }),
+    );
 
     expect(result.id).toBe('prj_TEST0001');
-    expect(result.created).toBe(true);
     expect(result.path).toBe(join(dir, 'prj_TEST0001-memento.md'));
     expect(readdirSync(dir)).toEqual(['prj_TEST0001-memento.md']);
   });
 
   test('sets server-managed lifecycle fields and omits empty optionals', async () => {
-    const result = await createProject(minimal, {
-      projectsDir: dir,
-      now: FIXED_NOW,
-      makeId: () => 'prj_TEST0002',
-    });
+    const result = createdProject(
+      await createProject(minimal, {
+        projectsDir: dir,
+        now: FIXED_NOW,
+        makeId: () => 'prj_TEST0002',
+      }),
+    );
     const { metadata, body } = parseFrontmatter(readFileSync(result.path, 'utf8'));
 
     expect(metadata.id).toBe('prj_TEST0002');
@@ -64,9 +68,11 @@ describe('createProject', () => {
     const checkout = join(workspace, 'sandbox');
     mkdirSync(checkout);
 
-    const result = await createProject(
-      { ...minimal, working_directories: [checkout] },
-      { projectsDir: dir, now: FIXED_NOW, makeId: () => 'prj_TEST0003' },
+    const result = createdProject(
+      await createProject(
+        { ...minimal, working_directories: [checkout] },
+        { projectsDir: dir, now: FIXED_NOW, makeId: () => 'prj_TEST0003' },
+      ),
     );
 
     expect(result.record.working_directories).toEqual([
@@ -76,12 +82,11 @@ describe('createProject', () => {
   });
 
   test('canonicalizes remotes and derives repository slugs', async () => {
-    const result = await createProject(
-      {
-        ...minimal,
-        identifiers: { git_remotes: ['git@GitHub.com:Destiner/Memento.git'] },
-      },
-      { projectsDir: dir, makeId: () => 'prj_TEST0004' },
+    const result = createdProject(
+      await createProject(
+        { ...minimal, identifiers: { git_remotes: ['git@GitHub.com:Destiner/Memento.git'] } },
+        { projectsDir: dir, makeId: () => 'prj_TEST0004' },
+      ),
     );
 
     expect(result.record.identifiers).toEqual({
@@ -91,15 +96,17 @@ describe('createProject', () => {
   });
 
   test('unions explicit slugs with derived ones and deduplicates', async () => {
-    const result = await createProject(
-      {
-        ...minimal,
-        identifiers: {
-          git_remotes: ['https://github.com/destiner/memento.git'],
-          repository_slugs: ['Destiner/Memento', 'destiner/legacy-memento'],
+    const result = createdProject(
+      await createProject(
+        {
+          ...minimal,
+          identifiers: {
+            git_remotes: ['https://github.com/destiner/memento.git'],
+            repository_slugs: ['Destiner/Memento', 'destiner/legacy-memento'],
+          },
         },
-      },
-      { projectsDir: dir, makeId: () => 'prj_TEST0005' },
+        { projectsDir: dir, makeId: () => 'prj_TEST0005' },
+      ),
     );
 
     expect(result.record.identifiers?.repository_slugs).toEqual([
@@ -109,18 +116,22 @@ describe('createProject', () => {
   });
 
   test('drops an alias that merely restates the name', async () => {
-    const result = await createProject(
-      { ...minimal, aliases: ['memento', 'Local Coding-Agent Memory'] },
-      { projectsDir: dir, makeId: () => 'prj_TEST0006' },
+    const result = createdProject(
+      await createProject(
+        { ...minimal, aliases: ['memento', 'Local Coding-Agent Memory'] },
+        { projectsDir: dir, makeId: () => 'prj_TEST0006' },
+      ),
     );
 
     expect(result.record.aliases).toEqual(['Local Coding-Agent Memory']);
   });
 
   test('produces a record that re-validates against the schema', async () => {
-    const result = await createProject(
-      { ...minimal, working_directories: [workspace], aliases: ['mem'] },
-      { projectsDir: dir, makeId: () => 'prj_TEST0007' },
+    const result = createdProject(
+      await createProject(
+        { ...minimal, working_directories: [workspace], aliases: ['mem'] },
+        { projectsDir: dir, makeId: () => 'prj_TEST0007' },
+      ),
     );
     const { metadata } = parseFrontmatter(readFileSync(result.path, 'utf8'));
     expect(() => validateProjectFrontmatter(metadata)).not.toThrow();
@@ -177,7 +188,7 @@ describe('createProject', () => {
         { projectsDir: dir, makeId: () => 'prj_WEB' },
       );
 
-      expect(second.created).toBe(true);
+      expect(second.outcome).toBe('created');
       expect(readdirSync(dir)).toHaveLength(2);
     });
 
@@ -186,7 +197,90 @@ describe('createProject', () => {
       await updateProject({ id: 'prj_OLD', status: 'archived' }, { projectsDir: dir });
 
       const revived = await createProject(minimal, { projectsDir: dir, makeId: () => 'prj_NEW' });
-      expect(revived.created).toBe(true);
+      expect(revived.outcome).toBe('created');
+    });
+  });
+
+  describe('near-duplicate gate', () => {
+    const api = { name: 'API', description: 'The public REST API service.' };
+    const wider = { name: 'API Server', description: 'The public REST API service.' };
+
+    async function existingApi(): Promise<void> {
+      await createProject(api, { projectsDir: dir, makeId: () => 'prj_API' });
+    }
+
+    test('returns candidates instead of writing a near-duplicate', async () => {
+      await existingApi();
+
+      const result = gatedProject(await createProject(wider, { projectsDir: dir }));
+
+      expect(result.candidates).toEqual([
+        {
+          id: 'prj_API',
+          name: 'API',
+          description: 'The public REST API service.',
+          status: 'active',
+          similarity: 1,
+        },
+      ]);
+      expect(readdirSync(dir)).toHaveLength(1);
+    });
+
+    test('force_create with a reason proceeds', async () => {
+      await existingApi();
+
+      const result = createdProject(
+        await createProject(
+          {
+            ...wider,
+            force_create: true,
+            force_create_reason: 'Separate deployable that only shares a name prefix.',
+          },
+          { projectsDir: dir, makeId: () => 'prj_WIDER' },
+        ),
+      );
+
+      expect(result.id).toBe('prj_WIDER');
+      expect(readdirSync(dir)).toHaveLength(2);
+    });
+
+    // force_create clears the similarity gate, never the identity invariants.
+    test('force_create does not clear an exact name conflict', async () => {
+      await existingApi();
+
+      await expect(
+        createProject(
+          { ...api, force_create: true, force_create_reason: 'I insist.' },
+          { projectsDir: dir },
+        ),
+      ).rejects.toMatchObject({ code: 'invalid_request', details: { conflict: 'name' } });
+      expect(readdirSync(dir)).toHaveLength(1);
+    });
+
+    test('force_create without a reason is rejected', async () => {
+      await existingApi();
+
+      await expect(
+        createProject({ ...wider, force_create: true }, { projectsDir: dir }),
+      ).rejects.toMatchObject({ code: 'validation_error' });
+    });
+
+    test('does not offer archived projects as candidates', async () => {
+      await existingApi();
+      await updateProject({ id: 'prj_API', status: 'archived' }, { projectsDir: dir });
+
+      const result = await createProject(wider, { projectsDir: dir });
+      expect(result.outcome).toBe('created');
+    });
+
+    test('leaves an unrelated project alone', async () => {
+      await existingApi();
+
+      const result = await createProject(
+        { name: 'Dashboard', description: 'Customer-facing web dashboard.' },
+        { projectsDir: dir },
+      );
+      expect(result.outcome).toBe('created');
     });
   });
 

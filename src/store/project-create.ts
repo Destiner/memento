@@ -1,11 +1,20 @@
-// The create_project operation (V2 §2): mint a project identity and write its
+// The create_project operation (V2 §2, §5): mint a project identity and write its
 // canonical registry file.
 //
-// This is the explicit step after resolution fails. It refuses to register a
-// project whose name or checkout path already belongs to an active one (H2, H3),
-// so the "agent resolved, missed, and created a duplicate" failure mode surfaces
-// as an error naming the existing project rather than as a silently split
-// identity that memories then accumulate against on both sides.
+// This is the explicit step after resolution fails, and it guards the same
+// failure mode twice, because that mode — "the agent resolved, missed, and
+// registered a second project for one thing" — is the most expensive mistake in
+// the registry: every memory written afterwards accumulates against whichever id
+// that session happened to hold.
+//
+//   - An *exact* collision on a name, an alias, or a checkout path is an error
+//     naming the owner (H2, H3). There is no judgement to exercise: those fields
+//     are how resolution finds a project, so two projects cannot share them.
+//   - A *near* collision returns candidates and writes nothing. This one is a
+//     judgement call — `api` and `api-server` are sometimes two projects — so the
+//     agent decides, and `force_create` with a reason proceeds.
+//
+// force_create clears the second gate only. An exact conflict stays an error.
 
 import { join } from 'node:path';
 
@@ -19,13 +28,24 @@ import {
   mergeWorkingDirectories,
   orderProjectMetadata,
 } from './project-fields.js';
-import { assertNoConflicts, loadProjectRegistry } from './project-registry.js';
+import {
+  assertNoConflicts,
+  loadProjectRegistry,
+  type ProjectRegistry,
+} from './project-registry.js';
 import {
   createProjectInputSchema,
+  toProjectSummary,
   validateProjectFrontmatter,
   type CreateProjectInput,
+  type ProjectCandidate,
   type ProjectRecord,
 } from './project-schema.js';
+import {
+  DUPLICATE_CANDIDATE_LIMIT,
+  PROJECT_DUPLICATE_THRESHOLD,
+  projectSimilarity,
+} from './similarity.js';
 import { isoSeconds } from './time.js';
 
 export interface CreateProjectOptions {
@@ -35,12 +55,9 @@ export interface CreateProjectOptions {
   makeId?: (now: number) => string;
 }
 
-export interface CreateProjectResult {
-  id: string;
-  path: string;
-  created: true;
-  record: ProjectRecord;
-}
+export type CreateProjectResult =
+  | { outcome: 'created'; id: string; path: string; record: ProjectRecord }
+  | { outcome: 'duplicate_candidates'; candidates: ProjectCandidate[] };
 
 export async function createProject(
   rawInput: unknown,
@@ -59,11 +76,39 @@ export async function createProject(
   const registry = await loadProjectRegistry(options.projectsDir);
   assertNoConflicts(registry, record);
 
+  if (input.force_create !== true) {
+    const candidates = duplicateCandidates(registry, record);
+    if (candidates.length > 0) {
+      return { outcome: 'duplicate_candidates', candidates };
+    }
+  }
+
   const path = join(options.projectsDir, projectFilename(id, record.name));
   // The body is the owner's notes area, empty until a human writes in it.
   await atomicWrite(path, serializeFrontmatter(orderProjectMetadata(record), ''));
 
-  return { id, path, created: true, record };
+  return { outcome: 'created', id, path, record };
+}
+
+/**
+ * Active projects similar enough to the draft to be worth showing instead of
+ * writing, best match first.
+ *
+ * Archived projects are excluded, matching the uniqueness namespace (H5): one was
+ * deliberately retired, and offering it as a candidate would ask the agent to
+ * resurrect a project the owner closed.
+ */
+function duplicateCandidates(registry: ProjectRegistry, draft: ProjectRecord): ProjectCandidate[] {
+  return registry.active
+    .map((entry) => ({ record: entry.record, similarity: projectSimilarity(draft, entry.record) }))
+    .filter((scored) => scored.similarity >= PROJECT_DUPLICATE_THRESHOLD)
+    .sort((a, b) => b.similarity - a.similarity || a.record.name.localeCompare(b.record.name))
+    .slice(0, DUPLICATE_CANDIDATE_LIMIT)
+    .map((scored) => ({
+      ...toProjectSummary(scored.record),
+      // Rounded for reporting only; the gate compares the raw score.
+      similarity: Math.round(scored.similarity * 100) / 100,
+    }));
 }
 
 async function buildRecord(
