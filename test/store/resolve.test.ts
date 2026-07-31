@@ -50,3 +50,36 @@ describe('resolveMemoryPath', () => {
     });
   });
 });
+
+describe('resolveMemoryPath — front-matter fallback', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'memento-resolve-'));
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  const memory = (id: string): string => `---\nid: ${id}\ntitle: T\n---\n\n## Summary\n\nx\n`;
+
+  test('a hand-renamed file still resolves by its front-matter id', async () => {
+    // The store is human-editable (files are canonical): search indexes the
+    // front-matter id, so read_memory must resolve it even when the filename
+    // dropped the id prefix — otherwise search returns ids read cannot open.
+    writeFileSync(join(dir, 'renamed-by-a-human.md'), memory('mem_TEST0001'));
+    await expect(resolveMemoryPath(dir, 'mem_TEST0001')).resolves.toBe(
+      join(dir, 'renamed-by-a-human.md'),
+    );
+  });
+
+  test('filename convention still wins without reading file contents', async () => {
+    writeFileSync(join(dir, 'mem_TEST0001-slug.md'), 'not even front matter');
+    await expect(resolveMemoryPath(dir, 'mem_TEST0001')).resolves.toBe(
+      join(dir, 'mem_TEST0001-slug.md'),
+    );
+  });
+
+  test('unparseable files are skipped, not fatal', async () => {
+    writeFileSync(join(dir, 'garbage.md'), 'no front matter here');
+    writeFileSync(join(dir, 'good.md'), memory('mem_TEST0001'));
+    await expect(resolveMemoryPath(dir, 'mem_TEST0001')).resolves.toBe(join(dir, 'good.md'));
+  });
+});
