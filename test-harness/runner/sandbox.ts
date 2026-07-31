@@ -67,9 +67,15 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
   // hands the agent the whole seeded corpus as plain files — codex-screening-1
   // "passed" utility this way with zero MCP calls (§7.2 hermetic isolation).
   const workRoot = mkdtempSync(join(tmpdir(), 'memento-work-'));
+  // The config home ALSO gets its own root: its path is handed to the agent via
+  // env (CLAUDE_CONFIG_DIR / CODEX_HOME), and with memento-home as a sibling,
+  // `ls $CODEX_HOME/..` exposed the corpus — a knowledge-shaped calibration rep
+  // found it that way. The env-reachable dir must have no siblings.
+  const cfgRoot = mkdtempSync(join(tmpdir(), 'memento-cfg-'));
   const cleanup = () => {
     rmSync(root, { recursive: true, force: true });
     rmSync(workRoot, { recursive: true, force: true });
+    rmSync(cfgRoot, { recursive: true, force: true });
   };
 
   try {
@@ -80,7 +86,7 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
     copyFixture(harnessRoot, scenario, repoDir);
     const baselineRef = gitInit(repoDir);
 
-    const ccConfigDir = join(root, 'cc-config');
+    const ccConfigDir = join(cfgRoot, 'cc-config');
     mkdirSync(ccConfigDir, { recursive: true });
     writeConfigHome(spec, adapter, { mementoHome, repoDir, ccConfigDir });
 

@@ -260,6 +260,11 @@ describe('createSandbox', () => {
       expect(readdirSync(workParent)).toEqual(['repo']);
       expect(sandbox.mementoHome.startsWith(workParent)).toBe(false);
       expect(sandbox.ccConfigDir.startsWith(workParent)).toBe(false);
+      // The config home's path leaks via env (CODEX_HOME/CLAUDE_CONFIG_DIR), so
+      // ITS parent must also expose nothing — memento-home was its sibling once.
+      const cfgParent = dirname(sandbox.ccConfigDir);
+      expect(readdirSync(cfgParent)).toEqual(['cc-config']);
+      expect(sandbox.mementoHome.startsWith(cfgParent)).toBe(false);
     } finally {
       sandbox.cleanup();
     }
