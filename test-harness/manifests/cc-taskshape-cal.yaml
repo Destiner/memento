@@ -1,0 +1,13 @@
+# Claude-side task-shape spike, calibration gate (§9): both read-kq variants
+# under baseline-no-memento. Runs on the three-root sandbox (the CODEX_HOME
+# sibling leak that failed support-contact-kq's codex calibration is closed)
+# and memento 0.2.0. Utility must be ≈ 0 for a variant to enter the spike.
+name: cc-taskshape-cal
+harness: claude-code
+model: claude-opus-4-8
+env: clean
+reps: 5
+concurrency: 2
+max_spend_usd: 10
+configs: [baseline-no-memento]
+scenarios: [read-kq/*]
