@@ -33,7 +33,7 @@ Local, file-owned memory layer for coding agents, exposed as an MCP server.
 ## Patterns
 
 - Markdown files are the authoritative store; the SQLite index is derived and must be rebuildable from `memories/*.md`.
-- The store is human-editable: nothing may assume filenames follow the `<id>-slug.md` convention (`read_memory` falls back to front-matter ids — a renamed file must keep working).
+- The store is human-editable: nothing may assume filenames follow the `<id>-slug.md` convention (`get_memory` falls back to front-matter ids — a renamed file must keep working).
 - The server CANNOT run under `bun run` (`node:sqlite` is not implemented in Bun); it runs under Node (`node dist/main.js`). Tests pass under `bun run test` only because vitest itself runs on Node.
 
 ## Harness rules (read `harness-spec.md` §13 before touching experiments)

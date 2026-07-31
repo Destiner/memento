@@ -76,6 +76,39 @@ export function requireProject(registry: ProjectRegistry, id: string): ProjectEn
 }
 
 /**
+ * Assert that every supplied project id is registered, naming the ones that are
+ * not.
+ *
+ * This is the check that keeps `scope.project_ids` meaningful: an id an agent
+ * invented, or copied from another machine, would otherwise file a memory where
+ * no search will ever scope to it. Archived projects pass — a project is retired,
+ * its accumulated memories are not.
+ *
+ * Ids *already stored* on a memory are deliberately not checked (memory-schema.ts
+ * header): a hand-deleted project record must not make its memories unreadable.
+ * Only what a caller supplies is validated.
+ */
+export function assertProjectsExist(registry: ProjectRegistry, ids: readonly string[]): void {
+  const unknown = ids.filter((id) => registry.byId(id) === undefined);
+  if (unknown.length > 0) {
+    throw new MementoError(
+      'not_found',
+      `No project is registered for ${unknown.join(', ')}. Run resolve_project to find the ` +
+        'right id, or create_project to register it — never invent one.',
+      { unknown_ids: unknown },
+    );
+  }
+}
+
+/** Load the registry and assert every supplied id exists (the common call). */
+export async function assertProjectsRegistered(
+  projectsDir: string,
+  ids: readonly string[],
+): Promise<void> {
+  assertProjectsExist(await loadProjectRegistry(projectsDir), ids);
+}
+
+/**
  * Every name and alias a project answers to, as comparison keys.
  *
  * Names and aliases share one namespace (H3): an alias exists precisely so that

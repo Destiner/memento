@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { MementoError } from '../../src/errors.js';
-import { resolveMemoryPath } from '../../src/store/resolve.js';
+import { resolveMemoryPath } from '../../src/store/memory-path.js';
 
 describe('resolveMemoryPath', () => {
   let dir: string;

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { MementoError } from '../../src/errors.js';
 import { assertInsideRoot, assertSafeMemoryId } from '../../src/store/path-safety.js';
 import { rebuildIndex } from '../../src/store/rebuild.js';
-import { resolveMemoryPath } from '../../src/store/resolve.js';
+import { resolveMemoryPath } from '../../src/store/memory-path.js';
 import { MemoryIndex } from '../../src/store/search-index.js';
 
 describe('assertSafeMemoryId', () => {
@@ -82,14 +82,18 @@ describe('path containment', () => {
         '---',
         'id: mem_TEST0001',
         'title: Real',
-        'type: decision',
-        'scope: project',
+        'description: A real memory beside an escaping symlink.',
+        'scope:',
+        '  kind: global',
+        'type: decision_history',
+        'provenance:',
+        '  source: agent_observed',
+        '  verification: observed_once',
         'status: active',
         'created_at: 2026-07-01T00:00:00Z',
         'updated_at: 2026-07-01T00:00:00Z',
         '---',
         '',
-        '## Summary',
         'body',
         '',
       ].join('\n'),

@@ -1,38 +1,33 @@
 ---
 id: mem_01JEXAMPLE222222222
 title: Flaky checkout test needs a seeded clock
-type: pattern
-scope: project
+description: The checkout reservation test flakes near minute boundaries because expiry is computed from wall-clock time.
+scope:
+  kind: projects
+  project_ids:
+    - prj_01JEXAMPLEPRJ000002
+type: debugging_pattern
+provenance:
+  source: agent_observed
+  verification: source_confirmed
+  evidence:
+    - kind: path
+      value: test/checkout/reservation.test.ts
 status: active
 created_at: 2026-05-02T13:15:00Z
 updated_at: 2026-05-02T13:15:00Z
-projects:
-  - customer-portal
-entities:
-  - checkout
-tags:
-  - testing
-  - flaky
-  - time
-confidence: high
-importance: medium
+last_verified_at: 2026-06-30T08:00:00Z
 ---
-
-## Summary
-
-The checkout integration test is flaky unless the system clock is seeded, because expiry windows are computed from wall-clock time.
 
 ## Context
 
-The test asserts on a 15-minute reservation window; runs near a minute boundary intermittently fail.
+The test asserts on a 15-minute reservation window; runs near a minute boundary
+intermittently fail.
 
 ## Guidance
 
-Inject a fixed clock in the checkout reservation test rather than relying on the real time.
-
-## Evidence / caveats
-
-Reproduced by running the suite in a tight loop around minute boundaries.
+Inject a fixed clock in the checkout reservation test rather than relying on the
+real time.
 
 ## When to revisit
 

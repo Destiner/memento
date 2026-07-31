@@ -1,4 +1,4 @@
-// Rebuild the derived search index from canonical markdown (§6, §12).
+// Rebuild the derived search index from canonical markdown.
 //
 // The index is disposable: this routine is the recovery path after deletion,
 // corruption, or a schema bump. It clears the index and re-inserts every memory
@@ -14,7 +14,7 @@ import { join } from 'node:path';
 
 import { parseFrontmatter } from './frontmatter.js';
 import { assertInsideRoot } from './path-safety.js';
-import { validateFrontmatter } from './schema.js';
+import { validateMemoryFrontmatter } from './memory-schema.js';
 import type { MemoryIndex } from './search-index.js';
 
 export interface RebuildResult {
@@ -39,7 +39,7 @@ export async function rebuildIndex(
       await assertInsideRoot(memoriesDir, path);
       const raw = await readFile(path, 'utf8');
       const { metadata, body } = parseFrontmatter(raw);
-      const validated = validateFrontmatter(metadata);
+      const validated = validateMemoryFrontmatter(metadata);
       index.upsert(validated, body);
       result.indexed += 1;
     } catch (error) {

@@ -1,8 +1,8 @@
-{"event_id":"evt_01A","timestamp":"2026-07-01T09:00:00Z","tool":"create_memory","outcome":"success","latency_ms":10,"memory_type":"decision","memory_scope":"project","server_version":"0.1.0"}
+{"event_id":"evt_01A","timestamp":"2026-07-01T09:00:00Z","tool":"create_memory","outcome":"success","latency_ms":10,"result_outcome":"created","memory_type":"debugging_pattern","scope_kind":"projects","project_count":1,"server_version":"0.3.0"}
 
-{"event_id":"evt_01B","timestamp":"2026-07-01T09:05:00Z","tool":"create_memory","outcome":"success","latency_ms":20,"memory_type":"pattern","memory_scope":"personal","server_version":"0.1.0"}
+{"event_id":"evt_01B","timestamp":"2026-07-01T09:05:00Z","tool":"create_memory","outcome":"success","latency_ms":20,"result_outcome":"created","memory_type":"preference","scope_kind":"global","project_count":0,"server_version":"0.3.0"}
 this line is not valid json and must be skipped
-{"event_id":"evt_01C","timestamp":"2026-07-01T09:10:00Z","tool":"search_memory","outcome":"success","latency_ms":30,"result_count":3,"query_length":24,"filters_used":["project","types"],"server_version":"0.1.0"}
-{"event_id":"evt_01D","timestamp":"2026-07-01T09:12:00Z","tool":"search_memory","outcome":"success","latency_ms":50,"result_count":0,"query_length":40,"filters_used":[],"server_version":"0.1.0"}
-{"event_id":"evt_01E","timestamp":"2026-07-01T09:15:00Z","tool":"read_memory","outcome":"success","latency_ms":5,"server_version":"0.1.0"}
-{"event_id":"evt_01F","timestamp":"2026-07-01T09:16:00Z","tool":"read_memory","outcome":"error","latency_ms":2,"error_code":"not_found","server_version":"0.1.0"}
+{"event_id":"evt_01C","timestamp":"2026-07-01T09:10:00Z","tool":"search_memories","outcome":"success","latency_ms":30,"result_count":3,"query_length":24,"filters_used":["types"],"match_mode":"any","scope_kind":"projects","project_count":2,"server_version":"0.3.0"}
+{"event_id":"evt_01D","timestamp":"2026-07-01T09:12:00Z","tool":"search_memories","outcome":"success","latency_ms":50,"result_count":0,"query_length":40,"filters_used":[],"match_mode":"any","scope_kind":"projects","project_count":1,"server_version":"0.3.0"}
+{"event_id":"evt_01E","timestamp":"2026-07-01T09:15:00Z","tool":"get_memory","outcome":"success","latency_ms":5,"server_version":"0.3.0"}
+{"event_id":"evt_01F","timestamp":"2026-07-01T09:16:00Z","tool":"get_memory","outcome":"error","latency_ms":2,"error_code":"not_found","server_version":"0.3.0"}

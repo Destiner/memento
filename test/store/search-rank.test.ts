@@ -1,20 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { MemoryIndex } from '../../src/store/search-index.js';
-import type { MemoryMetadata } from '../../src/store/schema.js';
+import { memoryRecord, PROJECT_A } from '../helpers/memories.js';
 
-function memory(overrides: Partial<MemoryMetadata>): MemoryMetadata {
-  return {
-    id: 'mem_0000',
-    title: 'Notes',
-    type: 'decision',
-    scope: 'project',
-    status: 'active',
-    created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
-    ...overrides,
-  };
-}
+const SCOPE = { kind: 'projects' as const, project_ids: [PROJECT_A] };
 
 describe('search ranking', () => {
   let index: MemoryIndex;
@@ -25,62 +14,100 @@ describe('search ranking', () => {
 
   afterEach(() => index.close());
 
-  test('active memories rank above superseded ones with equal lexical match', () => {
-    index.upsert(memory({ id: 'mem_OLD', status: 'superseded' }), 'payment retry policy');
-    index.upsert(memory({ id: 'mem_NEW', status: 'active' }), 'payment retry policy');
+  const ids = (query: string, status?: ('active' | 'archived')[]) =>
+    index.search(query, { limit: 5, scope: SCOPE, status }).map((hit) => hit.id);
 
-    const ids = index.search('payment retry', { limit: 5 }).map((h) => h.id);
-    expect(ids.indexOf('mem_NEW')).toBeLessThan(ids.indexOf('mem_OLD'));
+  test('active memories rank above archived ones with equal lexical match', () => {
+    index.upsert(
+      memoryRecord({ id: 'mem_OLD', status: 'archived', archive_reason: 'Superseded.' }),
+      'payment retry policy',
+    );
+    index.upsert(memoryRecord({ id: 'mem_NEW' }), 'payment retry policy');
+
+    const ranked = ids('payment retry', ['active', 'archived']);
+    expect(ranked.indexOf('mem_NEW')).toBeLessThan(ranked.indexOf('mem_OLD'));
   });
 
   test('a title match outranks a body-only match', () => {
-    index.upsert(memory({ id: 'mem_BODY', title: 'General notes' }), 'discusses webhook retries');
-    index.upsert(memory({ id: 'mem_TITLE', title: 'Webhook retry policy' }), 'general notes');
+    index.upsert(
+      memoryRecord({ id: 'mem_BODY', title: 'General notes', description: 'Assorted notes.' }),
+      'discusses webhook retries',
+    );
+    index.upsert(
+      memoryRecord({
+        id: 'mem_TITLE',
+        title: 'Webhook retry policy',
+        description: 'Assorted notes.',
+      }),
+      'general notes',
+    );
 
-    const ids = index.search('webhook retry', { limit: 5 }).map((h) => h.id);
-    expect(ids[0]).toBe('mem_TITLE');
+    expect(ids('webhook retry')[0]).toBe('mem_TITLE');
   });
 
-  test('an exact entity match boosts a memory', () => {
-    index.upsert(memory({ id: 'mem_PLAIN' }), 'stripe integration notes here');
+  // Replaces V1's entity boost: description is the other short, curated field.
+  test('a description match boosts a memory', () => {
     index.upsert(
-      memory({ id: 'mem_ENTITY', entities: ['stripe'] }),
+      memoryRecord({ id: 'mem_PLAIN', title: 'Notes', description: 'Assorted notes.' }),
+      'stripe integration notes here',
+    );
+    index.upsert(
+      memoryRecord({
+        id: 'mem_DESC',
+        title: 'Notes',
+        description: 'How the stripe integration behaves.',
+      }),
       'stripe integration notes here',
     );
 
-    const ids = index.search('stripe', { limit: 5 }).map((h) => h.id);
-    expect(ids[0]).toBe('mem_ENTITY');
+    expect(ids('stripe')[0]).toBe('mem_DESC');
   });
 
-  test('archived memories are penalised more heavily than superseded', () => {
-    index.upsert(memory({ id: 'mem_SUP', status: 'superseded' }), 'cache invalidation notes');
-    index.upsert(memory({ id: 'mem_ARC', status: 'archived' }), 'cache invalidation notes');
+  // Replaces V1's `confidence: low` penalty.
+  test('unverified memories rank below established ones', () => {
+    index.upsert(
+      memoryRecord({
+        id: 'mem_GUESS',
+        provenance: { source: 'inferred', verification: 'unverified' },
+      }),
+      'cache invalidation notes',
+    );
+    index.upsert(
+      memoryRecord({
+        id: 'mem_SEEN',
+        provenance: { source: 'agent_observed', verification: 'observed_once' },
+      }),
+      'cache invalidation notes',
+    );
 
-    const ids = index.search('cache invalidation', { limit: 5 }).map((h) => h.id);
-    expect(ids.indexOf('mem_SUP')).toBeLessThan(ids.indexOf('mem_ARC'));
+    const ranked = ids('cache invalidation');
+    expect(ranked.indexOf('mem_SEEN')).toBeLessThan(ranked.indexOf('mem_GUESS'));
   });
 
   test('recency breaks ties between otherwise equal memories', () => {
     index.upsert(
-      memory({ id: 'mem_OLDER', updated_at: '2026-01-01T00:00:00Z' }),
+      memoryRecord({ id: 'mem_OLDER', updated_at: '2026-01-01T00:00:00Z' }),
       'idempotency key handling',
     );
     index.upsert(
-      memory({ id: 'mem_NEWER', updated_at: '2026-06-01T00:00:00Z' }),
+      memoryRecord({ id: 'mem_NEWER', updated_at: '2026-06-01T00:00:00Z' }),
       'idempotency key handling',
     );
 
-    const ids = index.search('idempotency key', { limit: 5 }).map((h) => h.id);
-    expect(ids[0]).toBe('mem_NEWER');
+    expect(ids('idempotency key')[0]).toBe('mem_NEWER');
   });
 
   test('scores stay within [0, 1]', () => {
     index.upsert(
-      memory({ id: 'mem_MAX', title: 'stripe webhook', entities: ['stripe'], importance: 'high' }),
+      memoryRecord({
+        id: 'mem_MAX',
+        title: 'stripe webhook retry',
+        description: 'stripe webhook retry behaviour',
+      }),
       'stripe webhook retry',
     );
 
-    const [hit] = index.search('stripe webhook retry', { limit: 5 });
+    const [hit] = index.search('stripe webhook retry', { limit: 5, scope: SCOPE });
     expect(hit!.score).toBeGreaterThan(0);
     expect(hit!.score).toBeLessThanOrEqual(1);
   });

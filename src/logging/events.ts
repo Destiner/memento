@@ -17,18 +17,27 @@ export interface ToolEventFields {
   tool: string;
   outcome: ToolOutcome;
   latency_ms: number;
-  // search_memory
+  // search_memories
   result_count?: number;
   query_length?: number;
   filters_used?: string[];
   query_id?: string;
-  // create_memory
+  match_mode?: string;
+  // any scoped call: the kind, and how many projects, never which
+  scope_kind?: string;
+  project_count?: number;
+  // create_memory / update_memory
   memory_type?: string;
-  memory_scope?: string;
-  // answer_memory
-  source_count?: number;
-  question_length?: number;
-  confidence?: string;
+  dropped_evidence_count?: number;
+  verification?: string;
+  mark_verified?: boolean;
+  // the two gated creates: what the operation decided, and what it offered
+  result_outcome?: string;
+  candidate_count?: number;
+  forced?: boolean;
+  // resolve_project
+  matched_on?: string;
+  suggestion_count?: number;
   // errors — the canonical code only, never the message (which may quote input)
   error_code?: string;
 }

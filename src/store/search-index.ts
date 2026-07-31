@@ -1,100 +1,122 @@
 // The derived search index: a thin, synchronous wrapper over node:sqlite that
 // owns the FTS5 tables and the read/write paths against them.
 //
-// This module is the only place that talks to SQLite. Callers hand it validated
-// front matter plus a body; it derives the lexical text and structured columns.
-// The index is rebuildable from markdown (§6), so any failure here is
-// recoverable by dropping the database and re-running the rebuild routine.
+// This module is the only place that talks to SQLite. Callers hand it a validated
+// record plus a body; it derives the lexical text and structured columns. The
+// index is rebuildable from markdown, so any failure here is recoverable by
+// dropping the database and re-running the rebuild routine.
+//
+// It answers two questions, both of which need a cheap candidate pool over
+// lexical similarity:
+//
+//   - `search`, for `search_memories`: rank a scope-filtered pool and return the
+//     best hits.
+//   - `candidates`, for `create_memory`'s dedupe gate: fetch the same-scope
+//     neighbours of a draft so the operation can score them (similarity.ts) and
+//     decide whether to gate the write.
 
 import { DatabaseSync } from 'node:sqlite';
 
-import { CREATE_MEMORIES_FTS, CREATE_MEMORIES_TABLE, FTS_BODY_COLUMN } from './index-schema.js';
-import type {
-  Confidence,
-  Importance,
-  MemoryMetadata,
-  MemoryScope,
-  MemoryStatus,
-  MemoryType,
-} from './schema.js';
+import { CREATE_MEMORIES_FTS, CREATE_MEMORIES_TABLE } from './index-schema.js';
+import {
+  memoryProjectIds,
+  type MemoryRecord,
+  type MemoryScope,
+  type MemoryStatus,
+  type MemoryType,
+  type ProjectMatchMode,
+  type ProvenanceSource,
+  type SearchScope,
+  type VerificationLevel,
+} from './memory-schema.js';
 
 // In-memory database sentinel, used by tests and ephemeral runs.
 export const MEMORY_DB = ':memory:';
-
-const EXCERPT_TOKENS = 18;
 
 // Re-rank a candidate pool this many times the requested limit, so a strong
 // metadata boost can lift a lexically-weaker memory into the top results.
 const CANDIDATE_MULTIPLIER = 5;
 const CANDIDATE_FLOOR = 30;
 
-// Additive metadata adjustments applied on top of the 0..1 lexical score (§10).
-// Boosts are modest so lexical relevance dominates; penalties are large enough
-// to keep superseded/archived memories below their active replacements.
+// How many neighbours the dedupe pool pulls before scoring. Generous relative to
+// the handful the gate reports: bm25 orders the pool, but the similarity that
+// decides the gate is computed in JS, so the pool has to be wide enough that a
+// true duplicate cannot be ranked out of it by a lexically noisier neighbour.
+const DEDUPE_POOL_SIZE = 25;
+
+// Additive metadata adjustments applied on top of the 0..1 lexical score. Boosts
+// are modest so lexical relevance dominates; the archived penalty is large enough
+// to keep a retired memory below its replacement whenever both are requested.
 const RANK = {
-  entityMatch: 0.15,
-  projectMatch: 0.12,
   titleMatch: 0.12,
+  descriptionMatch: 0.1,
   active: 0.05,
-  importanceHigh: 0.1,
-  importanceMedium: 0.05,
-  superseded: -0.3,
   archived: -0.4,
-  lowConfidence: -0.08,
+  // Stands in for V1's `confidence: low` penalty: an asserted-but-unchecked
+  // memory ranks below one that was observed, confirmed, or sourced (§9).
+  unverified: -0.08,
 } as const;
 
-// Structured filters (§9.3). Within a category the values are OR-ed (match any);
-// across categories they are AND-ed (all must hold). All are optional.
-export interface SearchFilters {
-  project?: string;
-  types?: MemoryType[];
-  scopes?: MemoryScope[];
-  entities?: string[];
-  tags?: string[];
-  status?: MemoryStatus[];
-}
+/**
+ * A scope to filter by. `SearchScope` (which carries `match`) and a memory's own
+ * `MemoryScope` (which does not) are both accepted: the dedupe pool needs the
+ * neighbours of a draft memory, which is an `any` match over its project ids.
+ */
+export type ScopeFilter = SearchScope | MemoryScope;
 
-export interface SearchOptions extends SearchFilters {
+export interface SearchOptions {
+  scope: ScopeFilter;
+  types?: MemoryType[];
+  status?: MemoryStatus[];
   limit: number;
 }
 
-// One ranked hit. `bm25` is the raw SQLite score (more negative = better);
-// `score` is the normalized 0..1 relevance. Boosts/penalties refine `score` in
-// a later task; here it reflects lexical relevance only.
-export interface SearchHit {
+export interface DedupeOptions {
+  title: string;
+  description: string;
+  scope: ScopeFilter;
+  limit?: number;
+}
+
+/** One indexed memory, as the index can reconstruct it (no body, no evidence). */
+export interface IndexedMemory {
   id: string;
   title: string;
+  description: string;
   type: MemoryType;
   scope: MemoryScope;
   status: MemoryStatus;
-  importance?: Importance;
-  confidence?: Confidence;
+  source: ProvenanceSource;
+  verification: VerificationLevel;
   created_at: string;
   updated_at: string;
-  projects: string[];
-  entities: string[];
-  tags: string[];
+}
+
+// One ranked hit. `bm25` is the raw SQLite score (more negative = better);
+// `score` is the adjusted 0..1 relevance.
+export interface SearchHit extends IndexedMemory {
   bm25: number;
   score: number;
-  excerpt: string;
 }
 
 interface MemoryRow {
   id: string;
   title: string;
+  description: string;
   type: string;
-  scope: string;
+  scope_kind: string;
+  project_ids: string;
   status: string;
-  importance: string | null;
-  confidence: string | null;
+  source: string;
+  verification: string;
   created_at: string;
   updated_at: string;
-  projects: string;
-  entities: string;
-  tags: string;
   bm25: number;
-  excerpt: string;
 }
+
+const SELECT_COLUMNS = `m.id, m.title, m.description, m.type, m.scope_kind, m.project_ids,
+                m.status, m.source, m.verification, m.created_at, m.updated_at,
+                bm25(memories_fts) AS bm25`;
 
 export class MemoryIndex {
   private readonly db: DatabaseSync;
@@ -112,10 +134,10 @@ export class MemoryIndex {
   }
 
   // Insert or replace a memory in both tables. Idempotent on `id`.
-  upsert(metadata: MemoryMetadata, body: string): void {
+  upsert(record: MemoryRecord, body: string): void {
     this.transaction(() => {
-      this.deleteById(metadata.id);
-      this.insertRow(metadata, body);
+      this.deleteById(record.id);
+      this.insertRow(record, body);
     });
   }
 
@@ -139,36 +161,23 @@ export class MemoryIndex {
     return row.n;
   }
 
-  // Ranked search: pull a lexical candidate pool from FTS, apply metadata
-  // boosts/penalties (§10), then return the top `limit` best-scoring hits.
-  // Returns [] for an empty/termless query rather than erroring on MATCH.
+  /**
+   * Ranked search: pull a lexical candidate pool from FTS, apply the metadata
+   * boosts and penalties, then return the top `limit` best-scoring hits.
+   *
+   * Returns [] for an empty or termless query rather than erroring on MATCH.
+   */
   search(query: string, options: SearchOptions): SearchHit[] {
     const terms = queryTerms(query);
     if (terms.length === 0) return [];
 
-    const match = terms.map((term) => `"${term}"`).join(' OR ');
-    const filter = buildFilters(options);
-    const where = ['memories_fts MATCH ?', ...filter.clauses].join(' AND ');
     const pool = Math.max(options.limit * CANDIDATE_MULTIPLIER, CANDIDATE_FLOOR);
-
-    const rows = this.db
-      .prepare(
-        `SELECT m.id, m.title, m.type, m.scope, m.status, m.importance, m.confidence,
-                m.created_at, m.updated_at, m.projects, m.entities, m.tags,
-                bm25(memories_fts) AS bm25,
-                snippet(memories_fts, ${FTS_BODY_COLUMN}, '', '', '…', ${EXCERPT_TOKENS}) AS excerpt
-         FROM memories_fts f
-         JOIN memories m ON m.id = f.id
-         WHERE ${where}
-         ORDER BY bm25 ASC
-         LIMIT ?;`,
-      )
-      .all(match, ...filter.params, pool) as unknown as MemoryRow[];
+    const rows = this.selectPool(orQuery(terms), filters(options), pool);
 
     const termSet = new Set(terms);
     const ranked = rows.map((row) => {
       const hit = toHit(row);
-      const rank = rankScore(hit, termSet, options);
+      const rank = rankScore(hit, termSet);
       hit.score = clamp01(rank);
       return { hit, rank };
     });
@@ -178,8 +187,41 @@ export class MemoryIndex {
     return ranked.slice(0, options.limit).map((entry) => entry.hit);
   }
 
+  /**
+   * Same-scope neighbours of a draft memory, for the dedupe gate.
+   *
+   * Unranked and unfiltered by status: the caller scores them itself, and an
+   * archived near-duplicate is worth showing — restoring it is better than
+   * writing its replacement alongside it.
+   */
+  candidates(options: DedupeOptions): IndexedMemory[] {
+    const terms = queryTerms(`${options.title} ${options.description}`);
+    if (terms.length === 0) return [];
+
+    const rows = this.selectPool(
+      orQuery(terms),
+      filters({ scope: options.scope }),
+      options.limit ?? DEDUPE_POOL_SIZE,
+    );
+    return rows.map(toIndexed);
+  }
+
   close(): void {
     this.db.close();
+  }
+
+  private selectPool(match: string, filter: SqlFilter, limit: number): MemoryRow[] {
+    const where = ['memories_fts MATCH ?', ...filter.clauses].join(' AND ');
+    return this.db
+      .prepare(
+        `SELECT ${SELECT_COLUMNS}
+         FROM memories_fts f
+         JOIN memories m ON m.id = f.id
+         WHERE ${where}
+         ORDER BY bm25 ASC
+         LIMIT ?;`,
+      )
+      .all(match, ...filter.params, limit) as unknown as MemoryRow[];
   }
 
   private deleteById(id: string): void {
@@ -187,36 +229,31 @@ export class MemoryIndex {
     this.db.prepare('DELETE FROM memories_fts WHERE id = ?;').run(id);
   }
 
-  private insertRow(metadata: MemoryMetadata, body: string): void {
-    const projects = metadata.projects ?? [];
-    const entities = metadata.entities ?? [];
-    const tags = metadata.tags ?? [];
-
+  private insertRow(record: MemoryRecord, body: string): void {
     this.db
       .prepare(
         `INSERT INTO memories
-           (id, title, type, scope, status, importance, confidence,
-            created_at, updated_at, projects, entities, tags)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+           (id, title, description, type, scope_kind, project_ids, status,
+            source, verification, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       )
       .run(
-        metadata.id,
-        metadata.title,
-        metadata.type,
-        metadata.scope,
-        metadata.status,
-        metadata.importance ?? null,
-        metadata.confidence ?? null,
-        metadata.created_at,
-        metadata.updated_at,
-        JSON.stringify(projects),
-        JSON.stringify(entities),
-        JSON.stringify(tags),
+        record.id,
+        record.title,
+        record.description,
+        record.type,
+        record.scope.kind,
+        JSON.stringify(memoryProjectIds(record)),
+        record.status,
+        record.provenance.source,
+        record.provenance.verification,
+        record.created_at,
+        record.updated_at,
       );
 
     this.db
-      .prepare('INSERT INTO memories_fts (id, title, body, entities, tags) VALUES (?, ?, ?, ?, ?);')
-      .run(metadata.id, metadata.title, body, entities.join(' '), tags.join(' '));
+      .prepare('INSERT INTO memories_fts (id, title, description, body) VALUES (?, ?, ?, ?);')
+      .run(record.id, record.title, record.description, body);
   }
 
   private transaction(fn: () => void): void {
@@ -231,48 +268,62 @@ export class MemoryIndex {
   }
 }
 
-// Translate structured filters into parameterized SQL predicates. Scalar
-// columns (type/scope/status) use IN; multi-valued JSON arrays (projects/
-// entities/tags) use json_each so a memory matches if any of its values does.
-function buildFilters(filters: SearchFilters): { clauses: string[]; params: string[] } {
-  const clauses: string[] = [];
-  const params: string[] = [];
+interface SqlFilter {
+  clauses: string[];
+  params: (string | number)[];
+}
 
-  if (filters.project) {
-    clauses.push('EXISTS (SELECT 1 FROM json_each(m.projects) WHERE value = ?)');
-    params.push(filters.project);
+/**
+ * Translate the scope and the optional type/status filters into parameterized
+ * SQL predicates.
+ *
+ * Scope is always present and never widens: a `projects` search cannot return a
+ * `global` memory, and a `global` search cannot return a project-scoped one
+ * (memory-schema.ts, `searchScopeSchema`).
+ */
+function filters(options: { scope: ScopeFilter; types?: MemoryType[]; status?: MemoryStatus[] }) {
+  const filter: SqlFilter = { clauses: [], params: [] };
+  addScope(filter, options.scope);
+  addInClause(filter, 'm.type', options.types);
+  addInClause(filter, 'm.status', options.status);
+  return filter;
+}
+
+function addScope(filter: SqlFilter, scope: ScopeFilter): void {
+  if (scope.kind === 'global') {
+    filter.clauses.push("m.scope_kind = 'global'");
+    return;
   }
-  addInClause(clauses, params, 'm.type', filters.types);
-  addInClause(clauses, params, 'm.scope', filters.scopes);
-  addInClause(clauses, params, 'm.status', filters.status);
-  addJsonClause(clauses, params, 'm.entities', filters.entities);
-  addJsonClause(clauses, params, 'm.tags', filters.tags);
 
-  return { clauses, params };
+  filter.clauses.push("m.scope_kind = 'projects'");
+  const ids = scope.project_ids;
+  const list = placeholders(ids.length);
+
+  if (matchMode(scope) === 'all') {
+    // Every supplied id must appear on the memory. Counting distinct matches
+    // against the supplied count is what makes this a superset test rather than
+    // an intersection one.
+    filter.clauses.push(
+      `(SELECT COUNT(DISTINCT value) FROM json_each(m.project_ids) WHERE value IN (${list})) = ?`,
+    );
+    filter.params.push(...ids, ids.length);
+    return;
+  }
+
+  filter.clauses.push(`EXISTS (SELECT 1 FROM json_each(m.project_ids) WHERE value IN (${list}))`);
+  filter.params.push(...ids);
 }
 
-function addInClause(
-  clauses: string[],
-  params: string[],
-  column: string,
-  values: string[] | undefined,
-): void {
-  if (!values?.length) return;
-  clauses.push(`${column} IN (${placeholders(values.length)})`);
-  params.push(...values);
+// A `MemoryScope` carries no match mode; the neighbours of a draft memory are an
+// `any` match over its ids.
+function matchMode(scope: Extract<ScopeFilter, { kind: 'projects' }>): ProjectMatchMode {
+  return 'match' in scope ? scope.match : 'any';
 }
 
-function addJsonClause(
-  clauses: string[],
-  params: string[],
-  column: string,
-  values: string[] | undefined,
-): void {
+function addInClause(filter: SqlFilter, column: string, values: string[] | undefined): void {
   if (!values?.length) return;
-  clauses.push(
-    `EXISTS (SELECT 1 FROM json_each(${column}) WHERE value IN (${placeholders(values.length)}))`,
-  );
-  params.push(...values);
+  filter.clauses.push(`${column} IN (${placeholders(values.length)})`);
+  filter.params.push(...values);
 }
 
 function placeholders(count: number): string {
@@ -288,44 +339,43 @@ export function queryTerms(query: string): string[] {
     .filter((term) => term.length >= 2);
 }
 
-// Turn a natural-language query into a safe FTS5 MATCH expression: quote each
-// term to neutralize FTS operators and OR them so partial matches still surface
-// (ranking sorts precise hits to the top). Returns null when nothing is usable.
-export function toMatchQuery(query: string): string | null {
-  const terms = queryTerms(query);
-  if (terms.length === 0) return null;
+// Quote each term to neutralize FTS operators and OR them so partial matches
+// still surface (ranking sorts precise hits to the top).
+function orQuery(terms: readonly string[]): string {
   return terms.map((term) => `"${term}"`).join(' OR ');
 }
 
-// Adjust the lexical score with metadata boosts and penalties (§10). Boosts
-// reward exact entity/project/title matches, active status, and importance;
-// penalties push down superseded/archived and low-confidence memories.
-function rankScore(hit: SearchHit, terms: Set<string>, filters: SearchFilters): number {
+// Turn a natural-language query into a safe FTS5 MATCH expression, or null when
+// nothing in it is usable.
+export function toMatchQuery(query: string): string | null {
+  const terms = queryTerms(query);
+  if (terms.length === 0) return null;
+  return orQuery(terms);
+}
+
+/**
+ * Adjust the lexical score with metadata boosts and penalties.
+ *
+ * Title and description matches are rewarded because both are short, curated
+ * fields — a term hit there says more than the same hit buried in a body. Status
+ * and verification move a memory relative to its peers rather than filtering it.
+ */
+function rankScore(hit: SearchHit, terms: Set<string>): number {
   let score = hit.score;
 
-  if (matchesTerms(hit.entities, terms)) score += RANK.entityMatch;
-
-  const projectMatch =
-    (filters.project !== undefined && hit.projects.includes(filters.project)) ||
-    matchesTerms(hit.projects, terms);
-  if (projectMatch) score += RANK.projectMatch;
-
   if (matchesTerms([hit.title], terms)) score += RANK.titleMatch;
+  if (matchesTerms([hit.description], terms)) score += RANK.descriptionMatch;
 
   if (hit.status === 'active') score += RANK.active;
-  else if (hit.status === 'superseded') score += RANK.superseded;
   else if (hit.status === 'archived') score += RANK.archived;
 
-  if (hit.importance === 'high') score += RANK.importanceHigh;
-  else if (hit.importance === 'medium') score += RANK.importanceMedium;
-
-  if (hit.confidence === 'low') score += RANK.lowConfidence;
+  if (hit.verification === 'unverified') score += RANK.unverified;
 
   return score;
 }
 
 // True when any query term appears as a token within one of the values (so
-// "billing" matches the entity "billing-service" or a multi-word title).
+// "billing" matches a title containing "billing-service").
 function matchesTerms(values: string[], terms: Set<string>): boolean {
   return values.some((value) =>
     value
@@ -345,22 +395,25 @@ export function normalizeBm25(bm25: number): number {
   return relevance / (relevance + 1);
 }
 
-function toHit(row: MemoryRow): SearchHit {
+function toIndexed(row: MemoryRow): IndexedMemory {
+  const projectIds = JSON.parse(row.project_ids) as string[];
   return {
     id: row.id,
     title: row.title,
+    description: row.description,
     type: row.type as MemoryType,
-    scope: row.scope as MemoryScope,
+    scope:
+      row.scope_kind === 'global'
+        ? { kind: 'global' }
+        : { kind: 'projects', project_ids: projectIds },
     status: row.status as MemoryStatus,
-    importance: (row.importance as Importance | null) ?? undefined,
-    confidence: (row.confidence as Confidence | null) ?? undefined,
+    source: row.source as ProvenanceSource,
+    verification: row.verification as VerificationLevel,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    projects: JSON.parse(row.projects) as string[],
-    entities: JSON.parse(row.entities) as string[],
-    tags: JSON.parse(row.tags) as string[],
-    bm25: row.bm25,
-    score: normalizeBm25(row.bm25),
-    excerpt: row.excerpt.trim(),
   };
+}
+
+function toHit(row: MemoryRow): SearchHit {
+  return { ...toIndexed(row), bm25: row.bm25, score: normalizeBm25(row.bm25) };
 }

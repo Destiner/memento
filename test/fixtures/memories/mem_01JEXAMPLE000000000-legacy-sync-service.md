@@ -1,43 +1,35 @@
 ---
 id: mem_01JEXAMPLE000000000
 title: "Legacy sync service: current product role"
-type: product_context
-scope: cross_project
+description: The legacy sync service stays for enterprise imports that have not migrated; code-usage signals understate its role.
+scope:
+  kind: projects
+  project_ids:
+    - prj_01JEXAMPLEPRJ000001
+    - prj_01JEXAMPLEPRJ000002
+type: product_rationale
+provenance:
+  source: user_stated
+  verification: user_confirmed
+  evidence:
+    - kind: issue
+      value: PLAT-4127
+      note: enterprise migration tracking
 status: active
 created_at: 2026-07-04T15:00:00Z
 updated_at: 2026-07-04T15:00:00Z
-projects:
-  - legacy-sync
-  - customer-portal
-entities:
-  - legacy-sync
-  - enterprise-imports
-tags:
-  - migration
-  - customer-workflow
-confidence: high
-importance: high
-review_after: 2026-10-01
-source_kind: observed
-source_refs:
-  - "product planning discussion, 2026-07"
 ---
-
-## Summary
-
-The legacy sync service remains in place for enterprise import workflows that have not yet migrated to the customer portal's new onboarding path.
 
 ## Context
 
-The service can look redundant from the code alone because its primary users are a limited set of enterprise customers. Its removal requires validating migration status and contract commitments, not only code references.
+The service can look redundant from the code alone because its primary users are a
+limited set of enterprise customers. Removing it requires validating migration
+status and contract commitments, not only code references.
 
 ## Guidance
 
-Do not schedule the legacy sync service for deletion based on code usage signals alone. Confirm enterprise migration status first.
-
-## Evidence / caveats
-
-Based on a product planning discussion; migration status may change as customers onboard.
+Do not schedule the legacy sync service for deletion based on code usage signals
+alone. Confirm enterprise migration status first.
 
 ## When to revisit
 

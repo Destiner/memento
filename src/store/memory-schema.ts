@@ -458,6 +458,15 @@ export interface SearchResultItem extends MemorySummary {
   score: number;
 }
 
+/**
+ * A memory the dedupe gate is offering instead of creating, with the score that
+ * surfaced it. The number is reported so an agent can tell a restatement from a
+ * neighbour, not because it is meaningful in itself.
+ */
+export interface MemoryCandidate extends MemorySummary {
+  similarity: number;
+}
+
 // A project id paired with the name it resolves to, or null when the registry
 // holds no such project (a hand-deleted record, or a memory written against an
 // id that never existed).

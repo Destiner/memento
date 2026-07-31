@@ -12,23 +12,42 @@ export type { FieldError } from './validation.js';
 export { parseFrontmatter, serializeFrontmatter } from './store/frontmatter.js';
 export type { ParsedMemory } from './store/frontmatter.js';
 export {
-  MEMORY_TYPES,
-  MEMORY_SCOPES,
+  EVIDENCE_KINDS,
+  MEMORY_SCOPE_KINDS,
   MEMORY_STATUSES,
-  CONFIDENCE_LEVELS,
-  IMPORTANCE_LEVELS,
-  frontmatterSchema,
-  validateFrontmatter,
-} from './store/schema.js';
+  MEMORY_TYPES,
+  PROJECT_MATCH_MODES,
+  PROVENANCE_SOURCES,
+  VERIFICATION_LEVELS,
+  memoryFrontmatterSchema,
+  validateMemoryFrontmatter,
+} from './store/memory-schema.js';
 export type {
-  MemoryType,
+  EvidenceEntry,
+  MemoryDetail,
+  MemoryProvenance,
+  MemoryRecord,
   MemoryScope,
   MemoryStatus,
-  Confidence,
-  Importance,
-  MemoryMetadata,
-} from './store/schema.js';
-export { generateId, slugify, memoryFilename } from './store/id.js';
+  MemorySummary,
+  MemoryType,
+  ProvenanceSource,
+  VerificationLevel,
+} from './store/memory-schema.js';
+export {
+  PROJECT_STATUSES,
+  projectFrontmatterSchema,
+  validateProjectFrontmatter,
+} from './store/project-schema.js';
+export type { ProjectRecord, ProjectStatus, ProjectSummary } from './store/project-schema.js';
+export { generateId, generateProjectId, slugify, memoryFilename } from './store/id.js';
 export { atomicWrite, ensureDir } from './store/atomic.js';
-export { createMemory } from './store/create.js';
-export type { CreateMemoryOptions, CreateMemoryResult } from './store/create.js';
+export { createMemory } from './store/memory-create.js';
+export type { CreateMemoryOptions, CreateMemoryResult } from './store/memory-create.js';
+export { getMemory } from './store/memory-get.js';
+export { updateMemory } from './store/memory-update.js';
+export { archiveMemory } from './store/memory-archive.js';
+export { searchMemories } from './store/memory-search.js';
+export { createProject } from './store/project-create.js';
+export { resolveProject } from './store/project-resolve.js';
+export { updateProject } from './store/project-update.js';

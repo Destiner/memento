@@ -7,8 +7,15 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { rebuildIndex } from '../../src/store/rebuild.js';
 import { MemoryIndex } from '../../src/store/search-index.js';
+import { memoryRecord } from '../helpers/memories.js';
 
 const FIXTURES = fileURLToPath(new URL('../fixtures/memories', import.meta.url));
+
+// The projects the fixture memories are scoped to.
+const FIXTURE_SCOPE = {
+  kind: 'projects' as const,
+  project_ids: ['prj_01JEXAMPLEPRJ000001', 'prj_01JEXAMPLEPRJ000002'],
+};
 
 describe('rebuildIndex', () => {
   let dir: string;
@@ -31,7 +38,9 @@ describe('rebuildIndex', () => {
     expect(result.indexed).toBe(3);
     expect(result.skipped).toEqual([]);
     expect(index.count()).toBe(3);
-    expect(index.search('legacy sync', { limit: 5 }).length).toBeGreaterThan(0);
+    expect(index.search('legacy sync', { limit: 5, scope: FIXTURE_SCOPE }).length).toBeGreaterThan(
+      0,
+    );
   });
 
   test('is idempotent: a second rebuild does not duplicate rows', async () => {
@@ -43,22 +52,14 @@ describe('rebuildIndex', () => {
 
   test('replaces stale index contents from the current markdown', async () => {
     index.upsert(
-      {
-        id: 'mem_STALE0001',
-        title: 'Stale ghost',
-        type: 'decision',
-        scope: 'project',
-        status: 'active',
-        created_at: '2026-01-01T00:00:00Z',
-        updated_at: '2026-01-01T00:00:00Z',
-      },
+      memoryRecord({ id: 'mem_STALE0001', title: 'Stale ghost', scope: { kind: 'global' } }),
       'no longer on disk',
     );
 
     await rebuildIndex(index, dir);
 
     expect(index.count()).toBe(3);
-    expect(index.search('ghost', { limit: 5 })).toHaveLength(0);
+    expect(index.search('ghost', { limit: 5, scope: { kind: 'global' } })).toHaveLength(0);
   });
 
   test('skips corrupt files but indexes the rest', async () => {

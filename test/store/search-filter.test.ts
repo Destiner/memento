@@ -1,20 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
+import type { SearchOptions } from '../../src/store/search-index.js';
 import { MemoryIndex } from '../../src/store/search-index.js';
-import type { MemoryMetadata } from '../../src/store/schema.js';
-
-function memory(overrides: Partial<MemoryMetadata>): MemoryMetadata {
-  return {
-    id: 'mem_0000',
-    title: 'Retry behaviour',
-    type: 'integration',
-    scope: 'cross_project',
-    status: 'active',
-    created_at: '2026-06-01T00:00:00Z',
-    updated_at: '2026-06-01T00:00:00Z',
-    ...overrides,
-  };
-}
+import { memoryRecord, PROJECT_A, PROJECT_B } from '../helpers/memories.js';
 
 // A shared corpus all touching "retry" so the lexical query never filters them.
 const BODY = 'Retry policy notes for the service.';
@@ -25,38 +13,40 @@ describe('search filtering', () => {
   beforeEach(() => {
     index = new MemoryIndex();
     index.upsert(
-      memory({
+      memoryRecord({
         id: 'mem_A',
-        type: 'integration',
-        scope: 'external_tooling',
-        status: 'active',
-        projects: ['marketing-api'],
-        entities: ['ExampleEmailVendor'],
-        tags: ['deliverability'],
+        title: 'Retry behaviour in Alpha',
+        type: 'debugging_pattern',
+        scope: { kind: 'projects', project_ids: [PROJECT_A] },
       }),
       BODY,
     );
     index.upsert(
-      memory({
+      memoryRecord({
         id: 'mem_B',
-        type: 'incident_learning',
-        scope: 'cross_project',
-        status: 'superseded',
-        projects: ['billing'],
-        entities: ['Stripe'],
-        tags: ['webhooks'],
+        title: 'Retry behaviour in Beta',
+        type: 'decision_history',
+        status: 'archived',
+        archive_reason: 'Retries were removed.',
+        scope: { kind: 'projects', project_ids: [PROJECT_B] },
       }),
       BODY,
     );
     index.upsert(
-      memory({
-        id: 'mem_C',
-        type: 'decision',
-        scope: 'product',
-        status: 'active',
-        projects: ['marketing-api', 'billing'],
-        entities: ['Stripe', 'ExampleEmailVendor'],
-        tags: ['deliverability', 'webhooks'],
+      memoryRecord({
+        id: 'mem_BOTH',
+        title: 'Retry behaviour across both',
+        type: 'cross_project_context',
+        scope: { kind: 'projects', project_ids: [PROJECT_A, PROJECT_B] },
+      }),
+      BODY,
+    );
+    index.upsert(
+      memoryRecord({
+        id: 'mem_GLOBAL',
+        title: 'Retry conventions the user prefers',
+        type: 'preference',
+        scope: { kind: 'global' },
       }),
       BODY,
     );
@@ -64,44 +54,69 @@ describe('search filtering', () => {
 
   afterEach(() => index.close());
 
-  const ids = (opts: Parameters<MemoryIndex['search']>[1]) =>
+  const ids = (options: SearchOptions) =>
     index
-      .search('retry', opts)
-      .map((h) => h.id)
+      .search('retry', options)
+      .map((hit) => hit.id)
       .sort();
 
-  test('no filters returns the whole matching corpus', () => {
-    expect(ids({ limit: 10 })).toEqual(['mem_A', 'mem_B', 'mem_C']);
-  });
-
-  test('filters by type (OR within category)', () => {
-    expect(ids({ limit: 10, types: ['decision', 'incident_learning'] })).toEqual([
-      'mem_B',
-      'mem_C',
+  test('scope is required and never widens', () => {
+    expect(ids({ limit: 10, scope: { kind: 'global' } })).toEqual(['mem_GLOBAL']);
+    expect(ids({ limit: 10, scope: { kind: 'projects', project_ids: [PROJECT_A] } })).toEqual([
+      'mem_A',
+      'mem_BOTH',
     ]);
   });
 
-  test('filters by scope', () => {
-    expect(ids({ limit: 10, scopes: ['product'] })).toEqual(['mem_C']);
+  test('any (the default) matches either supplied project', () => {
+    expect(
+      ids({ limit: 10, scope: { kind: 'projects', project_ids: [PROJECT_A, PROJECT_B] } }),
+    ).toEqual(['mem_A', 'mem_B', 'mem_BOTH']);
+  });
+
+  test('all matches only memories carrying every supplied project', () => {
+    expect(
+      ids({
+        limit: 10,
+        scope: { kind: 'projects', project_ids: [PROJECT_A, PROJECT_B], match: 'all' },
+      }),
+    ).toEqual(['mem_BOTH']);
+  });
+
+  test('all with a single project still matches memories that carry more', () => {
+    expect(
+      ids({ limit: 10, scope: { kind: 'projects', project_ids: [PROJECT_A], match: 'all' } }),
+    ).toEqual(['mem_A', 'mem_BOTH']);
+  });
+
+  test('filters by type (OR within the category)', () => {
+    expect(
+      ids({
+        limit: 10,
+        scope: { kind: 'projects', project_ids: [PROJECT_A, PROJECT_B] },
+        types: ['decision_history', 'cross_project_context'],
+      }),
+    ).toEqual(['mem_B', 'mem_BOTH']);
   });
 
   test('filters by status', () => {
-    expect(ids({ limit: 10, status: ['active'] })).toEqual(['mem_A', 'mem_C']);
-  });
-
-  test('filters by project membership', () => {
-    expect(ids({ limit: 10, project: 'marketing-api' })).toEqual(['mem_A', 'mem_C']);
-  });
-
-  test('filters by entity (any match)', () => {
-    expect(ids({ limit: 10, entities: ['Stripe'] })).toEqual(['mem_B', 'mem_C']);
-  });
-
-  test('filters by tag', () => {
-    expect(ids({ limit: 10, tags: ['deliverability'] })).toEqual(['mem_A', 'mem_C']);
+    expect(
+      ids({
+        limit: 10,
+        scope: { kind: 'projects', project_ids: [PROJECT_A, PROJECT_B] },
+        status: ['active'],
+      }),
+    ).toEqual(['mem_A', 'mem_BOTH']);
   });
 
   test('combines categories with AND', () => {
-    expect(ids({ limit: 10, status: ['active'], entities: ['Stripe'] })).toEqual(['mem_C']);
+    expect(
+      ids({
+        limit: 10,
+        scope: { kind: 'projects', project_ids: [PROJECT_A, PROJECT_B] },
+        status: ['active'],
+        types: ['cross_project_context'],
+      }),
+    ).toEqual(['mem_BOTH']);
   });
 });

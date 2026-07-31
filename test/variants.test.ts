@@ -6,11 +6,14 @@ import { CREATE_SUCCESS_NUDGE, EMPTY_SEARCH_NUDGE } from '../src/variants/nudges
 import { DEFAULT_VARIANT, listVariants, resolveVariant } from '../src/variants/index.js';
 
 const TOOL_NAMES = [
+  'resolve_project',
+  'create_project',
+  'update_project',
+  'search_memories',
+  'get_memory',
   'create_memory',
-  'read_memory',
   'update_memory',
-  'search_memory',
-  'answer_memory',
+  'archive_memory',
 ] as const;
 
 describe('resolveVariant', () => {
@@ -52,9 +55,9 @@ describe('resolveVariant', () => {
     }
   });
 
-  test('the descriptions knob is a real ablation: plain strips §11 guidance', () => {
-    expect(triggerListDescriptions.search_memory).toMatch(/self-contained edits/);
-    expect(plainDescriptions.search_memory).not.toMatch(/self-contained edits/);
+  test('the descriptions knob is a real ablation: plain strips the trigger guidance', () => {
+    expect(triggerListDescriptions.search_memories).toMatch(/self-contained edits/);
+    expect(plainDescriptions.search_memories).not.toMatch(/self-contained edits/);
     for (const tool of TOOL_NAMES) {
       expect(plainDescriptions[tool]).not.toBe(triggerListDescriptions[tool]);
     }

@@ -8,7 +8,7 @@
 // The store is human-editable by design (files are the canonical truth), so a
 // renamed file must still resolve: when no filename matches, fall back to
 // scanning front matter for the id. Without this, search (indexed from front
-// matter) returns ids that read_memory (filename-matched) then reports as
+// matter) returns ids that get_memory (filename-matched) then reports as
 // not_found — agents that did everything right hit a dead end one call after
 // a successful search.
 

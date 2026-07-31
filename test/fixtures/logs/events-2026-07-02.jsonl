@@ -1,5 +1,5 @@
-{"event_id":"evt_02A","timestamp":"2026-07-02T11:00:00Z","tool":"create_memory","outcome":"success","latency_ms":12,"memory_type":"decision","memory_scope":"project","server_version":"0.1.0"}
-{"event_id":"evt_02B","timestamp":"2026-07-02T11:05:00Z","tool":"search_memory","outcome":"success","latency_ms":40,"result_count":2,"query_length":18,"server_version":"0.1.0"}
-{"event_id":"evt_02C","timestamp":"2026-07-02T11:06:00Z","tool":"read_memory","outcome":"success","latency_ms":6,"server_version":"0.1.0"}
-{"event_id":"evt_02D","timestamp":"2026-07-02T11:07:00Z","tool":"update_memory","outcome":"success","latency_ms":15,"server_version":"0.1.0"}
-{"event_id":"evt_02E","timestamp":"2026-07-02T11:10:00Z","tool":"answer_memory","outcome":"success","latency_ms":60,"source_count":2,"question_length":33,"confidence":"medium","server_version":"0.1.0"}
+{"event_id":"evt_02A","timestamp":"2026-07-02T11:00:00Z","tool":"create_memory","outcome":"success","latency_ms":12,"result_outcome":"created","memory_type":"decision_history","scope_kind":"projects","project_count":1,"server_version":"0.3.0"}
+{"event_id":"evt_02B","timestamp":"2026-07-02T11:05:00Z","tool":"search_memories","outcome":"success","latency_ms":40,"result_count":2,"query_length":18,"match_mode":"all","scope_kind":"projects","project_count":2,"server_version":"0.3.0"}
+{"event_id":"evt_02C","timestamp":"2026-07-02T11:06:00Z","tool":"get_memory","outcome":"success","latency_ms":6,"server_version":"0.3.0"}
+{"event_id":"evt_02D","timestamp":"2026-07-02T11:07:00Z","tool":"update_memory","outcome":"success","latency_ms":15,"memory_type":"decision_history","scope_kind":"projects","project_count":1,"dropped_evidence_count":0,"server_version":"0.3.0"}
+{"event_id":"evt_02E","timestamp":"2026-07-02T11:10:00Z","tool":"create_memory","outcome":"success","latency_ms":18,"result_outcome":"duplicate_candidates","memory_type":"decision_history","scope_kind":"projects","project_count":1,"candidate_count":2,"server_version":"0.3.0"}

@@ -115,8 +115,11 @@ export function computeMetrics(events: LoggedEvent[]): Metrics {
       latencies.set(event.tool, list);
     }
 
+    // Ported to the V2 tool names so the counters keep pointing at live tools.
+    // The V2 signals worth surfacing — the dedupe-gate rate, create-versus-update,
+    // search-to-get_memory — belong to the telemetry item, not here.
     switch (event.tool) {
-      case 'read_memory':
+      case 'get_memory':
         toolTotals.read++;
         break;
       case 'update_memory':
@@ -124,14 +127,15 @@ export function computeMetrics(events: LoggedEvent[]): Metrics {
         break;
       case 'create_memory':
         toolTotals.create++;
-        if (event.outcome === 'success') {
+        // A gated create is a successful call that wrote nothing.
+        if (event.outcome === 'success' && event.result_outcome !== 'duplicate_candidates') {
           totalMemoriesCreated++;
           createsByDay.set(day, (createsByDay.get(day) ?? 0) + 1);
           if (event.memory_type) increment(memoriesByType, event.memory_type);
-          if (event.memory_scope) increment(memoriesByScope, event.memory_scope);
+          if (event.scope_kind) increment(memoriesByScope, event.scope_kind);
         }
         break;
-      case 'search_memory':
+      case 'search_memories':
         toolTotals.search++;
         searchByDay.set(day, (searchByDay.get(day) ?? 0) + 1);
         if (typeof event.result_count === 'number') {
