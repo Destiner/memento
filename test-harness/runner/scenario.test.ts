@@ -12,6 +12,7 @@ const HARNESS_ROOT = fileURLToPath(new URL('..', import.meta.url));
 // so a scenario filed under the wrong group is silently mis-tested. Pin the map.
 const GROUP_CLASS: Record<string, string> = {
   read: 'should-retrieve',
+  'read-kq': 'should-retrieve',
   'no-read': 'should-not-retrieve',
   write: 'should-capture',
   'no-write': 'should-not-capture',

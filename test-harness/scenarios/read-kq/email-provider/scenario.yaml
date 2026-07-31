@@ -1,0 +1,18 @@
+# Task-shape variant of read/email-provider (§12 task-shape hypothesis): same
+# fixture, corpus, fact, and checks — only the task phrasing changes from
+# build-shaped ("add email sending") to knowledge-shaped (the task itself asks
+# which provider is correct). If retrieval propensity tracks task shape more than
+# knob choice, this scores far above its build-shaped twin under the same config.
+# Grouped under read-kq/ so read/* manifests don't pick it up before calibration.
+id: read-kq/email-provider
+version: 1
+class: should-retrieve
+fixture: fixtures/saas-app
+task: 'Password-reset emails need to go out, and we need the RIGHT transactional email provider — there was a decision about this. Find out which provider is correct for this project, then implement createMailer() with it.'
+corpus: corpus/standard-15
+seeded_memory: corpus/facts/email-provider.md
+checks:
+  utility_regex: '(?i)postmark'
+  utility_anti_regex: '(?i)@sendgrid/mail|api\.sendgrid\.com'
+  task_success: 'bun run check'
+capture_rubric: null

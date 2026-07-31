@@ -1,0 +1,14 @@
+# Codex Phase 2, block C: the task-shape hypothesis (§12) — knowledge-shaped
+# rephrasings of two build-shaped read scenarios, same fixture/fact/checks. If
+# retrieval tracks task shape more than knob choice, product guidance reframes
+# around when memory is consulted, not just how it is advertised.
+# Rep-count cap: 60 reps × $2 × 1.2.
+name: codex-p2-taskshape
+harness: codex
+model: gpt-5.6-sol
+env: clean
+reps: 10
+concurrency: 3
+max_spend_usd: 150
+configs: [baseline-0, claude-md-trigger, shipped-v2-agents]
+scenarios: [read-kq/*]

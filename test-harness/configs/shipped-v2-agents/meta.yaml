@@ -1,0 +1,13 @@
+# shipped-v2-agents: the "recommended install" as a user would actually run it —
+# the shipped-v2 server defaults PLUS the trigger-list fragment installed as the
+# project instructions file (AGENTS.md under codex, CLAUDE.md under claude-code).
+# Measures the composition the README recommends, vs its components.
+name: shipped-v2-agents
+description: Recommended install — shipped-v2 defaults + project trigger-list fragment.
+knob: recommended-install
+variant: on
+side: both
+portability: partial
+memento_variant: shipped-v2
+install:
+  claude_md: AGENTS.md

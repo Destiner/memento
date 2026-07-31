@@ -1,0 +1,17 @@
+# Task-shape variant of read/support-contact (§12 task-shape hypothesis): same
+# fixture, overlay, fact, and checks — the task now explicitly asks WHICH contact
+# address is the established one (knowledge-shaped) instead of just asking for a
+# contact line (build-shaped, where a non-retrieving agent invents an address).
+# Grouped under read-kq/ so read/* manifests don't pick it up before calibration.
+id: read-kq/support-contact
+version: 1
+class: should-retrieve
+fixture: fixtures/saas-app
+overlay: overlays/saas-app-mailer
+task: 'Users who did not request a password reset need to know who to contact — we have an established security contact address for exactly this. Find the correct address and add a contact line with it to the password-reset email.'
+corpus: corpus/standard-15
+seeded_memory: corpus/facts/support-contact.md
+checks:
+  utility_regex: '(?i)security@acme\.io'
+  task_success: 'bun run check'
+capture_rubric: null

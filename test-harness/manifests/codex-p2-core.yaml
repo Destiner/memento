@@ -1,0 +1,14 @@
+# Codex Phase 2, block A (§9): the screening ranking at N=10 with §6-grade paired
+# deltas, plus shipped-v2-agents (the "recommended install" composition). Runs
+# first in the overnight chain so the core data lands even if credits run out.
+# Rep-count cap: 720 reps × $2 × 1.2 retry headroom.
+name: codex-p2-core
+harness: codex
+model: gpt-5.6-sol
+env: clean
+reps: 10
+concurrency: 3
+max_spend_usd: 1730
+configs:
+  [baseline-0, baseline-no-memento, server-instructions, claude-md-trigger, shipped-v2, shipped-v2-agents]
+scenarios: [read/*, no-read/*, write/*, no-write/*]
