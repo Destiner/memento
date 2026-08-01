@@ -146,11 +146,6 @@ export function renderReport(metrics: Metrics, store: StoreView, options: Render
     ? `${metrics.dateRange.first} → ${metrics.dateRange.last}`
     : 'no events yet';
   const { sessions, funnel, writes, reuse } = metrics;
-  const unsessioned =
-    sessions.unsessionedCalls > 0
-      ? `<p class="note">${sessions.unsessionedCalls} call(s) predate session ids and are
-         excluded from this section.</p>`
-      : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -211,7 +206,6 @@ export function renderReport(metrics: Metrics, store: StoreView, options: Render
     ${statTile('Searches / session', String(sessions.searchesPerSession.mean), 'mean; guardrail, not a goal')}
     ${statTile('Calls / session', String(sessions.callsPerSession.mean), 'mean')}
   </div>
-  ${unsessioned}
   <h2 style="margin-top:1.5rem">First call of a session</h2>
   ${barGroup(Object.entries(sessions.firstCallByTool).sort(([, a], [, b]) => b - a))}
 </section>

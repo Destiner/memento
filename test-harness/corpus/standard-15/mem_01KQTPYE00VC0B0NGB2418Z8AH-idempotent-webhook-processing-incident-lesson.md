@@ -1,14 +1,18 @@
 ---
 id: mem_01KQTPYE00VC0B0NGB2418Z8AH
 title: Idempotent webhook processing incident lesson
-type: incident_learning
-scope: cross_project
+description: Duplicate webhook processing caused charges and is identified by repeated event ids.
+scope:
+  kind: projects
+  project_ids:
+    - prj_HARNESS
+type: debugging_pattern
+provenance:
+  source: external_reference
+  verification: source_confirmed
 status: active
 created_at: 2026-05-05T00:00:00Z
 updated_at: 2026-05-05T00:00:00Z
-tags:
-  - idempotency
-  - webhooks
 ---
 
 ## Summary

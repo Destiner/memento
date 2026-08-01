@@ -202,35 +202,7 @@ the §3 do-not-store rules. When §2-§10 changes, edit this document first, bum
 `blocks.ts`; `test/policy.test.ts` parses this file and fails while the two
 disagree. A surface may compress the rules, never contradict or extend them.
 
-## Appendix A: V1 → V2 vocabulary
-
-Types:
-
-| V1                 | V2                                                                        |
-| ------------------ | ------------------------------------------------------------------------- |
-| `decision`         | `decision_history`                                                        |
-| `relationship`     | `cross_project_context`                                                   |
-| `product_context`  | `product_rationale`                                                       |
-| `integration`      | by content, per §7.1 — usually `environment_workflow_quirk`               |
-| `testing`          | by content, per §7.1 — `debugging_pattern` or `decision_history`          |
-| `triage`           | `debugging_pattern`                                                       |
-| `incident_learning`| `debugging_pattern`                                                       |
-| `pattern`          | by content — `debugging_pattern` or `cross_project_context`               |
-| `preference`       | `preference`                                                              |
-| `working_agreement`| `preference`                                                              |
-| `plan`             | no target; archive, or rewrite as `decision_history` per §7.1             |
-
-Scopes: `personal` → `global` if project-independent, else `projects`;
-`project` → `projects`; `cross_project` → `projects` with several ids;
-`external_tooling` / `product` / `workflow` → `projects` unless
-project-independent.
-
-Fields dropped by the V2 schema: `confidence`, `importance`, `review_after`,
-`entities`, `tags`, `source_kind`, `source_refs` (→ `provenance`), `supersedes`,
-`related_memories`. Note that `entities` and `tags` are live `search_memory`
-filters — losing them is a retrieval change, not just a schema simplification.
-
-## Appendix B: History
+## Appendix: History
 
 - `2.1.0` (2026-08-01) — added §8.1 (resolving projects) so the derived surfaces
   can state the prerequisite without inventing policy, and §12 now points at

@@ -56,9 +56,6 @@ export interface SessionMetrics {
   // What each session called first — the closest the log gets to "did memory
   // enter the work, or was it an afterthought?"
   firstCallByTool: Record<string, number>;
-  // Events predating session ids (log_schema_version < 2). Excluded from every
-  // number above rather than pooled into one phantom session.
-  unsessionedCalls: number;
 }
 
 export interface FunnelMetrics {
@@ -206,12 +203,10 @@ function distribution(values: number[]): Distribution {
 }
 
 // Events grouped by session, each list in log order (which is append order, and
-// therefore call order — timestamps are only second-granular). Events without a
-// session id are left out entirely; the caller counts them separately.
+// therefore call order — timestamps are only second-granular).
 function sessionGroups(events: LoggedEvent[]): Map<string, LoggedEvent[]> {
   const groups = new Map<string, LoggedEvent[]>();
   for (const event of events) {
-    if (!event.session_id) continue;
     const list = groups.get(event.session_id);
     if (list) list.push(event);
     else groups.set(event.session_id, [event]);
@@ -317,7 +312,6 @@ function sessionMetrics(events: LoggedEvent[]): SessionMetrics {
     sessionsWithSearch: ratio(withSearch, groups.size),
     sessionsWithWrite: ratio(withWrite, groups.size),
     firstCallByTool,
-    unsessionedCalls: events.filter((e) => !e.session_id).length,
   };
 }
 
@@ -481,9 +475,9 @@ function segmentMetrics(events: LoggedEvent[]): Segment[] {
   const buckets = new Map<string, LoggedEvent[]>();
   for (const event of events) {
     const key = [
-      event.variant ?? UNKNOWN,
-      event.policy_version ?? UNKNOWN,
-      event.server_version ?? UNKNOWN,
+      event.variant,
+      event.policy_version,
+      event.server_version,
       event.client_name ?? UNKNOWN,
     ].join(' · ');
     const list = buckets.get(key);

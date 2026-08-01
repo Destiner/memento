@@ -1,0 +1,11 @@
+# Compare the current server-only and recommended-install surfaces under Claude
+# Code after calibration has passed. All configs use the same policy version.
+name: activation-claude
+harness: claude-code
+model: claude-opus-4-8
+env: clean
+reps: 3
+concurrency: 2
+max_spend_usd: 100
+configs: [baseline-0, shipped-v2, shipped-v2-agents]
+scenarios: [read/*, no-read/*, write/*, no-write/*]

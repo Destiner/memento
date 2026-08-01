@@ -8,17 +8,21 @@
 // (arg parsing, file I/O, TTY detection) lives in report-cli.ts, mirroring the
 // index.ts/run.ts split, so everything below is importable and testable.
 //
-// Comparisons are only valid within one (model, cc_version, scenario_version)
-// tuple (§9), and clean/crowded is a controlled dimension that must also match
-// (§3.3) — so records are grouped by (model, cc_version, env) and each group is
-// reported on its own. A scenario id appearing at two versions inside one group is
+// Comparisons are valid only within one harness/model/client/server/policy/env
+// tuple (§9), so each tuple is reported on its own. A scenario id appearing at
+// two versions inside one group is
 // a real integrity problem (a scenario changed without a new comparison tuple), so
 // it is surfaced as a warning rather than silently averaged across versions.
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { anyCaptureAttempt, anyMementoCall, type MementoCall } from './event-log.js';
+import {
+  anyCaptureAttempt,
+  anyMementoCall,
+  searchToGetRate,
+  type MementoCall,
+} from './event-log.js';
 import { type ResultRecord } from './record.js';
 import { loadScenario, SCENARIO_CLASSES, type ScenarioClass } from './scenario.js';
 
@@ -66,6 +70,7 @@ export interface Diagnostics {
   mem_calls_per_session: number | null;
   searches_per_session: number | null;
   empty_search_rate: number | null;
+  search_to_get_rate: number | null;
   capture_attempts_per_session: number | null;
   mean_duration_s: number | null;
   mean_turns: number | null;
@@ -110,6 +115,7 @@ export interface GroupReport {
   model: string;
   cc_version: string;
   memento_version: string; // server version — grouped so a server fix never pools with pre-fix reps
+  policy_version: string; // instruction policy — grouped independently from server version
   env: string;
   configs: ConfigReport[];
   flagged_cells: FlaggedCell[];
@@ -225,6 +231,7 @@ export function aggregate(
       rec.model,
       rec.cc_version,
       rec.memento_version,
+      rec.policy_version ?? 'unknown',
       rec.env,
     ].join(GROUP_SEP);
     let bucket = groups.get(key);
@@ -238,6 +245,8 @@ export function aggregate(
       a.harness.localeCompare(b.harness) ||
       a.model.localeCompare(b.model) ||
       a.cc_version.localeCompare(b.cc_version) ||
+      a.memento_version.localeCompare(b.memento_version) ||
+      a.policy_version.localeCompare(b.policy_version) ||
       a.env.localeCompare(b.env),
   );
   return reports;
@@ -285,6 +294,7 @@ function buildGroup(
     model: first.model,
     cc_version: first.cc_version,
     memento_version: first.memento_version ?? 'unknown',
+    policy_version: first.policy_version ?? 'unknown',
     env: first.env,
     configs,
     flagged_cells,
@@ -419,7 +429,7 @@ function computeDiagnostics(all: ResultRecord[], scoring: ResultRecord[]): Diagn
   let emptySearches = 0;
   for (const { calls } of scored) {
     for (const call of calls) {
-      if (call.tool !== 'search_memory') continue;
+      if (call.tool !== 'search_memories') continue;
       totalSearches++;
       if (call.result_count === 0) emptySearches++;
     }
@@ -436,8 +446,11 @@ function computeDiagnostics(all: ResultRecord[], scoring: ResultRecord[]): Diagn
     reps_ok: scoring.length,
     invalid_rate: fraction(invalid, ok + invalid),
     mem_calls_per_session: mean(scored.map((x) => x.calls.length)),
-    searches_per_session: mean(scored.map((x) => countTool(x.calls, 'search_memory'))),
+    searches_per_session: mean(scored.map((x) => countTool(x.calls, 'search_memories'))),
     empty_search_rate: totalSearches ? emptySearches / totalSearches : null,
+    search_to_get_rate: mean(
+      scored.map((x) => searchToGetRate(x.calls)).filter((rate): rate is number => rate !== null),
+    ),
     capture_attempts_per_session: mean(scored.map((x) => countCaptures(x.calls))),
     mean_duration_s: mean(numbers(scoring.map((r) => r.raw.duration_s))),
     mean_turns: mean(numbers(scoring.map((r) => r.raw.turns))),
@@ -564,7 +577,7 @@ function renderGroup(group: GroupReport, options: ScoreOptions, render: RenderOp
   const dim = group.configs.map((c) => c.guardrails.disqualified);
   const lines: string[] = [];
   lines.push(
-    `═══ ${group.harness} · model ${group.model} · v${group.cc_version} · memento ${group.memento_version} · env ${group.env} ` +
+    `═══ ${group.harness} · model ${group.model} · v${group.cc_version} · memento ${group.memento_version} · policy ${group.policy_version} · env ${group.env} ` +
       `(${group.configs.length} config${group.configs.length === 1 ? '' : 's'}) ═══`,
   );
   lines.push('');
@@ -639,12 +652,13 @@ const DIAG_HEADERS = [
   'mem/s',
   'srch/s',
   'empty%',
+  'open%',
   'cap/s',
   'dur_s',
   'turns',
   'cost',
 ];
-const DIAG_ALIGN: Align[] = ['l', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r'];
+const DIAG_ALIGN: Align[] = ['l', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r'];
 
 function diagRow(c: ConfigReport): string[] {
   const d = c.diagnostics;
@@ -655,6 +669,7 @@ function diagRow(c: ConfigReport): string[] {
     num1(d.mem_calls_per_session),
     num1(d.searches_per_session),
     pct(d.empty_search_rate),
+    pct(d.search_to_get_rate),
     num1(d.capture_attempts_per_session),
     int(d.mean_duration_s),
     num1(d.mean_turns),

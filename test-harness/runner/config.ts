@@ -32,11 +32,21 @@ const slug = z.string().regex(/^[a-z0-9-]+$/, 'must be a kebab-case slug');
 const installSchema = z
   .object({
     claude_md: nonEmpty.optional(), // project CLAUDE.md fragment
+    agent_instructions: z.literal('memento').optional(), // canonical `memento instructions`
     settings: nonEmpty.optional(), // settings.json fragment (merged into the base)
     hooks: z.array(nonEmpty).optional(), // hook script files
     skill: nonEmpty.optional(), // skill directory
   })
-  .strict();
+  .strict()
+  .superRefine((install, ctx) => {
+    if (install.claude_md && install.agent_instructions) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'claude_md and agent_instructions are mutually exclusive.',
+        path: ['agent_instructions'],
+      });
+    }
+  });
 
 export const configSchema = z
   .object({

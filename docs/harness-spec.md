@@ -1,22 +1,15 @@
 # Memento Usage-Propensity Test Harness — Specification
 
-Status: implemented; Phases 0–3 complete on codex, Phase 1 + task-shape spike
-on claude-code; ship decision made (§13). Living document.
-Dates: designed 2026-07-07 · Phase 1 (claude-code) 2026-07-08/09 · codex arm +
-Phase 2/3 2026-07-30/31
+Status: V2 harness implemented. Fresh Claude Code and Codex calibration and
+activation runs are pending.
 Owner: Timur
 
 This document specifies a test harness that measures how context-engineering
 interventions ("knobs") change a coding agent's propensity to use the Memento
 MCP server — and whether that use is *appropriate*, not merely frequent.
 
-It builds on:
-
-- `product.md` §13 (agent behavior: "more appropriately, not more often") and
-  §14 (metrics philosophy) — the strategic frame this harness operationalizes.
-- `implementer-spec.md` §11 (agent integration guidance — the target behavior
-  and failure modes), §13 (event log format — a primary scoring data source),
-  §14 (evaluation and testing).
+It builds on `memory-policy.md` for the behavior boundary and `v2.md` for the
+V2 schemas, instruction surfaces, telemetry, and rollout plan.
 
 Those documents are not duplicated here; this spec covers only the experiment
 design and the harness needed to build and run it.
@@ -41,11 +34,9 @@ measured separately for retrieval (read) and capture (write)?
 - Harness version: detected at run time, recorded per rep (as `cc_version`,
   name kept for log compatibility); baselines rerun on version change (§10).
 
-**Deferred to V2 (recorded here so they shape, but don't block, V1):**
+**Deferred:**
 
-- Model and harness version as matrix dimensions (vs. per-manifest pins).
-- Multi-turn session scripting (V1's single-shot bias is a known blind spot,
-  §12).
+- Multi-turn session scripting (§12).
 - Pollution experiment to empirically calibrate λ_write (§5.4).
 
 ---
@@ -57,7 +48,7 @@ measured separately for retrieval (read) and capture (write)?
   uses one-knob-at-a-time configs plus baselines.
 - **Scenario** — fixture repo + task prompt + seeded memory corpus +
   ground-truth label + checks.
-- **Rep** — one headless Claude Code session for a (config, scenario) cell.
+- **Rep** — one headless coding-agent session for a (config, scenario) cell.
 - **Run** — one manifest execution: a named batch of (config × scenario × rep)
   with a spend cap.
 
@@ -73,7 +64,7 @@ decision rule (§6), they need only a marginal real improvement to ship.
 | Knob | Variants | Side |
 | --- | --- | --- |
 | Tool descriptions | plain (neutral/terse, to be written) / trigger-list (today's shipped text — `8db547f` embedded §11 guidance) | read+write |
-| Tool surface shape | current 5 tools / consolidated 2 (`search`+`save`) / `answer_memory` absent | read |
+| Tool surface shape | the frozen V2 eight-tool surface; future alternatives require a new server version | read |
 | MCP server `instructions` field | empty / usage-protocol text (hoisted into system prompt by the client) | read+write |
 | Tool-result nudges | plain results / appended prompts (empty search → "consider `create_memory` after the task"; create success → reinforce search habit) | read+write |
 
@@ -98,7 +89,7 @@ harness's baseline-0.
 | Skill (memento usage) | absent / present | read+write | no |
 | User-prompt nag | none / "use memory" appended to task | read | yes (trivially) |
 | SessionStart hook | nothing / memory index (titles) / compact digest | read | no |
-| UserPromptSubmit hook | nothing / reminder text / auto-run `search_memory` + inject results | read | no |
+| UserPromptSubmit hook | nothing / reminder text / auto-run `search_memories` + inject results | read | no |
 | Stop / PostToolUse hook | nothing / capture reminder / hard gate ("did a durable insight emerge?") | write | no |
 
 Notes:
@@ -158,7 +149,7 @@ Calibration (§9 Phase 0) verifies unguessability empirically.
 Every scenario runs against a seeded corpus of ~10–15 memories: the relevant
 one (should-retrieve only) plus plausible **distractors** — retrieval has to
 find the right memory among noise, or we're testing propensity but not the
-product. Corpus files follow the record format of `implementer-spec.md` §7
+product. Corpus files follow the V2 record format in `v2.md` §3
 and are seeded into a temp `MEMENTO_HOME` per rep.
 
 ### 4.3 Fixture repos
@@ -185,9 +176,9 @@ run exactly once against the final candidate configs before shipping
 recommendations. If a knob's win doesn't survive the holdout, it doesn't
 ship.
 
-**STATUS: the `holdout-*` groups were SPENT on 2026-07-31** (codex-holdout
-run, §13). They are now ordinary scenarios — any future ship decision needs
-freshly authored holdouts that no knob iteration has touched.
+**STATUS: the `holdout-*` groups are no longer held out.** They are ordinary
+scenarios; any future ship decision needs freshly authored holdouts that no knob
+iteration has touched.
 
 ### 4.5 Scenario definition format
 
@@ -223,8 +214,8 @@ across scenario versions.
 ## 5. Metrics and scoring
 
 All metrics are computed per (config, scenario class) over N reps, from three
-sources: Memento's own event log (`implementer-spec.md` §13), the Claude Code
-transcript (JSON output), and the fixture diff/output.
+sources: Memento's own V2 event log (`src/logging/events.ts`), the coding-agent
+transcript, and the fixture diff/output.
 
 ### 5.1 Primary scores
 
@@ -259,12 +250,12 @@ negative. Read and write scores are **never merged** into one number.
 
 ### 5.2 Capture quality rubric (binary; all must pass)
 
-1. Stored via `create_memory`/`update_memory` (present in event log).
+1. Stored via `create_memory`/`update_memory`, with the event's `memory_id`
+   matching the captured file. A `duplicate_candidates` outcome wrote nothing.
 2. Records the planted insight (string check against the scenario's fact).
-3. Durable phrasing, not a task log (per `implementer-spec.md` §8 "do not
-   create a memory for").
-4. Correct layer per the repo-vs-memory boundary (`implementer-spec.md` §3).
-5. Body usable: has a non-empty Summary; roughly follows the §7 template.
+3. Durable phrasing, not a task log (per `memory-policy.md` §3).
+4. Correct V2 scope per the repo-vs-memory boundary (`memory-policy.md` §8).
+5. Body usable: non-empty. V2 deliberately imposes no heading template.
 
 Judge: checklist script first (string checks + front-matter validation);
 LLM judge only if checklists prove too brittle, and then with the judge
@@ -286,8 +277,9 @@ A config violating either is out regardless of scores:
 ### 5.4 Diagnostics (logged, never used for decisions)
 
 Retrieval recall (search before first substantive action — first mutating
-tool call or final answer), read-through rate, memento calls per session,
-empty-search rate, capture attempts, latency, turn count, invalid-rep rate.
+tool call or final answer), search-to-`get_memory` rate joined by result ids,
+memento calls per session, empty-search rate, capture attempts, latency, turn
+count, invalid-rep rate.
 These explain *why* a score moved; they are all recomputed from the results
 log (§8), so adding one later back-fills history.
 
@@ -323,7 +315,7 @@ test-harness/
   scenarios/          # scenario dirs per §4.5, grouped read|no-read|write|no-write
   fixtures/           # fixture repos (as plain dirs; runner git-inits copies)
   overlays/           # optional dirs copied over a fixture to stage a rep (§4.3)
-  corpus/             # seeded memory .md files (distractor sets + facts)
+  corpus/             # seeded V2 memory .md files (distractor sets + facts)
   stubs/              # dummy MCP server for the crowded env (§7.3)
   runner/             # runner + scorers (bun scripts)
   results/            # results.jsonl + transcripts/ (gitignored except .gitkeep)
@@ -350,15 +342,14 @@ Every rep runs in a fully isolated environment. The operator's own
 `~/.claude/CLAUDE.md`, plugins, skills, and MCP servers must not leak in;
 getting this wrong invalidates results silently.
 
-1. Create temp dirs: `MEMENTO_HOME` (seed corpus), fixture copy (git init +
-   commit), and a fresh Claude Code config home (`CLAUDE_CONFIG_DIR` or
-   overridden `HOME`).
+1. Create three unrelated temp roots: `MEMENTO_HOME` (seed a V2 project registry
+   plus corpus), fixture copy (git init + commit), and a fresh client config home.
 2. Install the config's artifacts into the temp config home / fixture
    (CLAUDE.md, settings with hooks, skill files). Write the MCP server list
    explicitly: memento (with the config's `MEMENTO_VARIANT`) plus, in the
    crowded arm, the stub servers. Pre-allow memento tools in settings.
-3. Run `claude -p "<task>" --output-format json` (model pinned) in the
-   fixture copy, with a per-rep timeout. Capture the transcript stream.
+3. Run the selected adapter's headless command (model pinned) in the fixture
+   copy, with a per-rep timeout. Capture the transcript stream.
 4. Score: parse Memento's event log + transcript + diff; run the fixture
    oracle; evaluate checks/rubric.
 5. Append one JSONL record (§8); save the transcript; delete temp dirs.
@@ -422,6 +413,7 @@ Every rep appends one record to `results/results.jsonl`:
   "model": "claude-opus-4-8",
   "cc_version": "1.6.9",
   "memento_version": "...",
+  "policy_version": "2.1.0",
   "env": "clean",
   "status": "ok",              
   "raw": {
@@ -448,7 +440,7 @@ table with guardrail violations greyed out, plus diagnostics per config.
 
 ## 9. Execution plan
 
-Initial budget: **~$100**; assume ~$0.30–1.00 per short-fixture session
+Historical initial budget: **~$100**; assume ~$0.30–1.00 per short-fixture session
 (~100–300 sessions total). More credits later for Phase 2.
 
 ### Phase 0 — Calibration (~$15–25)
@@ -485,14 +477,15 @@ Final candidate configs × holdout scenarios × once. Survivors ship per §6.
 
 - **New knob:** add a config dir + meta.yaml; run it against `baseline-0`
   in a new manifest. Baselines already logged for the same (model,
-  cc_version, scenario_version) are reusable — the log is the cache.
+  cc_version, memento_version, policy_version, env, scenario_version) are
+  reusable — the log is the cache.
 - **Changed scenario:** bump `version`; it needs Phase-0 calibration before
   use; no cross-version comparisons.
 - **Changed λ / new metric:** recompute from `results.jsonl`; nothing reruns.
 - **Model or CC version changed:** new run name; rerun `baseline-0` (and
   `baseline-no-memento` if scenarios changed) under the new version before
-  comparing anything. Comparisons are only valid within one (model,
-  cc_version, scenario_version) tuple.
+  comparing anything. Comparisons are only valid within one (harness, model,
+  cc_version, memento_version, policy_version, env, scenario_version) tuple.
 - **Iterating knob wording:** freely, against non-holdout scenarios only.
 
 ---
@@ -538,7 +531,7 @@ Both rerun whenever model or CC version changes (§9).
 
 ---
 
-## 12. Known blind spots (accepted, not fixed in V1)
+## 12. Known blind spots
 
 Stated so results are not mistaken for more than they are:
 
@@ -555,106 +548,3 @@ Stated so results are not mistaken for more than they are:
   cross-harness tables answer "does memento work in that ecosystem," never
   "which harness uses memory better." Knob rankings must be established
   within one (harness, model) pair.
-
----
-
-## 13. Findings and learnings (living — updated 2026-07-31)
-
-Everything below is recomputable from `results.jsonl` (~2,100 valid reps) and
-the memories tagged `evaluation` in the operator's store. Quarantined runs
-live in `results/quarantine-*.jsonl` with reasons in the git history.
-
-### 13.1 Ship decision (§6 endpoint, closed)
-
-**Recommended install: `shipped-v2` server defaults + the trigger-list
-fragment as project instructions (CLAUDE.md / AGENTS.md).** Validated at
-N=10 on claude-code (opus-4-8) and codex (gpt-5.6-sol), formal guardrails,
-one-shot holdout on the bigger-app fixture:
-
-- Read: fragment configs 0.50 utility on an unseen scenario (all via MCP,
-  zero leakage, zero FP) — consistent with screening, not wording-overfit.
-- Write: 1.00 on screening captures, 0.20 on the holdout (see 13.3).
-- False positives: zero for every shipped knob across the entire program.
-- On codex, server-side channels alone (descriptions/instructions/nudges)
-  did not move the holdout: the fragment is the load-bearing intervention
-  there. On claude-code the instructions field carries weight on its own.
-
-Phrasing bake-off (codex, N=10): trigger-list (0.37 read / 1.00 write) >
-capability framing (0.30 / 0.90) > decision-check framing (DQ: it induced
-the only fragment false positives ever observed, 0.37 FP — "always ask" is
-spam wearing a persuasion costume).
-
-### 13.2 Task shape dominates read-side propensity (cross-ecosystem)
-
-Rephrasing the same task from build-shaped ("add email sending") to
-knowledge-shaped ("find out which provider we decided on, then implement")
-moved a bare, knob-less install from 0/10 to 9/10 usage on codex and
-0→7–10/10 on claude-code — a larger effect than any knob tested. Aggregate
-usage rates over unstratified scenario sets mostly measure the task-shape
-mix. Scenario sets MUST stratify by shape; read-side product work should
-target the model's task classification and the application step, not
-louder tool advertising.
-
-### 13.3 Capture tracks discovery drama
-
-Write-side scores were near-perfect on screening captures (incident-grade
-lessons: data corruption, deliverability outages) and fell to 0.20 on the
-holdout's routine org policy discovered via one clean error message. Zero
-FP throughout — agents are well-calibrated against junk, but under-capture
-unremarkable constraints. Capture scenario sets must span the drama
-spectrum. Open product lever: a capture nudge at the workaround moment.
-
-### 13.4 Measurement integrity rules (hard-won; read before trusting any run)
-
-Four "zero tool calls" artifacts were caught this program. The rules they
-taught:
-
-1. **Never trust a zero.** Before believing "the model chose not to", force
-   one tool call through the EXACT production path and verify in the
-   server's own event log. Aggregate metrics cannot distinguish a refused
-   call from a declined one.
-2. **Verify at the layer you measure.** The model's transcript said "Result
-   count: 0" for a call that never executed.
-3. Artifact catalog: (a) `bun` cannot run the server (`node:sqlite`) — dead
-   server reads as eternal "connecting"; (b) headless `codex exec`
-   auto-cancels ALL MCP calls under any approval_policy — requires
-   `--dangerously-bypass-approvals-and-sandbox`; (c) sandbox layout leaks —
-   the corpus, the config home, and the workspace need THREE separate temp
-   roots, because agents explore `..` and `$CODEX_HOME`; (d) the server
-   must run from a bundled file, never the dev checkout — the config path
-   is a breadcrumb agents follow to the answer key.
-4. **Knowledge-shaped prompts induce environment hunting.** gpt-5.6-sol
-   forensically audits env vars → config files → filesystem when a task
-   smells like "find the correct value". `corpus_file_access` (transcript
-   contains the memento-home path) measures the direct file-read channel —
-   philosophically legitimate for a file-first store, but a distinct
-   channel that must not pool with MCP-mediated utility.
-5. **Anti-regexes must match usage, not words** (`@sendgrid/mail`, not
-   `sendgrid`) — prose mentions of a ruled-out option failed correct
-   implementations for a full screening round.
-6. **Calibration gates work.** Every new/edited scenario runs
-   baseline-no-memento first; utility must be ≈0. This caught a guessable
-   fact, two sandbox leaks, and validated instruments before every paid
-   phase. Never skip it.
-7. **Product bug found by the harness:** `read_memory` resolved ids by
-   filename only, so search returned ids read could not open (fixed 0.2.0
-   with a front-matter fallback). All pre-0.2.0 utility-after-search rates
-   are understated; the report groups by `memento_version` so eras never
-   pool.
-
-### 13.5 Null results worth remembering
-
-- Crowded env (codex, N=10): no effect either way. The earlier claude-code
-  "crowding triggers usage" observation was a task-shape artifact at small N.
-- Bare-install propensity is ≈0 on both ecosystems for build-shaped tasks
-  (codex baseline read collapsed from 0.31 to 0.03 once snooping was
-  isolated away — pre-hardening baselines were contaminated).
-- `result-nudges` cannot bootstrap usage (they fire only after a first
-  call) but are free and compound with instruction-driven usage.
-
-### 13.6 Open items
-
-README recommended-install section; capture-nudge knob (13.3); `clientInfo`
-in the event log (reconcile in-vivo usage per client with harness rates);
-claude-code holdout pass; fresh holdout scenarios (§4.4 — spent); multi-turn
-sessions (§12, unchanged); second codex model.

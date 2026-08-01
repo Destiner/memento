@@ -1,7 +1,7 @@
 # Holdout should-not-retrieve (§4.4): trivial, self-contained edit on the
 # bigger-app fixture. Any memento call is a false positive.
 id: holdout-no-read/fix-status-typo
-version: 1
+version: 2
 class: should-not-retrieve
 fixture: fixtures/bigger-app
 task: 'Fix the typo in the invoice status labels.'

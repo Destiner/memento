@@ -3,7 +3,7 @@
 # (§4.1). The corpus already holds testing memories, so there is nothing new worth
 # keeping. Paths are relative to the test-harness/ root. (harness-spec §4.5)
 id: no-write/reset-token-test
-version: 1
+version: 2
 class: should-not-capture
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-mailer

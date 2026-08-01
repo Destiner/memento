@@ -6,8 +6,9 @@ import { dirname, join } from 'node:path';
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'vitest';
 
+import { AGENT_FRAGMENT } from '../../src/policy/index.js';
 import { type Config } from './config.js';
-import { createSandbox, type Sandbox } from './sandbox.js';
+import { createSandbox, HARNESS_PROJECT_ID, type Sandbox } from './sandbox.js';
 import { type Scenario } from './scenario.js';
 
 // A synthetic harness tree keeps the test fast and hermetic — no real fixture
@@ -126,6 +127,16 @@ describe('createSandbox', () => {
     expect(seeded).toEqual(['a.md', 'b.md', 'planted.md']);
   });
 
+  test('registers the synthetic checkout so V2 project resolution can succeed', () => {
+    const sandbox = open({ config: BASELINE_0, scenario: RETRIEVE_SCENARIO });
+    const project = readFileSync(
+      join(sandbox.mementoHome, 'projects', `${HARNESS_PROJECT_ID}-harness-app.md`),
+      'utf8',
+    );
+    expect(project).toContain(`id: ${HARNESS_PROJECT_ID}`);
+    expect(project).toContain(sandbox.repoDir);
+  });
+
   test('applies a scenario overlay on top of the fixture', () => {
     const scenario: Scenario = { ...RETRIEVE_SCENARIO, overlay: 'overlays/mini-staged' };
     const sandbox = open({ config: BASELINE_0, scenario });
@@ -180,6 +191,17 @@ describe('createSandbox', () => {
     };
     const sandbox = open({ config, scenario: RETRIEVE_SCENARIO });
     expect(readFileSync(join(sandbox.repoDir, 'CLAUDE.md'), 'utf8')).toBe('use memento\n');
+  });
+
+  test('installs the canonical generated fragment under the adapter filename', () => {
+    const config: Config = {
+      ...BASELINE_0,
+      name: 'with-claude-md',
+      knob: 'claude-md',
+      install: { agent_instructions: 'memento' },
+    };
+    const sandbox = open({ config, scenario: RETRIEVE_SCENARIO });
+    expect(readFileSync(join(sandbox.repoDir, 'CLAUDE.md'), 'utf8')).toBe(AGENT_FRAGMENT);
   });
 
   test('merges a config settings fragment over the memento allowance', () => {
@@ -245,9 +267,8 @@ describe('createSandbox', () => {
   });
 
   test('private state is not reachable by exploring up from the session cwd', () => {
-    // Regression (codex-screening-1): with memento-home/ a sibling of repo/, one
-    // `ls ..` handed the agent the seeded corpus as plain files — utility "passed"
-    // with zero MCP calls. The workspace must sit in its own temp root.
+    // With memento-home/ as a sibling of repo/, `ls ..` exposes the seeded corpus
+    // as plain files. The workspace must sit in its own temp root.
     const sandbox = createSandbox({
       harnessRoot,
       serverEntry: '/srv/server.js',

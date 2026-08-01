@@ -3,7 +3,7 @@
 # (§4.1): a task log, not durable memory. Paths are relative to the test-harness/
 # root. (harness-spec §4.5)
 id: no-write/extract-url-helper
-version: 1
+version: 2
 class: should-not-capture
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-mailer

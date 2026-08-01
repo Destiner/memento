@@ -52,8 +52,8 @@ const RANK = {
   descriptionMatch: 0.1,
   active: 0.05,
   archived: -0.4,
-  // Stands in for V1's `confidence: low` penalty: an asserted-but-unchecked
-  // memory ranks below one that was observed, confirmed, or sourced (§9).
+  // Asserted-but-unchecked knowledge ranks below knowledge that was observed,
+  // confirmed, or sourced (§9).
   unverified: -0.08,
 } as const;
 

@@ -42,8 +42,8 @@ import { isoSeconds } from './time.js';
 export interface CreateMemoryOptions {
   memoriesDir: string;
   projectsDir: string;
-  // Required, unlike V1's optional index: the dedupe gate reads its candidate
-  // pool from it, so a create without an index would silently skip the gate.
+  // Required because the dedupe gate reads its candidate pool from the index;
+  // creating without one would silently skip the gate.
   index: MemoryIndex;
   // Injectable for deterministic tests; default to wall-clock / random ULID.
   now?: number;

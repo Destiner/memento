@@ -16,7 +16,7 @@ import {
   seededBaseline,
   type CaptureResult,
 } from './capture.js';
-import { readMementoCalls, type MementoCall } from './event-log.js';
+import { readMementoCalls, serverSessionIds, type MementoCall } from './event-log.js';
 import { runOracle } from './oracle.js';
 import { type ScoredFacts } from './record.js';
 import { type Scenario } from './scenario.js';
@@ -34,6 +34,12 @@ export interface ScoreInput {
 export function scoreRep(input: ScoreInput): ScoredFacts {
   const { scenario, repoDir } = input;
   const memento_calls: MementoCall[] = readMementoCalls(input.mementoHome);
+  const sessions = serverSessionIds(memento_calls);
+  if (sessions.length > 1) {
+    throw new Error(
+      `Rep event log contains ${sessions.length} server sessions; refusing to mix their calls.`,
+    );
+  }
 
   let utility_pass: boolean | null = null;
   if (scenario.class === 'should-retrieve' && scenario.checks.utility_regex) {

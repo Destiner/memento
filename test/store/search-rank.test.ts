@@ -45,7 +45,7 @@ describe('search ranking', () => {
     expect(ids('webhook retry')[0]).toBe('mem_TITLE');
   });
 
-  // Replaces V1's entity boost: description is the other short, curated field.
+  // Description is the other short, curated field and receives a ranking boost.
   test('a description match boosts a memory', () => {
     index.upsert(
       memoryRecord({ id: 'mem_PLAIN', title: 'Notes', description: 'Assorted notes.' }),
@@ -63,7 +63,7 @@ describe('search ranking', () => {
     expect(ids('stripe')[0]).toBe('mem_DESC');
   });
 
-  // Replaces V1's `confidence: low` penalty.
+  // Unverified memories receive a ranking penalty.
   test('unverified memories rank below established ones', () => {
     index.upsert(
       memoryRecord({

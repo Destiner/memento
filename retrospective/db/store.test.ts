@@ -15,7 +15,7 @@ const EVALUATOR: EvaluatorIdentity = {
   cli: 'claude',
   cliVersion: '1.2.3',
   model: 'test-model',
-  promptVersion: 'retrospective-v1',
+  promptVersion: 'retrospective-1',
   schemaVersion: 1,
 };
 

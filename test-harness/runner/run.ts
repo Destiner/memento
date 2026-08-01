@@ -164,6 +164,7 @@ export interface RunContext {
   adapter: HarnessAdapter; // invocation/parse/config-home seam (harness.ts)
   ccVersion: string; // adapter's version (name kept from the pre-codex log)
   mementoVersion: string;
+  policyVersion: string;
   configHashes: Map<string, string>; // config name → config_hash
   transcriptsDir: string; // absolute; per-run transcript directory
   oracleTimeoutS: number; // per-scenario task_success budget (§5.3)
@@ -183,6 +184,7 @@ export function makeHaltedRecord(ctx: RunContext): (cell: Cell) => ResultRecord 
       model: ctx.model,
       ccVersion: ctx.ccVersion,
       mementoVersion: ctx.mementoVersion,
+      policyVersion: ctx.policyVersion,
       env: ctx.env,
       cell,
       configHash: ctx.configHashes.get(cell.config.name) ?? '',
@@ -250,6 +252,7 @@ export function makeRunCell(ctx: RunContext): RunCell {
         model: ctx.model,
         ccVersion: ctx.ccVersion,
         mementoVersion: ctx.mementoVersion,
+        policyVersion: ctx.policyVersion,
         env: ctx.env,
         cell,
         configHash: ctx.configHashes.get(cell.config.name) ?? '',

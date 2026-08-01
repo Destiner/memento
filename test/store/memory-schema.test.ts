@@ -109,22 +109,6 @@ describe('validateMemoryFrontmatter', () => {
     ).toThrow(MementoError);
   });
 
-  test('rejects V1 front matter outright', () => {
-    const v1 = {
-      id: 'mem_TEST0001',
-      title: 'Webhook retries',
-      type: 'triage',
-      scope: 'project',
-      status: 'active',
-      created_at: record.created_at,
-      updated_at: record.updated_at,
-      projects: ['memento'],
-      tags: ['webhooks'],
-      confidence: 'high',
-    };
-    expect(() => validateMemoryFrontmatter(v1)).toThrow(MementoError);
-  });
-
   test.each([
     ['an unknown evidence kind', [{ kind: 'slack_thread', value: 'https://example.com/t/1' }]],
     ['an evidence entry without a value', [{ kind: 'commit' }]],

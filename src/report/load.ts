@@ -7,7 +7,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { LOG_FILE_PATTERN, type LoggedEvent } from '../logging/events.js';
+import { LOG_FILE_PATTERN, LOG_SCHEMA_VERSION, type LoggedEvent } from '../logging/events.js';
 
 export async function loadEvents(logsDir: string): Promise<LoggedEvent[]> {
   let entries: string[];
@@ -30,11 +30,29 @@ export async function loadEvents(logsDir: string): Promise<LoggedEvent[]> {
       const trimmed = line.trim();
       if (!trimmed) continue;
       try {
-        events.push(JSON.parse(trimmed) as LoggedEvent);
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (isLoggedEvent(parsed)) events.push(parsed);
       } catch {
         // Skip a torn or hand-mangled line; keep the rest of the report intact.
       }
     }
   }
   return events;
+}
+
+function isLoggedEvent(value: unknown): value is LoggedEvent {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const event = value as Record<string, unknown>;
+  return (
+    typeof event.event_id === 'string' &&
+    typeof event.timestamp === 'string' &&
+    typeof event.session_id === 'string' &&
+    typeof event.server_version === 'string' &&
+    typeof event.policy_version === 'string' &&
+    typeof event.variant === 'string' &&
+    event.log_schema_version === LOG_SCHEMA_VERSION &&
+    typeof event.tool === 'string' &&
+    (event.outcome === 'success' || event.outcome === 'error') &&
+    typeof event.latency_ms === 'number'
+  );
 }

@@ -149,9 +149,7 @@ function compareSearches(
       });
     }
   }
-  const actual = task.actualOperations.filter(
-    (operation) => operation.kind === 'search' || operation.tool === 'legacy_query',
-  );
+  const actual = task.actualOperations.filter((operation) => operation.kind === 'search');
   const pairs = matchOneToOne(proposals, actual, scoreSearch);
   const matchedProposals = new Set(pairs.map((pair) => pair.proposal.proposalIndex));
   const matchedActual = new Set(pairs.map((pair) => pair.actual.id));
@@ -251,11 +249,7 @@ function scoreSearch(
   candidate: SearchCandidate,
   actual: ActualMemoryOperation,
 ): Pair<SearchCandidate> | undefined {
-  const query =
-    stringField(actual.input, 'query') ??
-    stringField(actual.input, 'intent') ??
-    stringField(actual.input, 'question') ??
-    '';
+  const query = stringField(actual.input, 'query') ?? stringField(actual.input, 'intent') ?? '';
   const textScore = similarity(candidate.proposal.search.query, query);
   const scope = scopeRelation(candidate.proposal.search.scope, actual.scope);
   if (textScore < 0.2) return undefined;

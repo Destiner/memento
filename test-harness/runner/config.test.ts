@@ -86,4 +86,22 @@ describe('configSchema', () => {
     };
     expect(configSchema.safeParse(claudeMd).success).toBe(true);
   });
+
+  test('accepts the canonical generated agent instructions', () => {
+    expect(
+      configSchema.safeParse({
+        ...VALID,
+        install: { agent_instructions: 'memento' },
+      }).success,
+    ).toBe(true);
+  });
+
+  test('rejects two competing project instruction sources', () => {
+    expect(
+      configSchema.safeParse({
+        ...VALID,
+        install: { claude_md: 'AGENTS.md', agent_instructions: 'memento' },
+      }).success,
+    ).toBe(false);
+  });
 });

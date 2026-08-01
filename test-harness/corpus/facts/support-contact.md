@@ -1,24 +1,18 @@
 ---
 id: mem_01KS4C9X00H7P2S4W6YQ3B8N5K
 title: 'Security contact for account emails is security@acme.io'
-type: working_agreement
-scope: cross_project
+description: Account-security emails direct unexpected-action reports to security@acme.io.
+scope:
+  kind: projects
+  project_ids:
+    - prj_HARNESS
+type: product_rationale
+provenance:
+  source: user_stated
+  verification: user_confirmed
 status: active
 created_at: 2026-05-23T00:00:00Z
 updated_at: 2026-05-23T00:00:00Z
-projects:
-  - customer-portal
-  - marketing-api
-entities:
-  - security@acme.io
-  - password-reset
-tags:
-  - email
-  - security
-  - support
-confidence: high
-importance: medium
-source_kind: decision
 ---
 
 ## Summary

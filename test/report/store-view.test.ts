@@ -47,6 +47,9 @@ function readEvent(id: string): LoggedEvent {
     latency_ms: 4,
     memory_id: id,
     server_version: '0.3.2',
+    policy_version: '2.1.0',
+    variant: 'shipped-v2',
+    log_schema_version: 2,
   };
 }
 

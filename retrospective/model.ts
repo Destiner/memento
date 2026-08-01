@@ -69,8 +69,7 @@ export type CanonicalMementoTool =
   | 'get_memory'
   | 'create_memory'
   | 'update_memory'
-  | 'archive_memory'
-  | 'legacy_query';
+  | 'archive_memory';
 
 export type ActualOperationKind = 'project' | 'search' | 'read' | 'write' | 'archive';
 export type ActualOperationOutcome = 'unknown' | 'success' | 'error';

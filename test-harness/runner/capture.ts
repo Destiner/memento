@@ -1,4 +1,4 @@
-// Capture-quality scorer (harness-spec §5.2; implementer-spec §3, §7, §8).
+// Capture-quality scorer (docs/harness-spec.md §5.2; memory-policy.md §3, §8).
 //
 // good_capture_rate counts should-capture reps where a memory was created/updated
 // *and* passes a binary rubric — "a created-but-junk memory counts as a miss"
@@ -17,7 +17,7 @@ import { basename, join } from 'node:path';
 
 import { parse as parseYaml } from 'yaml';
 
-import { anyCaptureSuccess, type MementoCall } from './event-log.js';
+import { anyCaptureSuccess, memoryWasStored, type MementoCall } from './event-log.js';
 import { compilePattern } from './pattern.js';
 import { type CaptureRubric } from './scenario.js';
 
@@ -40,6 +40,7 @@ export interface CaptureResult {
 export interface CapturedMemory {
   id: string | null;
   title: string;
+  description: string;
   scope: string | null;
   body: string;
 }
@@ -62,29 +63,28 @@ export function scoreCapture(
   captured: CapturedMemory[],
   rubric: CaptureRubric,
 ): CaptureResult {
-  const stored = anyCaptureSuccess(calls);
+  const attempted = anyCaptureSuccess(calls);
 
   let best: { criteria: CaptureCriteria; id: string | null } | null = null;
   for (const memory of captured) {
-    const criteria = evaluate(memory, stored, rubric);
+    const criteria = evaluate(memory, memoryWasStored(calls, memory.id), rubric);
     if (!best || score(criteria) > score(best.criteria)) best = { criteria, id: memory.id };
     if (allPass(criteria)) break; // a fully-passing candidate is the best possible
   }
 
   const criteria = best?.criteria ?? {
-    stored,
+    stored: attempted,
     insight: false,
     durable: false,
     layer: false,
     body: false,
   };
-  return { attempted: stored, passed: allPass(criteria), criteria, memory_id: best?.id ?? null };
+  return { attempted, passed: allPass(criteria), criteria, memory_id: best?.id ?? null };
 }
 
 function evaluate(memory: CapturedMemory, stored: boolean, rubric: CaptureRubric): CaptureCriteria {
-  const haystack = `${memory.title}\n${memory.body}`;
-  const summary = extractSummary(memory.body);
-  const heading = `${memory.title}\n${summary ?? ''}`;
+  const haystack = `${memory.title}\n${memory.description}\n${memory.body}`;
+  const heading = `${memory.title}\n${memory.description}`;
 
   const insight =
     compilePattern(rubric.insight_regex).test(haystack) &&
@@ -98,7 +98,7 @@ function evaluate(memory: CapturedMemory, stored: boolean, rubric: CaptureRubric
     ? memory.scope !== null && rubric.expected_scope.includes(memory.scope)
     : memory.scope !== null;
 
-  return { stored, insight, durable, layer, body: summary !== null };
+  return { stored, insight, durable, layer, body: memory.body.trim().length > 0 };
 }
 
 /**
@@ -160,7 +160,8 @@ function parseMemory(raw: string): CapturedMemory {
   return {
     id: str(metadata.id),
     title: str(metadata.title) ?? '',
-    scope: str(metadata.scope),
+    description: str(metadata.description) ?? '',
+    scope: scopeKind(metadata.scope),
     body,
   };
 }
@@ -177,17 +178,13 @@ function parseMetadata(yamlBlock: string): Record<string, unknown> {
     : {};
 }
 
-// The text under a `## Summary` heading up to the next `## ` or end of body;
-// null when absent or empty. Mirrors src/store/body-template.ts so the harness's
-// "usable body" bar matches the product's Summary detector.
-function extractSummary(body: string): string | null {
-  const match = /##\s+Summary\b[^\n]*\n([\s\S]*?)(?=\n##\s|$)/.exec(body);
-  const text = match?.[1]?.trim();
-  return text && text.length > 0 ? text : null;
-}
-
 function str(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
+}
+
+function scopeKind(value: unknown): string | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  return str((value as Record<string, unknown>).kind);
 }
 
 function score(criteria: CaptureCriteria): number {

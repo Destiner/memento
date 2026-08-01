@@ -61,7 +61,7 @@ export function generateQueryId(now: number = Date.now()): string {
   return QUERY_ID_PREFIX + encodeTime(now) + encodeRandom();
 }
 
-// An `evt_`-prefixed ULID for a single instrumentation event (§13). Sortable by
+// An `evt_`-prefixed ULID for a single instrumentation event (v2.md §8). Sortable by
 // creation time, distinct namespace from memory and query ids.
 export function generateEventId(now: number = Date.now()): string {
   return EVENT_ID_PREFIX + encodeTime(now) + encodeRandom();

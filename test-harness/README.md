@@ -2,7 +2,7 @@
 
 Measures how context-engineering interventions ("knobs") change a coding
 agent's propensity to use Memento — and whether that use is *appropriate*.
-See `../harness-spec.md` for the full experiment design; this README is the
+See `../docs/harness-spec.md` for the full experiment design; this README is the
 operational quick reference.
 
 ## Layout (§7.1)
@@ -13,7 +13,7 @@ operational quick reference.
 - `fixtures/` — fixture repos as plain dirs; the runner git-inits copies.
 - `overlays/` — optional dirs a scenario copies over its fixture to stage the
   per-rep baseline (green up an app, plant a discovery artifact) without forking it.
-- `corpus/` — seeded memory `.md` files (distractor sets + `facts/`).
+- `corpus/` — seeded V2 memory `.md` files (distractor sets + `facts/`).
 - `stubs/` — dummy MCP server for the crowded env (§7.3).
 - `runner/` — runner + scorers (bun scripts).
 - `results/` — `results.jsonl` + `transcripts/` (gitignored except `.gitkeep`).
@@ -33,7 +33,7 @@ bun run harness:report -- --lambda-write 1.5   # re-score with a different weigh
 bun run harness:report -- --results <path> --baseline baseline-0 --no-color
 ```
 
-It prints, per (model, cc, env) group, the config × (read_score, write_score)
+It prints, per (harness, model, client, server, policy, env) group, the config × (read_score, write_score)
 table with guardrail-violating rows dimmed, plus the §5.4 diagnostics; cells with
 >30% invalid reps (§7.4) and scenarios spanning versions (§9) are flagged.
 
@@ -50,6 +50,8 @@ runner (done) → scorers (done) → report (done) → stub server (done). The r
 executes the hermetic per-rep lifecycle (§7.2) under the spend cap and flake policy
 (§7.4), scores each rep, and appends a record to `results/results.jsonl`; the report
 (`bun run harness:report`) recomputes scores and guardrails from that log.
+The result log starts empty; baseline-no-memento calibration is required before
+new comparisons.
 
 The crowded env (§7.3) is now available: a single stub MCP server (`stubs/server.ts`)
 is instantiated once per profile in `stubs/profiles.ts` (issue tracker, error
@@ -66,6 +68,8 @@ the should-retrieve utility check (regex over added lines only); and the fixture
 oracle (`task_success`) as the guardrail. should-capture reps are scored against
 the five-criterion capture rubric (§5.2) over the memories the session created or
 edited. Read and write scores are recomputed from the log, never stored (§8.2).
+Preflight also forces `resolve_project` through the bundled stdio server and
+verifies the call in that server's event log before any paid rep can launch.
 
 Scenarios: three `read/*` should-retrieve (email provider, reset-link domain,
 security contact — each seeds an unguessable fact into the corpus and checks it

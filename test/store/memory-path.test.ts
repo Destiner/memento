@@ -62,7 +62,7 @@ describe('resolveMemoryPath — front-matter fallback', () => {
 
   test('a hand-renamed file still resolves by its front-matter id', async () => {
     // The store is human-editable (files are canonical): search indexes the
-    // front-matter id, so read_memory must resolve it even when the filename
+    // front-matter id, so get_memory must resolve it even when the filename
     // dropped the id prefix — otherwise search returns ids read cannot open.
     writeFileSync(join(dir, 'renamed-by-a-human.md'), memory('mem_TEST0001'));
     await expect(resolveMemoryPath(dir, 'mem_TEST0001')).resolves.toBe(

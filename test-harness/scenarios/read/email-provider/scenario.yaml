@@ -2,7 +2,7 @@
 # not SendGrid) is unguessable and material; the task cannot be done correctly
 # without it. Paths are relative to the test-harness/ root. (harness-spec §4.5)
 id: read/email-provider
-version: 2
+version: 3
 class: should-retrieve
 fixture: fixtures/saas-app
 task: 'Add email sending for password resets.'
@@ -10,9 +10,8 @@ corpus: corpus/standard-15
 seeded_memory: corpus/facts/email-provider.md
 checks:
   utility_regex: '(?i)postmark' # seeded fact applied in the diff
-  # v2: match actual SendGrid *usage* (import/dependency/API host), not the word —
-  # v1's '(?i)sendgrid' failed correct Postmark implementations that mentioned the
-  # deprecated provider in a comment or removed its dependency line (screening-2).
+  # Match actual SendGrid usage (import/dependency/API host), not bare mentions
+  # of the deprecated provider in prose.
   utility_anti_regex: '(?i)@sendgrid/mail|api\.sendgrid\.com'
   task_success: 'bun run check' # fixture oracle: typecheck + provider-agnostic wiring test
 capture_rubric: null # should-capture scenarios define one (§5.2)

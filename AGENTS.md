@@ -30,7 +30,7 @@ Local, file-owned memory layer for coding agents, exposed as an MCP server.
 - `/src/policy` - The instruction surfaces, assembled from `memory-policy.md` as data (`blocks.ts`): server instructions, the AGENTS.md fragment, and both tool-description sets. Print either prose surface with `memento instructions [--server]`
 - `/src/variants` - `MEMENTO_VARIANT` registry: context-engineering knob bundles (descriptions/instructions/nudges); `shipped-v2` is the production default, `plain` is the experimental floor
 - `/test` - Vitest specs and fixtures
-- `/test-harness` - Usage-propensity experiment harness (see `harness-spec.md`, esp. §13 findings): runner, scenarios, fixtures, manifests, results
+- `/test-harness` - Usage-propensity experiment harness (see `docs/harness-spec.md`): runner, scenarios, fixtures, manifests, results
 - `/retrospective` - Offline Claude Code/Codex history evaluation, review, promotion, and regression export (see `retrospection.md`)
 - `memory-policy.md` - Canonical memory policy and vocabulary (types, scopes, provenance). Every instruction surface derives from it; edit it before `/src/policy`, and bump `policy_version` for any change to §2-§10
 
@@ -41,7 +41,7 @@ Local, file-owned memory layer for coding agents, exposed as an MCP server.
 - The server CANNOT run under `bun run` (`node:sqlite` is not implemented in Bun); it runs under Node (`node dist/main.js`). Tests pass under `bun run test` only because vitest itself runs on Node.
 - Retrospective measurement changes must bump `RETROSPECTIVE_PIPELINE_VERSION`; prompt-only changes also bump the affected prompt version, and output-shape changes bump `EVALUATOR_SCHEMA_VERSION`.
 
-## Harness rules (read `harness-spec.md` §13 before touching experiments)
+## Harness rules (read `docs/harness-spec.md` before touching experiments)
 
 - Results are append-only in `test-harness/results/results.jsonl`; invalidated runs move to `quarantine-*.jsonl`, never deleted. Scores are always recomputed from the log.
 - Comparisons are only valid within one (harness, model, cc_version, memento_version, env) tuple. Bump the package version for any measurement-relevant server change.

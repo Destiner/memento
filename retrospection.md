@@ -68,12 +68,11 @@ Claude Code / Codex JSONL histories
 ## Supported clients and evaluators
 
 The history adapters understand both Claude Code and Codex persistent JSONL,
-including the older unwrapped Codex rollout format needed for historical
-baselines. They normalize the clients into a shared chronological
-representation while retaining client, model, client version, timestamps, and
-parent-agent relationships. If one source session switches models, its model is
-recorded honestly as `mixed` instead of attributing the whole session to the
-first model observed.
+including unwrapped Codex rollout records. They normalize the clients into a
+shared chronological representation while retaining client, model, client
+version, timestamps, and parent-agent relationships. If one source session
+switches models, its model is recorded honestly as `mixed` instead of attributing
+the whole session to the first model observed.
 
 Both clients can also be used as the evaluator:
 
@@ -217,9 +216,8 @@ in multiple client events is deduplicated by its call id. When Codex supplies
 provisional and later authoritative MCP records for one call, the authoritative
 server identity and richer result win.
 
-The adapters recognize V2 tool names and the unambiguous V1 retrieval/write names
-needed for historical baselines. They retain the original name alongside the
-canonical operation. Ambiguous legacy operations remain explicitly ambiguous.
+The adapters recognize the eight Memento tool names and retain the original name
+alongside the canonical operation.
 
 Malformed or unknown JSONL records are counted as warnings. A non-empty file from
 which no recognizable conversation can be recovered fails as an unsupported
@@ -302,10 +300,7 @@ tool result nor matched telemetry is classified `transcript_only` during
 comparison.
 
 The normalizer understands scopes in `update_memory`'s nested `changes` and treats
-the returned memory scope as authoritative when present. Historical
-`answer_memory` calls use their `question` for semantic matching, while their old
-project-name filter remains deliberately unknown rather than being mistaken for a
-stable project ID.
+the returned memory scope as authoritative when present.
 
 Comparison is one-to-one, so one actual call cannot satisfy several proposals. It
 evaluates semantic similarity, timing, and scope separately, then persists a queue

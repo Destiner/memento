@@ -93,35 +93,6 @@ describe('getMemory', () => {
     ).rejects.toBeInstanceOf(MementoError);
   });
 
-  // V1 -> V2 storage migration is out of scope, so a V1 memory must fail loudly
-  // rather than be half-read.
-  test('rejects a V1 memory file', async () => {
-    writeFileSync(
-      join(memoriesDir, 'mem_V1OLD-x.md'),
-      [
-        '---',
-        'id: mem_V1OLD',
-        'title: Old shape',
-        'type: integration',
-        'scope: cross_project',
-        'status: active',
-        'created_at: 2026-01-01T00:00:00Z',
-        'updated_at: 2026-01-01T00:00:00Z',
-        'tags:',
-        '  - legacy',
-        '---',
-        '',
-        '## Summary',
-        'V1 body.',
-        '',
-      ].join('\n'),
-    );
-
-    await expect(
-      getMemory({ id: 'mem_V1OLD' }, { memoriesDir, projectsDir }),
-    ).rejects.toMatchObject({ code: 'validation_error' });
-  });
-
   test('rejects unknown input keys', async () => {
     await seed();
     await expect(

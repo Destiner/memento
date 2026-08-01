@@ -4,7 +4,7 @@
 # is a guardrail here (did the edit break the build?), not the metric — read_fp_rate
 # is. Paths are relative to the test-harness/ root. (harness-spec §4.5)
 id: no-read/rename-constant
-version: 1
+version: 2
 class: should-not-retrieve
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-mailer

@@ -1,18 +1,16 @@
 ---
 id: mem_01KYWD1G00X7Q4RZV8N2M5PC3H
 title: 'Webhook verification: HMAC-SHA512 via X-Hook-Digest, not the provider default'
-type: decision
-scope: cross_project
+description: Billing webhooks use an HMAC-SHA512 X-Hook-Digest instead of the provider default.
+scope:
+  kind: projects
+  project_ids:
+    - prj_HARNESS
+type: decision_history
+provenance:
+  source: user_stated
+  verification: user_confirmed
 status: active
-entities:
-  - billing-provider
-  - webhooks
-tags:
-  - security
-  - webhooks
-  - integration
-confidence: high
-importance: high
 created_at: 2026-06-02T10:00:00Z
 updated_at: 2026-06-02T10:00:00Z
 ---

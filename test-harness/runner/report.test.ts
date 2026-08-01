@@ -18,6 +18,17 @@ import {
 const HARNESS_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const EMPTY_CLASSES = new Map<string, ScenarioClass>();
 
+const call = (
+  input: Pick<MementoCall, 'tool' | 'outcome'> & Partial<MementoCall>,
+): MementoCall => ({
+  session_id: 'ses_TEST',
+  server_version: '0.3.2',
+  policy_version: '2.1.0',
+  variant: 'shipped-v2',
+  log_schema_version: 2,
+  ...input,
+});
+
 // A record builder with sane defaults; overrides target the fields a test cares
 // about. Class is inferred from the scenario id prefix + scored fields (the report
 // falls back to that when a class map is empty), so tests stay off disk.
@@ -28,6 +39,7 @@ function record(over: {
   raw?: Partial<RawFacts>;
   model?: string;
   cc_version?: string;
+  policy_version?: string;
   env?: string;
   scenario_version?: number;
   scenario_class?: ScenarioClass;
@@ -56,6 +68,7 @@ function record(over: {
     model: over.model ?? 'claude-opus-4-8',
     cc_version: over.cc_version ?? '1.6.9',
     memento_version: '0.1.0',
+    policy_version: over.policy_version ?? '2.1.0',
     env: over.env ?? 'clean',
     status: over.status ?? 'ok',
     raw,
@@ -63,13 +76,20 @@ function record(over: {
   };
 }
 
-const search = (result_count: number): MementoCall => ({
-  tool: 'search_memory',
+const search = (result_count: number): MementoCall =>
+  call({
+    tool: 'search_memories',
+    outcome: 'success',
+    result_count,
+    result_ids: result_count > 0 ? ['mem_HIT'] : [],
+  });
+const readCall = call({ tool: 'get_memory', outcome: 'success', memory_id: 'mem_HIT' });
+const createCall = call({
+  tool: 'create_memory',
   outcome: 'success',
-  result_count,
+  result_outcome: 'created',
+  memory_id: 'mem_NEW',
 });
-const readCall: MementoCall = { tool: 'read_memory', outcome: 'success' };
-const createCall: MementoCall = { tool: 'create_memory', outcome: 'success' };
 
 function only(groups: ReturnType<typeof aggregate>) {
   expect(groups).toHaveLength(1);
@@ -272,6 +292,25 @@ describe('aggregate — flake and grouping', () => {
     expect(groups.map((g) => g.env).sort()).toEqual(['clean', 'crowded']);
   });
 
+  test('records split by instruction policy version', () => {
+    const records = [
+      record({
+        config: 'c',
+        scenario: 'read/a',
+        policy_version: '2.1.0',
+        raw: { utility_pass: true },
+      }),
+      record({
+        config: 'c',
+        scenario: 'read/a',
+        policy_version: '2.2.0',
+        raw: { utility_pass: true },
+      }),
+    ];
+    const groups = aggregate(records, EMPTY_CLASSES, DEFAULT_OPTIONS);
+    expect(groups.map((group) => group.policy_version)).toEqual(['2.1.0', '2.2.0']);
+  });
+
   test('a scenario at two versions in one group is reported as a conflict', () => {
     const records = [
       record({ config: 'c', scenario: 'read/a', scenario_version: 1, raw: { utility_pass: true } }),
@@ -300,6 +339,7 @@ describe('aggregate — diagnostics (§5.4)', () => {
     expect(c.diagnostics.mem_calls_per_session).toBe(2); // (2 + 2) / 2
     expect(c.diagnostics.searches_per_session).toBe(1); // one each
     expect(c.diagnostics.empty_search_rate).toBe(0.5); // one of two searches empty
+    expect(c.diagnostics.search_to_get_rate).toBe(1); // the one non-empty search was opened
     expect(c.diagnostics.capture_attempts_per_session).toBe(0.5); // one create across two reps
   });
 });

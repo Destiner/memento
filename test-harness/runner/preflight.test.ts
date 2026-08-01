@@ -1,11 +1,13 @@
+import { rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import { describe, expect, test } from 'vitest';
 
-import { probeMcpServer } from './preflight.js';
+import { preflightMemento, probeMcpServer } from './preflight.js';
 
 const HARNESS_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const REPO_ROOT = resolve(HARNESS_ROOT, '..');
 
 describe('probeMcpServer', () => {
   test('resolves when a real stdio MCP server answers initialize', async () => {
@@ -31,5 +33,16 @@ describe('probeMcpServer', () => {
     await expect(
       probeMcpServer({ command: 'bun', args: ['-e', 'setTimeout(() => {}, 60_000);'] }, 500),
     ).rejects.toThrow(/no initialize response within 500ms/);
+  });
+});
+
+describe('preflightMemento', () => {
+  test('forces a real V2 tool call through the bundled server and observes its log', async () => {
+    const entry = await preflightMemento(REPO_ROOT, ['plain']);
+    try {
+      expect(entry).toMatch(/server\.js$/);
+    } finally {
+      rmSync(dirname(entry), { recursive: true, force: true });
+    }
   });
 });

@@ -1,5 +1,5 @@
 # claude-md-trigger: user-installed knob (§3.2), project CLAUDE.md with the
-# conditional trigger list (implementer-spec §11) — the "strong" phrasing variant.
+# canonical `memento instructions` trigger list — the "strong" phrasing variant.
 # MEMENTO_VARIANT=plain so the fragment is the only intervention over baseline-0.
 name: claude-md-trigger
 description: Project CLAUDE.md with the §11 conditional trigger list — plain variant, both sides.
@@ -9,4 +9,4 @@ side: both
 portability: partial
 memento_variant: plain
 install:
-  claude_md: CLAUDE.md
+  agent_instructions: memento

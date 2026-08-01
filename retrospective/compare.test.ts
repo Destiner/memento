@@ -83,31 +83,6 @@ describe('compareOperations', () => {
     expect(comparisons[0]).toMatchObject({ classification: 'incorrect_scope' });
   });
 
-  test('matches a legacy answer question without treating its project name as a stable scope', () => {
-    const legacy = operation('legacy_answer', 2, {
-      tool: 'legacy_query',
-      sourceToolName: 'answer_memory',
-      input: {
-        question: 'How do webhook retries avoid duplicate sends?',
-        project: 'payments-api',
-      },
-      scope: { kind: 'unknown' },
-    });
-
-    const comparisons = compareOperations(
-      task([legacy]),
-      [searchEvaluation(4, 'How do webhook retries avoid duplicate sends?')],
-      captureEvaluation(),
-    );
-
-    expect(comparisons).toEqual([
-      expect.objectContaining({
-        actualOperationIds: ['legacy_answer'],
-        classification: 'ambiguous',
-      }),
-    ]);
-  });
-
   test('keeps unresolved proposal scopes ambiguous instead of calling them incorrect', () => {
     const search = searchEvaluation(4, 'webhook duplicate retries');
     search.proposals[0]!.search.scope = { kind: 'unresolved_projects' };

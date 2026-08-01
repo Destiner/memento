@@ -3,7 +3,7 @@
 # scheme (X-Hook-Digest / HMAC-SHA512) exists only in memory; the provider's
 # documented default is the plausible-wrong answer a non-retrieving agent builds.
 id: holdout-read/webhook-digest
-version: 1
+version: 2
 class: should-retrieve
 fixture: fixtures/bigger-app
 task: 'Incoming billing-provider webhooks are processed without any verification. Verify webhook signatures before processing events.'

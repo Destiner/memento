@@ -193,12 +193,9 @@ export function mergeScope(
 /**
  * Serialize a record's fields in canonical order, omitting empty optionals.
  *
- * V2 rebuilds this order rather than preserving whatever order it found on disk,
- * which reverses the V1 memory behaviour and matches `orderProjectMetadata`. The
- * V1 reasoning was that a memory carried a dozen optional metadata fields a person
- * may have arranged deliberately; V2 has eleven structured fields and no free-form
- * ones, so a predictable layout is worth more than a preserved shuffle. The prose
- * a person actually arranged is the body, which is never reordered.
+ * Records have eleven structured fields and no free-form metadata, so predictable
+ * ordering is more useful than preserving an arbitrary shuffle. The prose a person
+ * actually arranged is the body, which is never reordered.
  */
 export function orderMemoryMetadata(record: MemoryRecord): Record<string, unknown> {
   const metadata: Record<string, unknown> = {

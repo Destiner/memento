@@ -9,8 +9,7 @@ import { computeMetrics, type Metrics } from '../../src/report/metrics.js';
 const LOGS_DIR = fileURLToPath(new URL('../fixtures/logs', import.meta.url));
 
 // The fixture is three sessions across two days: ses_A and ses_C run the
-// shipped-v2 variant under Claude Code, ses_B runs plain under Codex, plus one
-// pre-item-8 event with no session id at all.
+// shipped-v2 variant under Claude Code, and ses_B runs plain under Codex.
 describe('computeMetrics (sample event logs)', () => {
   let events: LoggedEvent[];
   let metrics: Metrics;
@@ -21,12 +20,12 @@ describe('computeMetrics (sample event logs)', () => {
   });
 
   it('counts total calls, outcomes, and per-tool totals', () => {
-    expect(metrics.totalCalls).toBe(17);
-    expect(metrics.outcomeCounts).toEqual({ success: 16, error: 1 });
+    expect(metrics.totalCalls).toBe(16);
+    expect(metrics.outcomeCounts).toEqual({ success: 15, error: 1 });
     expect(metrics.callsByTool).toEqual({
       resolve_project: 2,
       create_project: 1,
-      search_memories: 4,
+      search_memories: 3,
       get_memory: 4,
       create_memory: 4,
       update_memory: 1,
@@ -44,10 +43,10 @@ describe('computeMetrics (sample event logs)', () => {
       },
       {
         date: '2026-07-02',
-        total: 9,
+        total: 8,
         byTool: {
           get_memory: 1,
-          search_memories: 2,
+          search_memories: 1,
           create_memory: 2,
           update_memory: 1,
           archive_memory: 1,
@@ -58,9 +57,8 @@ describe('computeMetrics (sample event logs)', () => {
     ]);
   });
 
-  it('groups sessions and excludes events that predate session ids', () => {
+  it('groups calls by session', () => {
     expect(metrics.sessions.sessionCount).toBe(3);
-    expect(metrics.sessions.unsessionedCalls).toBe(1);
     expect(metrics.sessions.callsPerSession).toEqual({ mean: 5.33, p50: 6, p90: 8, max: 8 });
     expect(metrics.sessions.searchesPerSession).toEqual({ mean: 1, p50: 1, p90: 2, max: 2 });
     // ses_A and ses_C searched; ses_B went straight to a write.
@@ -79,8 +77,8 @@ describe('computeMetrics (sample event logs)', () => {
     expect(metrics.funnel.searchActedOnRate).toBe(0.5);
     // A get nobody's search offered: ses_B's mem_NINE, and ses_C's opening get.
     expect(metrics.funnel.unpromptedGets).toBe(2);
-    expect(metrics.funnel.searches).toBe(4);
-    expect(metrics.funnel.searchZeroResultRate).toBe(0.25);
+    expect(metrics.funnel.searches).toBe(3);
+    expect(metrics.funnel.searchZeroResultRate).toBe(0.33);
     expect(metrics.funnel.resolveOutcomes).toEqual({ exact_match: 1, not_found: 1 });
     expect(metrics.funnel.createAfterNotFoundRate).toBe(1);
   });
@@ -152,18 +150,6 @@ describe('computeMetrics (sample event logs)', () => {
         dedupeGateRate: 0,
         searchZeroResultRate: 0,
       },
-      {
-        variant: '(unknown)',
-        policyVersion: '(unknown)',
-        serverVersion: '0.3.0',
-        client: '(unknown)',
-        calls: 1,
-        sessions: 0,
-        searchActivationRate: 0,
-        writeActivationRate: 0,
-        dedupeGateRate: 0,
-        searchZeroResultRate: 0,
-      },
     ]);
   });
 
@@ -177,10 +163,10 @@ describe('computeMetrics (sample event logs)', () => {
   it('derives search volume and latency percentiles per tool', () => {
     expect(metrics.searchCallsByDay).toEqual([
       { date: '2026-07-01', count: 2 },
-      { date: '2026-07-02', count: 2 },
+      { date: '2026-07-02', count: 1 },
     ]);
     expect(metrics.latencyByTool.create_memory).toEqual({ count: 4, p50: 12, p90: 20, p99: 20 });
-    expect(metrics.latencyByTool.search_memories).toEqual({ count: 4, p50: 30, p90: 50, p99: 50 });
+    expect(metrics.latencyByTool.search_memories).toEqual({ count: 3, p50: 40, p90: 50, p99: 50 });
     expect(metrics.latencyByTool.get_memory).toEqual({ count: 4, p50: 4, p90: 6, p99: 6 });
     expect(metrics.latencyByTool.update_memory).toEqual({ count: 1, p50: 15, p90: 15, p99: 15 });
   });

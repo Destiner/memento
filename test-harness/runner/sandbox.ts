@@ -4,8 +4,9 @@
 // module materializes that tree and returns its paths; spawning `claude -p` in it
 // and tearing it down is the orchestrator's job (§7.2 steps 3–5).
 //
-// Layout across TWO fresh temp roots (the agent's `..` must expose nothing):
+// Layout across THREE fresh temp roots (the agent's `..` must expose nothing):
 //   private root:  memento-home/memories/  seeded corpus (distractors + fact)
+//                  memento-home/projects/  resolvable synthetic project
 //                  cc-config/              isolated config home
 //                  mcp.json / config.toml  MCP registration (per adapter)
 //   work root:     repo/                   fixture copy (+ overlay), git repo —
@@ -25,6 +26,9 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
+
+import { serializeFrontmatter } from '../../src/store/frontmatter.js';
+import { AGENT_FRAGMENT } from '../../src/policy/index.js';
 
 import { type Config } from './config.js';
 import { makeAdapter, type HarnessAdapter } from './harness.js';
@@ -53,6 +57,8 @@ export interface Sandbox {
   cleanup: () => void;
 }
 
+export const HARNESS_PROJECT_ID = 'prj_HARNESS';
+
 // git isolated from the operator's global/system config for reproducibility; an
 // explicit identity is supplied per-commit since there is no global one.
 const GIT_ENV = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' };
@@ -64,8 +70,7 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
   const root = mkdtempSync(join(tmpdir(), 'memento-rep-'));
   // The agent's workspace lives in its OWN temp root: `..` from the session cwd
   // must expose nothing. With repo/ as a sibling of memento-home/, one `ls ..`
-  // hands the agent the whole seeded corpus as plain files — codex-screening-1
-  // "passed" utility this way with zero MCP calls (§7.2 hermetic isolation).
+  // hands the agent the whole seeded corpus as plain files (§7.2 hermetic isolation).
   const workRoot = mkdtempSync(join(tmpdir(), 'memento-work-'));
   // The config home ALSO gets its own root: its path is handed to the agent via
   // env (CLAUDE_CONFIG_DIR / CODEX_HOME), and with memento-home as a sibling,
@@ -79,12 +84,13 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
   };
 
   try {
-    const mementoHome = join(root, 'memento-home');
-    seedCorpus(harnessRoot, scenario, join(mementoHome, 'memories'));
-
     const repoDir = join(workRoot, 'repo');
     copyFixture(harnessRoot, scenario, repoDir);
     const baselineRef = gitInit(repoDir);
+
+    const mementoHome = join(root, 'memento-home');
+    seedCorpus(harnessRoot, scenario, join(mementoHome, 'memories'));
+    seedProject(mementoHome, repoDir);
 
     const ccConfigDir = join(cfgRoot, 'cc-config');
     mkdirSync(ccConfigDir, { recursive: true });
@@ -109,9 +115,28 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
   }
 }
 
+function seedProject(mementoHome: string, repoDir: string): void {
+  const projectsDir = join(mementoHome, 'projects');
+  mkdirSync(projectsDir, { recursive: true });
+  const timestamp = '2026-07-31T00:00:00.000Z';
+  const record = {
+    id: HARNESS_PROJECT_ID,
+    name: 'Harness app',
+    description: 'Synthetic application used by the Memento activation harness.',
+    working_directories: [{ path: repoDir, last_seen_at: timestamp }],
+    status: 'active',
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+  writeFileSync(
+    join(projectsDir, `${HARNESS_PROJECT_ID}-harness-app.md`),
+    serializeFrontmatter(record, ''),
+  );
+}
+
 // Seed MEMENTO_HOME with the scenario's distractor corpus plus, for retrieve
-// classes, the planted fact (§4.2). The memento server rebuilds its index from
-// these files on first startup, so only memories/ needs to exist here.
+// classes, the planted fact (§4.2). The companion project record is seeded after
+// the fixture path exists so every project-scoped memory has a resolvable id.
 function seedCorpus(harnessRoot: string, scenario: Scenario, memoriesDir: string): void {
   mkdirSync(memoriesDir, { recursive: true });
   const corpusDir = requirePath(join(harnessRoot, scenario.corpus), `corpus "${scenario.corpus}"`);
@@ -229,6 +254,9 @@ function writeConfigHome(
     // Project-level placement, named per harness (CLAUDE.md / AGENTS.md, §3.2
     // portability); global (config-home) placement is a later knob.
     writeFileSync(join(paths.repoDir, adapter.instructionsFile), readFileSync(src, 'utf8'));
+  }
+  if (config.install?.agent_instructions === 'memento') {
+    writeFileSync(join(paths.repoDir, adapter.instructionsFile), AGENT_FRAGMENT);
   }
 
   // Hook scripts land in the config home's hooks/ dir; the settings fragment wires

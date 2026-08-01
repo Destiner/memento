@@ -50,16 +50,6 @@ function section(heading: string): string {
 
 const TOOL_NAMES = Object.keys(triggerListDescriptions) as (keyof typeof triggerListDescriptions)[];
 
-// Every surface in one bag, for the vocabulary checks that apply to all of them.
-const ALL_SURFACES: Record<string, string> = {
-  fragment: AGENT_FRAGMENT,
-  'server instructions': SERVER_INSTRUCTIONS,
-  ...Object.fromEntries(TOOL_NAMES.map((tool) => [`plain:${tool}`, plainDescriptions[tool]])),
-  ...Object.fromEntries(
-    TOOL_NAMES.map((tool) => [`triggerList:${tool}`, triggerListDescriptions[tool]]),
-  ),
-};
-
 describe('the policy document and blocks.ts agree', () => {
   test('POLICY_VERSION mirrors the front matter', () => {
     expect(policy).toMatch(new RegExp(`^policy_version: ${POLICY_VERSION}$`, 'm'));
@@ -264,34 +254,6 @@ describe('tool descriptions are locally actionable', () => {
     for (const tool of TOOL_NAMES) {
       expect(triggerListDescriptions[tool].length, tool).toBeLessThanOrEqual(1500);
       expect(plainDescriptions[tool].length, tool).toBeLessThanOrEqual(200);
-    }
-  });
-});
-
-describe('no surface speaks V1', () => {
-  // Tool names, enums, and fields V2 removed. A surviving mention would send an
-  // agent at a tool that no longer exists or a field the schema rejects.
-  const RETIRED = [
-    /\bsearch_memory\b/,
-    /\bread_memory\b/,
-    /\banswer_memory\b/,
-    /\bconfidence\b/,
-    /\bimportance\b/,
-    /\bentities\b/,
-    /\btags\b/,
-    /\bsupersedes\b/,
-    /\btriage\b/,
-    /\bincident_learning\b/,
-    /\bworking_agreement\b/,
-    /\bproduct_context\b/,
-    /\bcross_project\b/,
-    /\bexternal_tooling\b/,
-    /\bpersonal\b/,
-  ];
-
-  test.each(Object.entries(ALL_SURFACES))('%s', (_name, surface) => {
-    for (const retired of RETIRED) {
-      expect(surface).not.toMatch(retired);
     }
   });
 });

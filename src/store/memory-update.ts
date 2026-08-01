@@ -7,10 +7,9 @@
 // surgically edit the body, restore an archived memory, or simply record that the
 // memory was re-checked and still holds.
 //
-// Two guards it keeps from V1: the exact-match `old_text` requirement, which is
-// the anti-clobber check in place of version-based concurrency (there is no
-// history), and validating the file *before* building on it, so an edit never
-// half-repairs a corrupt record.
+// Two guards protect edits: exact-match `old_text` prevents clobbering without a
+// version history, and validating the file before building on it prevents an edit
+// from half-repairing a corrupt record.
 //
 // Archiving deliberately does not route through here — `archive_memory` requires
 // a reason, and accepting `status: 'archived'` in `changes` would be a

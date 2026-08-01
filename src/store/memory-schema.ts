@@ -19,9 +19,8 @@
 //     memory-fields.ts, on the write path only. Same reason: a sloppy
 //     hand-written reference costs that entry, never the memory.
 //
-// Every object is strict, so a V1 memory (`tags`, `confidence`, `projects[]`)
-// fails validation loudly instead of being silently half-read. That is intended:
-// v2.md puts V1 -> V2 storage migration out of scope.
+// Every object is strict, so unknown fields fail validation loudly instead of
+// being silently half-read.
 
 import { z } from 'zod';
 
@@ -45,8 +44,7 @@ export const MEMORY_TYPES = [
 // independently of every project, and should stay rare.
 export const MEMORY_SCOPE_KINDS = ['projects', 'global'] as const;
 
-// Soft deletion only (§10). No `needs_review`/`superseded` — V1 had both and
-// neither earned its keep; a memory that no longer holds gets archived with a
+// Soft deletion only (§10): a memory that no longer holds gets archived with a
 // reason, and one that changed gets updated.
 export const MEMORY_STATUSES = ['active', 'archived'] as const;
 
@@ -327,7 +325,7 @@ export const updateMemoryChangesShape = {
  * `update_memory` input.
  *
  * An edit is metadata `changes`, a body edit (full replacement or an exact-match
- * `old_text`/`new_text` swap — the anti-clobber guard V1 established), a
+ * `old_text`/`new_text` swap as an anti-clobber guard), a
  * re-verification stamp, or any combination. `replace` switches the array fields
  * from merge-append to overwrite, matching `update_project`, because the common
  * call adds one reference and must not silently drop the others.

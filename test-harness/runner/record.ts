@@ -76,13 +76,14 @@ export interface ResultRecord {
   model: string;
   cc_version: string;
   memento_version: string;
+  policy_version?: string;
   env: string;
   status: RepStatus;
   raw: RawFacts;
   transcript_path: string;
   // Session diff saved beside the transcript, or null when unavailable (invalid
   // rep, halted cell, or a diff failure). Lets utility verdicts be audited after
-  // the sandbox is gone — screening-2's false negatives were unprovable without it.
+  // the sandbox is gone.
   // Optional so records written before this field existed still parse.
   diff_path?: string | null;
   // Which coding agent ran the rep. Optional for pre-codex records, which are all
@@ -98,6 +99,7 @@ export interface BuildRecordOptions {
   model: string;
   ccVersion: string;
   mementoVersion: string;
+  policyVersion: string;
   env: string;
   cell: Cell;
   configHash: string;
@@ -122,6 +124,7 @@ export function buildRecord(opts: BuildRecordOptions): ResultRecord {
     model: opts.model,
     cc_version: opts.ccVersion,
     memento_version: opts.mementoVersion,
+    policy_version: opts.policyVersion,
     env: opts.env,
     status: opts.status,
     raw: {
@@ -147,12 +150,20 @@ export function buildRecord(opts: BuildRecordOptions): ResultRecord {
  * deterministic and drift-sensitive. Path and content are both mixed in, so a
  * rename or an edit changes the hash (§8.2 "silent config drift is detectable").
  */
-export function configHash(configDir: string): string {
+export function configHash(configDir: string, virtualFiles: Record<string, string> = {}): string {
   const hash = createHash('sha256');
   for (const rel of walkFiles(configDir)) {
     hash.update(rel);
     hash.update('\0');
     hash.update(readFileSync(join(configDir, rel)));
+    hash.update('\0');
+  }
+  for (const [path, content] of Object.entries(virtualFiles).sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    hash.update(`virtual:${path}`);
+    hash.update('\0');
+    hash.update(content);
     hash.update('\0');
   }
   return `sha256:${hash.digest('hex')}`;

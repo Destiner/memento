@@ -12,10 +12,9 @@ import { isoSeconds } from '../store/time.js';
 
 export type ToolOutcome = 'success' | 'error';
 
-// Bumped when the record changes in a way a reader must notice. v2 (item 8) added
-// session ids, the policy version, client identity, and record ids. A v1 event has
-// none of them, so session-derived metrics skip it rather than fold every
-// pre-v2 call into one phantom session.
+// Bumped when the record changes in a way a reader must notice. Schema 2 includes
+// session ids, the policy version, client identity, and record ids. Readers accept
+// only this complete envelope.
 export const LOG_SCHEMA_VERSION = 2;
 
 // Identity the client declared during the MCP initialize handshake. Both fields
@@ -80,18 +79,16 @@ export interface ToolEventFields {
 // instruction text can change with no code change and vice versa, and a
 // comparison that conflates the two credits the wrong variable.
 //
-// The envelope fields are optional on the type because logs written before they
-// existed lack them; buildEvent always sets them, so every new event carries them.
 export interface LoggedEvent extends ToolEventFields {
   event_id: string;
   timestamp: string;
-  session_id?: string;
+  session_id: string;
   server_version: string;
-  policy_version?: string;
-  variant?: string;
+  policy_version: string;
+  variant: string;
   client_name?: string;
   client_version?: string;
-  log_schema_version?: number;
+  log_schema_version: typeof LOG_SCHEMA_VERSION;
 }
 
 export interface EventMeta {

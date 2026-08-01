@@ -1,7 +1,7 @@
 # Holdout should-not-capture (§4.4): routine refactor on the bigger-app
 # fixture, no durable insight. Any create/update is a false positive.
 id: holdout-no-write/use-format-helper
-version: 1
+version: 2
 class: should-not-capture
 fixture: fixtures/bigger-app
 task: 'The invoice list route formats amounts inline even though formatAmount() exists. Use the helper instead of duplicating the expression.'

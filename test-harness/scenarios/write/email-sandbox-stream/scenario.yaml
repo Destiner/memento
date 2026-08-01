@@ -6,7 +6,7 @@
 # saas-app-ops overlay greens the app and plants the send script. Paths are
 # relative to the test-harness/ root. (harness-spec §4.5)
 id: write/email-sandbox-stream
-version: 1
+version: 2
 class: should-capture
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-ops
@@ -17,5 +17,4 @@ checks:
 capture_rubric:
   insight_regex: '(?i)outbound' # the required message stream the memory must record
   expected_scope:
-    - external_tooling
-    - cross_project
+    - projects

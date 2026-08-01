@@ -39,6 +39,7 @@ describe('buildRecord', () => {
       model: 'claude-opus-4-8',
       ccVersion: '1.6.9',
       mementoVersion: '0.1.0',
+      policyVersion: '2.1.0',
       env: 'clean',
       cell: CELL,
       configHash: 'sha256:abc',
@@ -55,6 +56,7 @@ describe('buildRecord', () => {
     expect(record.scenario_class).toBe('should-retrieve'); // persisted so the report never reconstructs it
     expect(record.rep).toBe(2);
     expect(record.status).toBe('ok');
+    expect(record.policy_version).toBe('2.1.0');
     expect(record.raw.cost_usd).toBe(0.42);
     expect(record.raw.tokens_in).toBe(1050);
     expect(record.raw.utility_pass).toBeNull(); // filled by the scorer (§11.4)
@@ -82,5 +84,11 @@ describe('configHash', () => {
     const before = configHash(dir);
     writeFileSync(join(dir, 'meta.yaml'), 'name: c\ndescription: edited\n');
     expect(configHash(dir)).not.toBe(before);
+  });
+
+  test('changes when generated instruction content changes', () => {
+    const before = configHash(dir, { 'AGENTS.md': 'first' });
+    const after = configHash(dir, { 'AGENTS.md': 'second' });
+    expect(after).not.toBe(before);
   });
 });

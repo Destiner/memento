@@ -1,16 +1,18 @@
 ---
 id: mem_01KQJZR90012TNYZG7H1AQQNPG
 title: ExampleEmailVendor deliverability caveat
-type: integration
-scope: external_tooling
+description: Email-vendor webhooks can lag at peak volume and make prompt-delivery assumptions fail.
+scope:
+  kind: projects
+  project_ids:
+    - prj_HARNESS
+type: environment_workflow_quirk
+provenance:
+  source: external_reference
+  verification: source_confirmed
 status: active
 created_at: 2026-05-02T00:00:00Z
 updated_at: 2026-05-02T00:00:00Z
-entities:
-  - ExampleEmailVendor
-tags:
-  - deliverability
-  - webhooks
 ---
 
 ## Summary

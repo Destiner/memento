@@ -23,6 +23,7 @@ const SAMPLE: LoggedEvent[] = [
     policy_version: '2.1.0',
     variant: 'shipped-v2',
     client_name: 'claude-code',
+    log_schema_version: 2,
   },
   {
     event_id: 'evt_b',
@@ -40,6 +41,7 @@ const SAMPLE: LoggedEvent[] = [
     policy_version: '2.1.0',
     variant: 'shipped-v2',
     client_name: 'claude-code',
+    log_schema_version: 2,
   },
   {
     event_id: 'evt_c',
@@ -53,6 +55,7 @@ const SAMPLE: LoggedEvent[] = [
     policy_version: '2.1.0',
     variant: 'shipped-v2',
     client_name: 'claude-code',
+    log_schema_version: 2,
   },
 ];
 

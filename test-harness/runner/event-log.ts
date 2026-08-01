@@ -1,4 +1,4 @@
-// Memento event-log parser (harness-spec §5; implementer-spec §13).
+// Memento event-log parser (docs/harness-spec.md §5; src/logging/events.ts).
 //
 // The Memento server writes one JSON event per tool call — success *and* error —
 // to date-partitioned files under `$MEMENTO_HOME/logs/`. This is the authoritative
@@ -18,17 +18,25 @@ import { join } from 'node:path';
 // that also produces it (src/logging/events.ts): if the server changes filenames
 // or partitioning, this matcher moves with it instead of silently matching zero
 // files and deflating every rep to "no memento calls" (harness-spec §5).
-import { LOG_FILE_PATTERN } from '../../src/logging/events.js';
+import { LOG_FILE_PATTERN, LOG_SCHEMA_VERSION } from '../../src/logging/events.js';
 
 // The non-sensitive fields the scorer keeps from each event. Names only — the log
-// never records raw query/body text (§13 privacy defaults), and neither do we.
+// never records raw query/body text (v2.md §8), and neither do we.
 export interface MementoCall {
-  tool: string; // search_memory | read_memory | create_memory | update_memory | answer_memory
+  session_id: string; // one bundled-server process; a rep normally has exactly one
+  tool: string; // resolve_project | search_memories | get_memory | create_memory | ...
   outcome: string; // success | error
-  memory_type?: string; // create_memory only
-  memory_scope?: string; // create_memory only
-  result_count?: number; // search_memory only — hits returned (empty-search-rate diagnostic, §5.4)
-  variant?: string; // resolved MEMENTO_VARIANT the server logged (§10 contamination guard)
+  server_version: string;
+  policy_version: string;
+  variant: string; // resolved MEMENTO_VARIANT the server logged (§10 contamination guard)
+  log_schema_version: typeof LOG_SCHEMA_VERSION;
+  result_outcome?: string; // created | duplicate_candidates | exact_match | ...
+  memory_type?: string;
+  scope_kind?: string;
+  project_count?: number;
+  result_count?: number; // search_memories only — hits returned
+  result_ids?: string[]; // search_memories hits, in rank order
+  memory_id?: string; // get/create/update/archive join key
 }
 
 const CAPTURE_TOOLS = new Set(['create_memory', 'update_memory']);
@@ -63,28 +71,57 @@ function parseLine(line: string): MementoCall | null {
   } catch {
     return null;
   }
-  if (typeof obj.tool !== 'string') return null;
+  if (
+    typeof obj.event_id !== 'string' ||
+    typeof obj.timestamp !== 'string' ||
+    typeof obj.session_id !== 'string' ||
+    typeof obj.tool !== 'string' ||
+    typeof obj.outcome !== 'string' ||
+    typeof obj.server_version !== 'string' ||
+    typeof obj.policy_version !== 'string' ||
+    typeof obj.variant !== 'string' ||
+    obj.log_schema_version !== LOG_SCHEMA_VERSION ||
+    typeof obj.latency_ms !== 'number'
+  ) {
+    return null;
+  }
   return {
+    session_id: obj.session_id,
     tool: obj.tool,
-    outcome: typeof obj.outcome === 'string' ? obj.outcome : 'unknown',
+    outcome: obj.outcome,
+    server_version: obj.server_version,
+    policy_version: obj.policy_version,
+    variant: obj.variant,
+    log_schema_version: LOG_SCHEMA_VERSION,
+    ...(typeof obj.result_outcome === 'string' ? { result_outcome: obj.result_outcome } : {}),
     ...(typeof obj.memory_type === 'string' ? { memory_type: obj.memory_type } : {}),
-    ...(typeof obj.memory_scope === 'string' ? { memory_scope: obj.memory_scope } : {}),
+    ...(typeof obj.scope_kind === 'string' ? { scope_kind: obj.scope_kind } : {}),
+    ...(typeof obj.project_count === 'number' ? { project_count: obj.project_count } : {}),
     ...(typeof obj.result_count === 'number' ? { result_count: obj.result_count } : {}),
-    ...(typeof obj.variant === 'string' ? { variant: obj.variant } : {}),
+    ...(stringArray(obj.result_ids) ? { result_ids: stringArray(obj.result_ids) } : {}),
+    ...(typeof obj.memory_id === 'string' ? { memory_id: obj.memory_id } : {}),
   };
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+    ? (value as string[])
+    : undefined;
 }
 
 /**
  * The resolved MEMENTO_VARIANT the server stamped on this rep's events, or null if
- * none did (no memento calls, or a log predating the field). Lets the runner assert
- * the server actually ran the variant the config declared — a blanked/corrupted env
- * would otherwise poison a baseline undetectably (harness-spec §10).
+ * there were no Memento calls. Lets the runner assert the server actually ran the
+ * variant the config declared — a blanked/corrupted env would otherwise poison a
+ * baseline undetectably (harness-spec §10).
  */
 export function loggedVariant(calls: MementoCall[]): string | null {
-  for (const call of calls) {
-    if (call.variant) return call.variant;
-  }
-  return null;
+  return calls[0]?.variant ?? null;
+}
+
+/** Distinct bundled-server processes represented in a rep's private event log. */
+export function serverSessionIds(calls: MementoCall[]): string[] {
+  return [...new Set(calls.map((call) => call.session_id))];
 }
 
 /** ≥1 Memento tool call — a false positive for should-not-retrieve (§5.1). */
@@ -102,5 +139,48 @@ export function anyCaptureAttempt(calls: MementoCall[]): boolean {
 /** ≥1 *successful* create/update — the C1 gate for a good capture (§5.2). A
  *  failed write leaves no durable memory, so it cannot be a good capture. */
 export function anyCaptureSuccess(calls: MementoCall[]): boolean {
-  return calls.some((call) => CAPTURE_TOOLS.has(call.tool) && call.outcome === 'success');
+  return calls.some((call) => {
+    if (call.outcome !== 'success') return false;
+    if (call.tool === 'update_memory') return call.memory_id !== undefined;
+    return (
+      call.tool === 'create_memory' &&
+      call.result_outcome === 'created' &&
+      call.memory_id !== undefined
+    );
+  });
+}
+
+/** Whether this exact memory was created or updated during the rep. */
+export function memoryWasStored(calls: MementoCall[], memoryId: string | null): boolean {
+  if (memoryId === null) return false;
+  return calls.some((call) => {
+    if (call.memory_id !== memoryId || call.outcome !== 'success') return false;
+    return (
+      call.tool === 'update_memory' ||
+      (call.tool === 'create_memory' && call.result_outcome === 'created')
+    );
+  });
+}
+
+/** Share of non-empty searches followed by opening one of that search's hits. */
+export function searchToGetRate(calls: MementoCall[]): number | null {
+  let eligible = 0;
+  let opened = 0;
+  for (let i = 0; i < calls.length; i++) {
+    const search = calls[i]!;
+    if (search.tool !== 'search_memories' || !search.result_ids?.length) continue;
+    eligible++;
+    const ids = new Set(search.result_ids);
+    if (
+      calls
+        .slice(i + 1)
+        .some(
+          (call) =>
+            call.tool === 'get_memory' && call.memory_id !== undefined && ids.has(call.memory_id),
+        )
+    ) {
+      opened++;
+    }
+  }
+  return eligible === 0 ? null : opened / eligible;
 }

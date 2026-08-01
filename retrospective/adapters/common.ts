@@ -18,7 +18,7 @@ import {
 import { boundJson, boundText, redactJson, redactText } from '../redact.js';
 import { UnsafeHistoryError } from './types.js';
 
-const TOOL_ALIASES: Record<string, CanonicalMementoTool> = {
+const MEMENTO_TOOLS: Record<string, CanonicalMementoTool> = {
   resolve_project: 'resolve_project',
   create_project: 'create_project',
   update_project: 'update_project',
@@ -27,9 +27,6 @@ const TOOL_ALIASES: Record<string, CanonicalMementoTool> = {
   create_memory: 'create_memory',
   update_memory: 'update_memory',
   archive_memory: 'archive_memory',
-  search_memory: 'search_memories',
-  read_memory: 'get_memory',
-  answer_memory: 'legacy_query',
 };
 
 const DROPPED_CONTENT_TYPES = new Set([
@@ -175,11 +172,11 @@ export function canonicalMementoTool(
     }
   }
 
-  const canonical = TOOL_ALIASES[localName];
+  const canonical = MEMENTO_TOOLS[localName];
   if (!canonical) return undefined;
   if (explicitlyMemento) return canonical;
 
-  return TOOL_ALIASES[lower];
+  return MEMENTO_TOOLS[lower];
 }
 
 export function normalizeGitRemote(value: string): string | undefined {
@@ -201,7 +198,7 @@ export function normalizeGitRemote(value: string): string | undefined {
 }
 
 export function operationKind(tool: CanonicalMementoTool): ActualOperationKind {
-  if (tool === 'search_memories' || tool === 'legacy_query') return 'search';
+  if (tool === 'search_memories') return 'search';
   if (tool === 'get_memory') return 'read';
   if (tool === 'create_memory' || tool === 'update_memory') return 'write';
   if (tool === 'archive_memory') return 'archive';
@@ -350,9 +347,6 @@ function scopeFromInput(
   input: JsonValue | undefined,
 ): { scope?: OperationScope } {
   if (!isRecord(input)) return {};
-  if (tool === 'legacy_query' && typeof input.project === 'string') {
-    return { scope: { kind: 'unknown' } };
-  }
   const changes = tool === 'update_memory' && isRecord(input.changes) ? input.changes : undefined;
   const rawScope = changes?.scope ?? input.scope;
   const scope = normalizeScope(rawScope);

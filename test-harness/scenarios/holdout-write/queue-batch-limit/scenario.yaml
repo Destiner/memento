@@ -3,7 +3,7 @@
 # constraint and chunking. A cross-service infra policy is memory-layer
 # knowledge (§3), so a well-formed capture recording it passes the rubric.
 id: holdout-write/queue-batch-limit
-version: 1
+version: 2
 class: should-capture
 fixture: fixtures/bigger-app
 overlay: overlays/bigger-app-seeder
@@ -14,5 +14,4 @@ checks:
 capture_rubric:
   insight_regex: '(?i)batch[^.]{0,60}25|25[^.]{0,60}batch'
   expected_scope:
-    - cross_project
-    - external_tooling
+    - projects

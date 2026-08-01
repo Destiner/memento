@@ -13,16 +13,33 @@ import {
 import { type MementoCall } from './event-log.js';
 import { type CaptureRubric } from './scenario.js';
 
-const STORED: MementoCall[] = [{ tool: 'create_memory', outcome: 'success' }];
+const call = (
+  input: Pick<MementoCall, 'tool' | 'outcome'> & Partial<MementoCall>,
+): MementoCall => ({
+  session_id: 'ses_TEST',
+  server_version: '0.3.2',
+  policy_version: '2.1.0',
+  variant: 'shipped-v2',
+  log_schema_version: 2,
+  ...input,
+});
+
+const STORED: MementoCall[] = [
+  call({
+    tool: 'create_memory',
+    outcome: 'success',
+    result_outcome: 'created',
+    memory_id: 'mem_GOOD',
+  }),
+];
 
 // A well-formed capture: records the insight, correct scope, usable body.
 const GOOD: CapturedMemory = {
   id: 'mem_GOOD',
   title: 'Vendor sandbox API rate limit',
-  scope: 'cross_project',
+  description: 'The sandbox rejects more than 10 requests per minute.',
+  scope: 'projects',
   body: [
-    '## Summary',
-    '',
     'The vendor sandbox API rejects more than 10 requests per minute; batch',
     'sends must throttle or they are dropped.',
     '',
@@ -34,7 +51,7 @@ const GOOD: CapturedMemory = {
 
 const RUBRIC: CaptureRubric = {
   insight_regex: '(?i)10 requests per minute',
-  expected_scope: ['cross_project', 'external_tooling'],
+  expected_scope: ['projects'],
 };
 
 describe('scoreCapture', () => {
@@ -53,14 +70,22 @@ describe('scoreCapture', () => {
   });
 
   test('fails C1 when no write succeeded, even with a perfect memory on disk', () => {
-    const result = scoreCapture([{ tool: 'create_memory', outcome: 'error' }], [GOOD], RUBRIC);
+    const result = scoreCapture(
+      [call({ tool: 'create_memory', outcome: 'error' })],
+      [GOOD],
+      RUBRIC,
+    );
     expect(result.passed).toBe(false);
     expect(result.attempted).toBe(false);
     expect(result.criteria.stored).toBe(false);
   });
 
   test('fails C2 when the insight is absent', () => {
-    const noInsight = { ...GOOD, body: '## Summary\n\nWe wired up the mailer.' };
+    const noInsight = {
+      ...GOOD,
+      description: 'Mailer implementation notes.',
+      body: 'We wired up the mailer.',
+    };
     const result = scoreCapture(STORED, [noInsight], RUBRIC);
     expect(result.passed).toBe(false);
     expect(result.criteria.insight).toBe(false);
@@ -79,7 +104,7 @@ describe('scoreCapture', () => {
     const taskLog = {
       ...GOOD,
       title: 'Completed the password-reset task',
-      body: '## Summary\n\nFinished the task: sends 10 requests per minute now.',
+      description: 'Finished the task: sends 10 requests per minute now.',
     };
     const result = scoreCapture(STORED, [taskLog], RUBRIC);
     expect(result.criteria.durable).toBe(false);
@@ -93,7 +118,7 @@ describe('scoreCapture', () => {
   });
 
   test('fails C4 when the capture is mis-scoped', () => {
-    const misScoped = { ...GOOD, scope: 'project' };
+    const misScoped = { ...GOOD, scope: 'global' };
     const result = scoreCapture(STORED, [misScoped], RUBRIC);
     expect(result.criteria.layer).toBe(false);
     expect(result.passed).toBe(false);
@@ -101,16 +126,16 @@ describe('scoreCapture', () => {
 
   test('C4 accepts any valid scope when expected_scope is omitted', () => {
     const rubric: CaptureRubric = { insight_regex: '(?i)10 requests per minute' };
-    const result = scoreCapture(STORED, [{ ...GOOD, scope: 'project' }], rubric);
+    const result = scoreCapture(STORED, [{ ...GOOD, scope: 'projects' }], rubric);
     expect(result.criteria.layer).toBe(true);
   });
 
-  test('fails C5 when the body has no Summary section', () => {
-    const noSummary = {
+  test('fails C5 when the body is empty', () => {
+    const noBody = {
       ...GOOD,
-      body: '## Context\n\nThe vendor sandbox API rejects more than 10 requests per minute.',
+      body: '   ',
     };
-    const result = scoreCapture(STORED, [noSummary], RUBRIC);
+    const result = scoreCapture(STORED, [noBody], RUBRIC);
     expect(result.criteria.body).toBe(false);
     expect(result.passed).toBe(false);
   });
@@ -126,7 +151,7 @@ describe('scoreCapture', () => {
   });
 
   test('picks the passing memory among several candidates', () => {
-    const junk = { ...GOOD, id: 'mem_JUNK', body: '## Summary\n\nunrelated' };
+    const junk = { ...GOOD, id: 'mem_JUNK', body: 'unrelated' };
     const result = scoreCapture(STORED, [junk, GOOD], RUBRIC);
     expect(result.passed).toBe(true);
     expect(result.memory_id).toBe('mem_GOOD');
@@ -148,14 +173,14 @@ describe('findCapturedMemories + seededBaseline', () => {
   });
 
   const memory = (title: string, scope: string) =>
-    `---\nid: mem_X\ntitle: ${title}\nscope: ${scope}\n---\n\n## Summary\n\n${title}.\n`;
+    `---\nid: mem_X\ntitle: ${title}\ndescription: ${title}.\nscope:\n  kind: ${scope}\n  project_ids:\n    - prj_HARNESS\n---\n\n${title}.\n`;
 
   test('seededBaseline reads the corpus dir and the optional retrieve fact', () => {
     mkdirSync(join(root, 'corpus', 'mini'), { recursive: true });
-    writeFileSync(join(root, 'corpus', 'mini', 'a.md'), memory('A', 'project'));
+    writeFileSync(join(root, 'corpus', 'mini', 'a.md'), memory('A', 'projects'));
     writeFileSync(join(root, 'corpus', 'mini', 'note.txt'), 'ignored');
     mkdirSync(join(root, 'facts'), { recursive: true });
-    writeFileSync(join(root, 'facts', 'fact.md'), memory('Fact', 'cross_project'));
+    writeFileSync(join(root, 'facts', 'fact.md'), memory('Fact', 'projects'));
 
     const baseline = seededBaseline(root, 'corpus/mini', 'facts/fact.md');
     expect([...baseline.keys()].sort()).toEqual(['a.md', 'fact.md']);
@@ -165,15 +190,15 @@ describe('findCapturedMemories + seededBaseline', () => {
     const memoriesDir = join(home, 'memories');
     mkdirSync(memoriesDir, { recursive: true });
     // Seed two distractors; leave one untouched, edit the other, and add a new one.
-    const distractorA = memory('Distractor A', 'project');
-    const distractorB = memory('Distractor B', 'project');
+    const distractorA = memory('Distractor A', 'projects');
+    const distractorB = memory('Distractor B', 'projects');
     mkdirSync(join(root, 'corpus', 'mini'), { recursive: true });
     writeFileSync(join(root, 'corpus', 'mini', 'a.md'), distractorA);
     writeFileSync(join(root, 'corpus', 'mini', 'b.md'), distractorB);
 
     writeFileSync(join(memoriesDir, 'a.md'), distractorA); // untouched
-    writeFileSync(join(memoriesDir, 'b.md'), memory('Distractor B edited', 'cross_project')); // edited
-    writeFileSync(join(memoriesDir, 'new.md'), memory('Fresh insight', 'external_tooling')); // new
+    writeFileSync(join(memoriesDir, 'b.md'), memory('Distractor B edited', 'projects')); // edited
+    writeFileSync(join(memoriesDir, 'new.md'), memory('Fresh insight', 'projects')); // new
 
     const baseline = seededBaseline(root, 'corpus/mini');
     const captured = findCapturedMemories(home, baseline);

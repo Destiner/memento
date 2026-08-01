@@ -3,14 +3,21 @@
 // session launches. A server that dies at startup is invisible downstream —
 // Claude Code reports it as "connecting", the model never sees the tools, and
 // every rep records zero memento calls, which reads exactly like "the model
-// chose not to use memory" (the screening-1 failure). A dead server must abort
-// the run loudly, not fabricate a behavioral result.
+// chose not to use memory." A dead server must abort the run loudly, not
+// fabricate a behavioral result.
 
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import {
+  getDefaultEnvironment,
+  StdioClientTransport,
+} from '@modelcontextprotocol/sdk/client/stdio.js';
+
+import { readMementoCalls } from './event-log.js';
 import { mementoServer, type McpServerSpec } from './mcp.js';
 
 const INITIALIZE_REQUEST =
@@ -94,6 +101,69 @@ export function probeMcpServer(spec: McpServerSpec, timeoutMs = 10_000): Promise
 }
 
 /**
+ * Exercise one real V2 tool through the bundled stdio server and verify that the
+ * server's own event log observed it. A handshake alone cannot distinguish a
+ * usable tool path from a server that initializes and then rejects every call.
+ */
+export async function probeMementoTool(
+  spec: McpServerSpec,
+  mementoHome: string,
+  timeoutMs = 10_000,
+): Promise<void> {
+  const transport = new StdioClientTransport({
+    command: spec.command,
+    args: spec.args,
+    env: { ...getDefaultEnvironment(), ...spec.env },
+    stderr: 'pipe',
+  });
+  const client = new Client({ name: 'memento-harness-preflight', version: '0' });
+  try {
+    await withTimeout(client.connect(transport), timeoutMs, 'MCP tool preflight initialize');
+    const tools = await withTimeout(client.listTools(), timeoutMs, 'MCP tool preflight listTools');
+    if (!tools.tools.some((tool) => tool.name === 'resolve_project')) {
+      throw new Error('MCP tool preflight failed: resolve_project is not registered.');
+    }
+    const result = await withTimeout(
+      client.callTool({ name: 'resolve_project', arguments: { name_hint: 'preflight-missing' } }),
+      timeoutMs,
+      'MCP tool preflight resolve_project',
+    );
+    if (result.isError) {
+      throw new Error(`MCP tool preflight failed: ${JSON.stringify(result.content)}`);
+    }
+    await waitForLoggedCall(mementoHome, timeoutMs);
+  } finally {
+    await client.close().catch(() => undefined);
+  }
+}
+
+async function waitForLoggedCall(mementoHome: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (readMementoCalls(mementoHome).some((call) => call.tool === 'resolve_project')) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error('MCP tool preflight failed: resolve_project was absent from the event log.');
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${label} timed out after ${timeoutMs}ms.`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
  * Bundle memento and prove the handshake for each variant the run uses, probing
  * the same bundle the reps will launch. Returns the bundle path ('' when the run
  * registers no memento at all).
@@ -104,7 +174,9 @@ export async function preflightMemento(repoRoot: string, variants: string[]): Pr
   for (const variant of [...new Set(variants)]) {
     const home = mkdtempSync(join(tmpdir(), 'memento-preflight-'));
     try {
-      await probeMcpServer(mementoServer({ serverEntry, mementoHome: home, variant }));
+      const spec = mementoServer({ serverEntry, mementoHome: home, variant });
+      await probeMcpServer(spec);
+      await probeMementoTool(spec, home);
     } finally {
       rmSync(home, { recursive: true, force: true });
     }

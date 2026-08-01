@@ -1,23 +1,18 @@
 ---
 id: mem_01KS4B7Q00Z8Q3M5T7VNKD9R2A
 title: 'Password-reset links must use account.acme.io'
-type: decision
-scope: project
+description: Account-security links use account.acme.io because the old marketing domain has no reset route.
+scope:
+  kind: projects
+  project_ids:
+    - prj_HARNESS
+type: product_rationale
+provenance:
+  source: user_stated
+  verification: user_confirmed
 status: active
 created_at: 2026-05-22T00:00:00Z
 updated_at: 2026-05-22T00:00:00Z
-projects:
-  - customer-portal
-entities:
-  - password-reset
-  - account.acme.io
-tags:
-  - auth
-  - email
-  - url
-confidence: high
-importance: high
-source_kind: decision
 ---
 
 ## Summary

@@ -6,6 +6,6 @@
 {"timestamp":"2026-07-02T10:00:02.100Z","type":"event_msg","payload":{"type":"agent_reasoning","text":"REASONING_MARKER"}}
 {"timestamp":"2026-07-02T10:00:03.000Z","type":"event_msg","payload":{"type":"agent_message","message":"I found a durable decision."}}
 {"timestamp":"2026-07-02T10:00:04.000Z","type":"event_msg","payload":{"type":"mcp_tool_call_end","call_id":"mcp-call-1","invocation":{"server":"memento","tool":"create_memory","arguments":{"title":"Billing constraint","body":"Authorization: Bearer abcdefghijklmnop","scope":{"kind":"projects","project_ids":["prj_01TEST"]}}},"result":{"Ok":{"structuredContent":{"outcome":"created","id":"mem_01CREATED"}}}}}
-{"timestamp":"2026-07-02T10:00:05.000Z","type":"response_item","payload":{"type":"function_call","call_id":"legacy-call-1","name":"search_memory","arguments":"{\"query\":\"billing\"}"}}
-{"timestamp":"2026-07-02T10:00:06.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"legacy-call-1","output":{"result_ids":["mem_01CREATED"]}}}
+{"timestamp":"2026-07-02T10:00:05.000Z","type":"response_item","payload":{"type":"function_call","call_id":"search-call-1","name":"search_memories","arguments":"{\"query\":\"billing\"}"}}
+{"timestamp":"2026-07-02T10:00:06.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"search-call-1","output":{"result_ids":["mem_01CREATED"]}}}
 {"timestamp":"2026-07-02T10:00:07.000Z","type":"unknown_future","payload":{}}

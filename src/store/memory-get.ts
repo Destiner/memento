@@ -4,7 +4,7 @@
 // This is the second half of the lightweight-search contract: `search_memories`
 // returns summaries so an agent can choose, and this is the only way to the body
 // and the provenance. Front matter is validated on the way out as well as in, so a
-// hand-edited or V1 file surfaces a validation_error rather than a partial read.
+// hand-edited invalid file surfaces a validation_error rather than a partial read.
 //
 // Project names are resolved here rather than left to the caller. A memory's front
 // matter holds opaque `prj_` ids, so without this an agent reading a memory sees a

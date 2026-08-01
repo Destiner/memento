@@ -5,7 +5,7 @@
 # knob choice, this scores far above its build-shaped twin under the same config.
 # Grouped under read-kq/ so read/* manifests don't pick it up before calibration.
 id: read-kq/email-provider
-version: 1
+version: 2
 class: should-retrieve
 fixture: fixtures/saas-app
 task: 'Password-reset emails need to go out, and we need the RIGHT transactional email provider — there was a decision about this. Find out which provider is correct for this project, then implement createMailer() with it.'

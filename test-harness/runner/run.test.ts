@@ -44,6 +44,7 @@ function outcome(cell: Cell, status: RepStatus, costUsd: number): RepOutcome {
     model: 'm',
     ccVersion: 'x',
     mementoVersion: 'y',
+    policyVersion: '2.1.0',
     env: 'clean',
     cell,
     configHash: 'sha256:x',

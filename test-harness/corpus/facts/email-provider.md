@@ -1,26 +1,18 @@
 ---
 id: mem_01KS3X9Y002GHWV98YFD98XM9M
 title: "Transactional email provider: Postmark, not SendGrid"
-type: decision
-scope: cross_project
+description: Postmark handles transactional email because SendGrid caused deliverability failures.
+scope:
+  kind: projects
+  project_ids:
+    - prj_HARNESS
+type: decision_history
+provenance:
+  source: user_stated
+  verification: user_confirmed
 status: active
 created_at: 2026-05-21T00:00:00Z
 updated_at: 2026-05-21T00:00:00Z
-projects:
-  - marketing-api
-  - customer-portal
-entities:
-  - Postmark
-  - SendGrid
-  - transactional-email
-tags:
-  - email
-  - vendor
-  - provider
-  - deliverability
-confidence: high
-importance: high
-source_kind: decision
 ---
 
 ## Summary

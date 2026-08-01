@@ -34,7 +34,21 @@ function writeEvents(events: Array<Record<string, unknown>>): void {
   mkdirSync(logsDir, { recursive: true });
   writeFileSync(
     join(logsDir, 'events-2026-07-07.jsonl'),
-    events.map((e) => JSON.stringify(e)).join('\n') + '\n',
+    events
+      .map((event, index) =>
+        JSON.stringify({
+          event_id: `evt_${index}`,
+          timestamp: '2026-07-07T10:00:00Z',
+          session_id: 'ses_TEST',
+          server_version: '0.3.2',
+          policy_version: '2.1.0',
+          variant: 'shipped-v2',
+          log_schema_version: 2,
+          latency_ms: 1,
+          ...event,
+        }),
+      )
+      .join('\n') + '\n',
   );
 }
 
@@ -53,7 +67,7 @@ describe('scoreRep', () => {
     writeFileSync(join(repo, 'mail.ts'), 'export const provider = "todo";\n');
     const baselineRef = commitBaseline();
     writeFileSync(join(repo, 'mail.ts'), 'export const provider = "postmark";\n');
-    writeEvents([{ tool: 'search_memory', outcome: 'success' }]);
+    writeEvents([{ tool: 'search_memories', outcome: 'success', result_ids: [] }]);
 
     const scenario: Scenario = {
       id: 'read/mini',
@@ -77,13 +91,15 @@ describe('scoreRep', () => {
     expect(scored.utility_pass).toBe(true);
     expect(scored.task_success).toBe(true);
     expect(scored.capture).toBeNull();
-    expect(scored.memento_calls).toEqual([{ tool: 'search_memory', outcome: 'success' }]);
+    expect(scored.memento_calls).toEqual([
+      expect.objectContaining({ tool: 'search_memories', outcome: 'success', result_ids: [] }),
+    ]);
   });
 
   test('should-not-retrieve: no utility/capture scoring, just calls and the guardrail', () => {
     writeFileSync(join(repo, 'x.ts'), 'const x = 1;\n');
     const baselineRef = commitBaseline();
-    writeEvents([{ tool: 'search_memory', outcome: 'success' }]); // an FP the report will count
+    writeEvents([{ tool: 'search_memories', outcome: 'success' }]); // an FP the report will count
 
     const scenario: Scenario = {
       id: 'no-read/mini',
@@ -109,24 +125,62 @@ describe('scoreRep', () => {
     expect(scored.memento_calls).toHaveLength(1);
   });
 
+  test('refuses to mix calls from two bundled-server sessions in one rep', () => {
+    writeFileSync(join(repo, 'x.ts'), 'const x = 1;\n');
+    const baselineRef = commitBaseline();
+    writeEvents([
+      { session_id: 'ses_ONE', tool: 'resolve_project', outcome: 'success' },
+      { session_id: 'ses_TWO', tool: 'search_memories', outcome: 'success' },
+    ]);
+
+    const scenario: Scenario = {
+      id: 'no-read/mini',
+      version: 1,
+      class: 'should-not-retrieve',
+      fixture: 'fixtures/mini',
+      task: 'do it',
+      corpus: 'corpus/mini',
+      checks: { task_success: 'exit 0' },
+    };
+
+    expect(() =>
+      scoreRep({
+        scenario,
+        harnessRoot: root,
+        mementoHome: home,
+        repoDir: repo,
+        baselineRef,
+        oracleTimeoutS: 10,
+      }),
+    ).toThrow(/refusing to mix their calls/);
+  });
+
   test('should-capture: scores the rubric against the new memory', () => {
     // One seeded distractor in the corpus; the session captures a fresh memory.
     mkdirSync(join(root, 'corpus', 'mini'), { recursive: true });
     writeFileSync(
       join(root, 'corpus', 'mini', 'd.md'),
-      '---\nid: mem_D\ntitle: Distractor\nscope: project\n---\n\n## Summary\n\nnoise\n',
+      '---\nid: mem_D\ntitle: Distractor\ndescription: Noise.\nscope:\n  kind: projects\n  project_ids:\n    - prj_HARNESS\n---\n\nnoise\n',
     );
     const memoriesDir = join(home, 'memories');
     mkdirSync(memoriesDir, { recursive: true });
     writeFileSync(
       join(memoriesDir, 'd.md'),
-      '---\nid: mem_D\ntitle: Distractor\nscope: project\n---\n\n## Summary\n\nnoise\n',
+      '---\nid: mem_D\ntitle: Distractor\ndescription: Noise.\nscope:\n  kind: projects\n  project_ids:\n    - prj_HARNESS\n---\n\nnoise\n',
     );
     writeFileSync(
       join(memoriesDir, 'new.md'),
-      '---\nid: mem_NEW\ntitle: Sandbox rate limit\nscope: cross_project\n---\n\n## Summary\n\nThe API allows 10 requests per minute.\n',
+      '---\nid: mem_NEW\ntitle: Sandbox rate limit\ndescription: The sandbox API limit.\nscope:\n  kind: projects\n  project_ids:\n    - prj_HARNESS\n---\n\nThe API allows 10 requests per minute.\n',
     );
-    writeEvents([{ tool: 'create_memory', outcome: 'success', memory_type: 'integration' }]);
+    writeEvents([
+      {
+        tool: 'create_memory',
+        outcome: 'success',
+        result_outcome: 'created',
+        memory_id: 'mem_NEW',
+        memory_type: 'environment_workflow_quirk',
+      },
+    ]);
 
     writeFileSync(join(repo, 'x.ts'), 'const x = 1;\n');
     const baselineRef = commitBaseline();
@@ -141,7 +195,7 @@ describe('scoreRep', () => {
       checks: { task_success: 'exit 0' },
       capture_rubric: {
         insight_regex: '(?i)10 requests per minute',
-        expected_scope: ['cross_project', 'external_tooling'],
+        expected_scope: ['projects'],
       },
     };
 

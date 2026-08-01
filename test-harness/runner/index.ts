@@ -11,6 +11,8 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { AGENT_FRAGMENT, POLICY_VERSION } from '../../src/policy/index.js';
+
 import { makeAdapter } from './harness.js';
 import { loadManifest } from './manifest.js';
 import { planRun } from './plan.js';
@@ -61,7 +63,12 @@ async function main(argv: string[]): Promise<void> {
   const configHashes = new Map(
     plan.configs.map((config) => [
       config.name,
-      configHash(join(HARNESS_ROOT, 'configs', config.name)),
+      configHash(
+        join(HARNESS_ROOT, 'configs', config.name),
+        config.install?.agent_instructions === 'memento'
+          ? { [adapterInstructionsFilename(manifest.harness)]: AGENT_FRAGMENT }
+          : undefined,
+      ),
     ]),
   );
 
@@ -76,6 +83,7 @@ async function main(argv: string[]): Promise<void> {
     adapter,
     ccVersion: adapter.detectVersion(),
     mementoVersion: readMementoVersion(),
+    policyVersion: POLICY_VERSION,
     configHashes,
     transcriptsDir,
     oracleTimeoutS: ORACLE_TIMEOUT_S,
@@ -105,6 +113,10 @@ async function main(argv: string[]): Promise<void> {
       `${summary.halted ? ` (halted at spend cap; ${summary.skipped} cells skipped)` : ''}. ` +
       `Records → ${resultsLog}`,
   );
+}
+
+function adapterInstructionsFilename(harness: string): string {
+  return harness === 'codex' ? 'AGENTS.md' : 'CLAUDE.md';
 }
 
 function readMementoVersion(): string {

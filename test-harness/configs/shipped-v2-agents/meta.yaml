@@ -10,4 +10,4 @@ side: both
 portability: partial
 memento_variant: shipped-v2
 install:
-  claude_md: AGENTS.md
+  agent_instructions: memento

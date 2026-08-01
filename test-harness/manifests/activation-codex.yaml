@@ -1,0 +1,12 @@
+# Compare the current server-only and recommended-install surfaces under Codex
+# after calibration has passed. All configs use the same policy version. Codex
+# reports no dollar cost, so the cap includes the harness's per-rep fallback.
+name: activation-codex
+harness: codex
+model: gpt-5.6-sol
+env: clean
+reps: 3
+concurrency: 2
+max_spend_usd: 260
+configs: [baseline-0, shipped-v2, shipped-v2-agents]
+scenarios: [read/*, no-read/*, write/*, no-write/*]

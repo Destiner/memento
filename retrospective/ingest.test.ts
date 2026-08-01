@@ -12,7 +12,7 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 
 describe('retrospective history ingestion', () => {
-  it('normalizes Claude Code history and legacy Memento names safely', async () => {
+  it('normalizes Claude Code history safely', async () => {
     const raw = await readFile(fixture('claude-history.jsonl'), 'utf8');
     const first = parseClaudeCodeHistory(raw, {
       sourceId: 'claude-fixture',
@@ -27,7 +27,7 @@ describe('retrospective history ingestion', () => {
     expect(first?.actualOperations).toHaveLength(1);
     expect(first?.actualOperations[0]).toMatchObject({
       tool: 'search_memories',
-      sourceToolName: 'mcp__memento__search_memory',
+      sourceToolName: 'mcp__memento__search_memories',
       outcome: 'success',
       memoryIds: ['mem_01TEST'],
     });
@@ -44,7 +44,7 @@ describe('retrospective history ingestion', () => {
     assertPersistable(first);
   });
 
-  it('normalizes Codex current and legacy calls while dropping private record types', async () => {
+  it('normalizes Codex calls while dropping private record types', async () => {
     const raw = await readFile(fixture('codex-history.jsonl'), 'utf8');
     const parsed = parseCodexHistory(raw, {
       sourceId: 'codex-fixture',
@@ -70,14 +70,14 @@ describe('retrospective history ingestion', () => {
     assertPersistable(parsed);
   });
 
-  it('supports legacy Codex rollout records without retaining private metadata', async () => {
-    const raw = await readFile(fixture('codex-legacy-history.jsonl'), 'utf8');
+  it('supports unwrapped Codex rollout records without retaining private metadata', async () => {
+    const raw = await readFile(fixture('codex-rollout-history.jsonl'), 'utf8');
     const parsed = parseCodexHistory(raw, {
-      sourceId: 'codex-legacy-fixture',
-      sourcePathHint: fixture('codex-legacy-history.jsonl'),
+      sourceId: 'codex-rollout-fixture',
+      sourcePathHint: fixture('codex-rollout-history.jsonl'),
     });
 
-    expect(parsed?.sourceSessionId).toBe('legacy-codex-session');
+    expect(parsed?.sourceSessionId).toBe('codex-rollout-session');
     expect(parsed?.events.map((event) => event.kind)).toEqual([
       'user_message',
       'assistant_message',
@@ -89,13 +89,13 @@ describe('retrospective history ingestion', () => {
       expect.objectContaining({
         schemaVersion: 1,
         tool: 'search_memories',
-        sourceToolName: 'search_memory',
+        sourceToolName: 'search_memories',
         outcome: 'success',
-        memoryIds: ['mem_01LEGACY'],
+        memoryIds: ['mem_01ROLLOUT'],
       }),
     ]);
     expect(parsed?.startedAt).toBe('2026-06-01T09:00:00.000Z');
-    expect(parsed?.projectContext?.repositorySlug).toBe('acme/legacy');
+    expect(parsed?.projectContext?.repositorySlug).toBe('acme/project');
     assertPersistable(parsed);
   });
 
@@ -209,7 +209,7 @@ describe('retrospective history ingestion', () => {
           payload: {
             type: 'function_call',
             call_id: 'shared-call',
-            name: 'search_memory',
+            name: 'search_memories',
             arguments: '{"query":"project state"}',
           },
         },
@@ -230,7 +230,7 @@ describe('retrospective history ingestion', () => {
             call_id: 'shared-call',
             invocation: {
               server: 'another-server',
-              tool: 'search_memory',
+              tool: 'search_memories',
               arguments: { query: 'project state' },
             },
             result: { Ok: { value: 'authoritative result' } },
@@ -261,7 +261,7 @@ describe('retrospective history ingestion', () => {
           payload: {
             type: 'function_call',
             call_id: 'shared-call',
-            name: 'mcp__pending__search_memory',
+            name: 'mcp__pending__search_memories',
             arguments: '{"query":"decision"}',
           },
         },
@@ -282,7 +282,7 @@ describe('retrospective history ingestion', () => {
             call_id: 'shared-call',
             invocation: {
               server: 'memento',
-              tool: 'search_memory',
+              tool: 'search_memories',
               arguments: { query: 'decision' },
             },
             result: { Ok: { result_ids: ['mem_01RICH'] } },
@@ -425,34 +425,6 @@ describe('retrospective history ingestion', () => {
       kind: 'projects',
       projectIds: ['prj_EXISTING', 'prj_REQUESTED'],
       match: 'all',
-    });
-  });
-
-  it('keeps a legacy answer_memory project-name filter explicitly unresolved', () => {
-    const parsed = parseCodexHistory(
-      jsonl(codexMeta('codex-legacy-answer'), codexUserMessage('Find the retry decision.'), {
-        timestamp: '2026-07-04T10:00:01.000Z',
-        type: 'response_item',
-        payload: {
-          type: 'function_call',
-          call_id: 'legacy-answer-call',
-          name: 'answer_memory',
-          arguments: {
-            question: 'How do webhook retries avoid duplicate sends?',
-            project: 'payments-api',
-          },
-        },
-      }),
-      { sourceId: 'codex-legacy-answer-source' },
-    );
-
-    expect(parsed?.actualOperations[0]).toMatchObject({
-      tool: 'legacy_query',
-      input: {
-        question: 'How do webhook retries avoid duplicate sends?',
-        project: 'payments-api',
-      },
-      scope: { kind: 'unknown' },
     });
   });
 });

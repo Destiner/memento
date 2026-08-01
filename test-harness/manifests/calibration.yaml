@@ -4,7 +4,7 @@
 # (task-success baseline for the §5.3 guardrail). Doubles as the guardrail
 # baseline, so this spend serves twice.
 name: calibration
-model: claude-opus-4-8 # pinned in Phase 1 (§1); matrix dimension in V2
+model: claude-opus-4-8
 env: clean
 reps: 2
 concurrency: 2

@@ -5,7 +5,7 @@
 # overlay makes email work and pins the legacy domain as the starting point. Paths
 # are relative to the test-harness/ root. (harness-spec §4.5)
 id: read/reset-link-domain
-version: 1
+version: 2
 class: should-retrieve
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-mailer

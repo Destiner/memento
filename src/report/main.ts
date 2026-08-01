@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Operator report server (§13): reads the local event logs and serves the usage
+// Operator report server (v2.md §8): reads the local event logs and serves the usage
 // dashboard on a random free port. This is NOT part of the MCP surface — it is a
 // human-facing admin tool run on demand (`bun run report`).
 //
