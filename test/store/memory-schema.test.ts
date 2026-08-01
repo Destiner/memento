@@ -289,7 +289,7 @@ describe('updateMemoryInputSchema', () => {
 });
 
 describe('archiveMemoryInputSchema', () => {
-  test('requires a reason (memory-policy.md §10)', () => {
+  test('requires a reason (docs/memory-policy.md §10)', () => {
     expect(archiveMemoryInputSchema.safeParse({ id: 'mem_TEST0001' }).success).toBe(false);
     expect(archiveMemoryInputSchema.safeParse({ id: 'mem_TEST0001', reason: '   ' }).success).toBe(
       false,

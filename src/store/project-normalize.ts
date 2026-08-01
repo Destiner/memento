@@ -34,7 +34,7 @@ const HOST_PORT_RE = /^(.*?):(\d+)$/;
  * credentials, no port, and no `.git` suffix.
  *
  * Dropping userinfo is the point, not a side effect: a raw `https://` remote
- * can carry a token, and memory-policy §3 forbids the store holding secrets.
+ * can carry a token, and docs/memory-policy.md §3 forbids the store holding secrets.
  */
 export function normalizeGitRemote(input: string): string {
   const raw = input.trim();

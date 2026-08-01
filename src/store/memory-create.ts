@@ -1,7 +1,7 @@
 // The create_memory operation (v2.md §5): validate input, check the scope's
 // projects exist, run the dedupe gate, then write the canonical markdown file.
 //
-// The gate is the reason this operation can decline to write. `memory-policy.md`
+// The gate is the reason this operation can decline to write. `docs/memory-policy.md`
 // §11 puts the duplicate policy on the agent — search first, extend a near-match
 // rather than sitting beside it — and this is where the store holds it to that:
 // same-scope neighbours are scored (similarity.ts) and, when one is close enough,

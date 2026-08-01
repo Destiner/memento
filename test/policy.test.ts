@@ -1,8 +1,8 @@
-// Drift guards for the derived instruction surfaces (memory-policy.md §12).
+// Drift guards for the derived instruction surfaces (docs/memory-policy.md §12).
 //
 // Two directions of drift are checked. Against the policy *document*: its version,
 // its type table, and the size of its three rule lists, so a rule added to
-// `memory-policy.md` fails the suite until `blocks.ts` carries it. Against the
+// `docs/memory-policy.md` fails the suite until `blocks.ts` carries it. Against the
 // *surfaces*: every rule must be recognisable in the server instructions, and in
 // the fragment unless the compression is declared. Wording is not compared
 // verbatim — the surfaces deliberately differ in verbosity — so each rule carries
@@ -32,7 +32,7 @@ import { AGENT_FRAGMENT, SERVER_INSTRUCTIONS } from '../src/policy/instructions.
 import { plainDescriptions, triggerListDescriptions } from '../src/policy/descriptions.js';
 import { MEMORY_TYPES } from '../src/store/memory-schema.js';
 
-const POLICY_PATH = join(import.meta.dirname, '..', 'memory-policy.md');
+const POLICY_PATH = join(import.meta.dirname, '..', 'docs/memory-policy.md');
 const policy = readFileSync(POLICY_PATH, 'utf8');
 
 // The fragment is hard-wrapped for pasting, so a probe would otherwise miss any
@@ -42,7 +42,7 @@ const fragmentText = AGENT_FRAGMENT.replace(/\s+/g, ' ');
 /** The body of a policy section, from its heading to the next same-or-higher one. */
 function section(heading: string): string {
   const start = policy.indexOf(heading);
-  expect(start, `${heading} missing from memory-policy.md`).toBeGreaterThan(-1);
+  expect(start, `${heading} missing from docs/memory-policy.md`).toBeGreaterThan(-1);
   const rest = policy.slice(start + heading.length);
   const end = rest.search(/\n#{2,3} /);
   return end === -1 ? rest : rest.slice(0, end);

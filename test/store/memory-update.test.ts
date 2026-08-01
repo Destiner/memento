@@ -321,7 +321,7 @@ describe('updateMemory', () => {
       expect(metadata.archive_reason).toBe('No longer true.');
     });
 
-    // Archiving always carries a reason (memory-policy.md §10), so it cannot come
+    // Archiving always carries a reason (docs/memory-policy.md §10), so it cannot come
     // in through the reason-free patch path.
     test('cannot archive through changes.status', async () => {
       await seed();

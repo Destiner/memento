@@ -5,7 +5,7 @@
 // both must run on the way *in* and must not run on the way *out*.
 //
 //   - Provenance defaults. `verification` is optional on input and always present
-//     on disk, derived from `source` per memory-policy.md §9.
+//     on disk, derived from `source` per docs/memory-policy.md §9.
 //   - Evidence durability. §9 admits durable references only — commit SHAs,
 //     permanent URLs, issue ids, stable paths — and never transcripts, temp
 //     files, or line numbers. That is checkable per kind, so it is checked, but a

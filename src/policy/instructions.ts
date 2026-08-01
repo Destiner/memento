@@ -11,7 +11,7 @@
 //                         compresses the trigger lists and names the types
 //                         without defining them. `memento instructions` prints it.
 //
-// Neither surface states a rule that `memory-policy.md` does not; compressions are
+// Neither surface states a rule that `docs/memory-policy.md` does not; compressions are
 // declared in blocks.ts and checked by `test/policy.test.ts`.
 
 import {

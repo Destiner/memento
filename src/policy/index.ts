@@ -1,5 +1,5 @@
 // The derived instruction surfaces (policy §12). `blocks.ts` holds the rules from
-// `memory-policy.md` as data; everything exported here is assembled from it, so
+// `docs/memory-policy.md` as data; everything exported here is assembled from it, so
 // the fragment, the server instructions, and the tool descriptions share one
 // vocabulary by construction rather than by review.
 

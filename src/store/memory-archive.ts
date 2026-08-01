@@ -1,6 +1,6 @@
 // The archive_memory operation (v2.md §5): retire a memory without destroying it.
 //
-// Soft deletion is the only deletion agents get (`memory-policy.md` §10). An
+// Soft deletion is the only deletion agents get (`docs/memory-policy.md` §10). An
 // archived memory keeps its file and its index row, so it stays recoverable, stays
 // auditable, and still answers a search that explicitly asks for archived
 // material — it simply stops surfacing in the default one.

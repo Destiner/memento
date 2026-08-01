@@ -2,7 +2,7 @@
 //
 // One memory is one markdown file: this front matter plus a prose body. The
 // vocabulary — types, scopes, provenance, status — is frozen in
-// `memory-policy.md` §7-§10 and mirrored here verbatim. That document is the
+// `docs/memory-policy.md` §7-§10 and mirrored here verbatim. That document is the
 // source of truth for *what* the words mean; this module is where they become
 // enforceable, and it is the only place the shape is defined.
 //
@@ -180,7 +180,7 @@ export const memoryFrontmatterSchema = z
     if (record.status === 'archived' && record.archive_reason === undefined) {
       ctx.addIssue({
         code: 'custom',
-        message: 'An archived memory must carry an archive_reason (memory-policy.md §10).',
+        message: 'An archived memory must carry an archive_reason (docs/memory-policy.md §10).',
         path: ['archive_reason'],
       });
     }
@@ -233,7 +233,7 @@ export const createMemoryInputSchema = z
         code: 'custom',
         message:
           'force_create requires force_create_reason: say why the near-duplicate should ' +
-          'exist alongside the candidates (memory-policy.md §5).',
+          'exist alongside the candidates (docs/memory-policy.md §5).',
         path: ['force_create_reason'],
       });
     }
@@ -393,7 +393,7 @@ export const updateMemoryInputSchema = z
 /**
  * `archive_memory` input.
  *
- * The reason is required. `memory-policy.md` §10 ("archive rather than delete,
+ * The reason is required. `docs/memory-policy.md` §10 ("archive rather than delete,
  * always with a reason") is frozen and canonical, so it wins over v2.md §5's
  * looser "optionally accepts an archive reason"; a memory that stopped being true
  * without a note explaining why is a worse artifact than no memory at all.

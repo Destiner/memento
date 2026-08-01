@@ -5,7 +5,7 @@
 // the same thing. Exact collisions are caught by equality — a project name key, a
 // memory id. What is left is semantic near-duplication, which is a judgement
 // call, so the store's job is to surface the neighbours and let the agent decide
-// (memory-policy.md §11).
+// (docs/memory-policy.md §11).
 //
 // Deliberately lexical and dependency-free: token-set Dice over normalized text.
 // No stemming, no embeddings. Two properties matter more than recall here —

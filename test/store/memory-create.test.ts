@@ -106,7 +106,7 @@ describe('createMemory', () => {
     expect(metadata.status).toBe('active');
     expect(metadata.created_at).toBe('2026-07-04T14:20:00Z');
     expect(metadata.updated_at).toBe('2026-07-04T14:20:00Z');
-    // agent_observed -> observed_once (memory-policy.md §9).
+    // agent_observed -> observed_once (docs/memory-policy.md §9).
     expect(metadata.provenance).toEqual({
       source: 'agent_observed',
       verification: 'observed_once',

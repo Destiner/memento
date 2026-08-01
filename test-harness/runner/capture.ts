@@ -1,4 +1,4 @@
-// Capture-quality scorer (docs/harness-spec.md §5.2; memory-policy.md §3, §8).
+// Capture-quality scorer (docs/harness-spec.md §5.2; docs/memory-policy.md §3, §8).
 //
 // good_capture_rate counts should-capture reps where a memory was created/updated
 // *and* passes a binary rubric — "a created-but-junk memory counts as a miss"

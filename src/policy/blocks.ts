@@ -1,11 +1,11 @@
 // The canonical memory policy, as data.
 //
-// `memory-policy.md` is the source of truth for the rules; this module is the one
+// `docs/memory-policy.md` is the source of truth for the rules; this module is the one
 // place they become prose. `instructions.ts` and `descriptions.ts` assemble the
 // three derived surfaces (policy §12) from these clauses, so the surfaces cannot
 // drift from each other in vocabulary.
 //
-// To change a rule: edit `memory-policy.md`, bump its `policy_version`, mirror it
+// To change a rule: edit `docs/memory-policy.md`, bump its `policy_version`, mirror it
 // in POLICY_VERSION, then edit the clauses here. `test/policy.test.ts` parses the
 // policy document and fails while the two disagree — including when the document
 // grows a trigger, a do-not-store row, or a type this file does not carry.
@@ -16,7 +16,7 @@
 
 import { MEMORY_TYPES, type MemoryType } from '../store/memory-schema.js';
 
-/** `policy_version` from the memory-policy.md front matter. Pinned by tests. */
+/** `policy_version` from the docs/memory-policy.md front matter. Pinned by tests. */
 export const POLICY_VERSION = '2.1.0';
 
 /** A policy rule plus the wording that identifies it in a rendered surface. */

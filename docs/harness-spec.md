@@ -8,7 +8,7 @@ This document specifies a test harness that measures how context-engineering
 interventions ("knobs") change a coding agent's propensity to use the Memento
 MCP server — and whether that use is *appropriate*, not merely frequent.
 
-It builds on `memory-policy.md` for the behavior boundary and `v2.md` for the
+It builds on `docs/memory-policy.md` for the behavior boundary and `v2.md` for the
 V2 schemas, instruction surfaces, telemetry, and rollout plan.
 
 Those documents are not duplicated here; this spec covers only the experiment
@@ -253,8 +253,8 @@ negative. Read and write scores are **never merged** into one number.
 1. Stored via `create_memory`/`update_memory`, with the event's `memory_id`
    matching the captured file. A `duplicate_candidates` outcome wrote nothing.
 2. Records the planted insight (string check against the scenario's fact).
-3. Durable phrasing, not a task log (per `memory-policy.md` §3).
-4. Correct V2 scope per the repo-vs-memory boundary (`memory-policy.md` §8).
+3. Durable phrasing, not a task log (per `docs/memory-policy.md` §3).
+4. Correct V2 scope per the repo-vs-memory boundary (`docs/memory-policy.md` §8).
 5. Body usable: non-empty. V2 deliberately imposes no heading template.
 
 Judge: checklist script first (string checks + front-matter validation);

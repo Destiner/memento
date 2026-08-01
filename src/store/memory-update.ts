@@ -1,7 +1,7 @@
 // The update_memory operation (v2.md §5): edit an existing memory in place,
 // modeled on a coding agent's file-edit tool.
 //
-// This is the operation `memory-policy.md` §11 wants agents to reach for instead
+// This is the operation `docs/memory-policy.md` §11 wants agents to reach for instead
 // of writing a second memory, so it has to be able to express every kind of
 // correction: retitle, re-scope, re-type, extend the evidence, replace or
 // surgically edit the body, restore an archived memory, or simply record that the
