@@ -55,7 +55,7 @@ export const SERVER_NAME = 'memento';
 // Kept in step with package.json by a test: the harness pools runs by the package
 // version while the event log records this one, so a drift between them silently
 // mixes pre- and post-change reps in one comparison.
-export const SERVER_VERSION = '0.3.0';
+export const SERVER_VERSION = '0.3.1';
 
 interface ToolCallResult {
   content: { type: 'text'; text: string }[];

@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'vitest';
 
-import { plainDescriptions, triggerListDescriptions } from '../src/variants/descriptions.js';
-import { USAGE_PROTOCOL } from '../src/variants/instructions.js';
+import {
+  plainDescriptions,
+  triggerListDescriptions,
+  SERVER_INSTRUCTIONS,
+} from '../src/policy/index.js';
 import { CREATE_SUCCESS_NUDGE, EMPTY_SEARCH_NUDGE } from '../src/variants/nudges.js';
 import { DEFAULT_VARIANT, listVariants, resolveVariant } from '../src/variants/index.js';
 
@@ -66,7 +69,7 @@ describe('resolveVariant', () => {
   test('single-knob variants flip one dimension from the plain floor', () => {
     const instructions = resolveVariant('server-instructions');
     expect(instructions.descriptions).toEqual(plainDescriptions);
-    expect(instructions.instructions).toBe(USAGE_PROTOCOL);
+    expect(instructions.instructions).toBe(SERVER_INSTRUCTIONS);
     expect(instructions.nudges).toEqual({});
 
     const nudges = resolveVariant('result-nudges');

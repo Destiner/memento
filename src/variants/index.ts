@@ -5,22 +5,28 @@
 // the test harness requires; the harness picks a variant per rep via the
 // MEMENTO_VARIANT env var and each config's meta.yaml pins the value.
 //
-// Variants are composed from independent knob-dimension tables (descriptions.ts,
-// instructions.ts, nudges.ts) so Phase-2 combinations are just new entries here.
+// Variants are composed from independent knob dimensions so Phase-2 combinations
+// are just new entries here. Two of those dimensions — tool descriptions and the
+// server `instructions` field — are derived surfaces and live in `src/policy`,
+// assembled from the canonical policy; nudges.ts is a knob of its own.
 //
 // baseline-0 (the harness 0-line, §10) is `plain`: neutral descriptions, no
 // instructions, no nudges. Each single-knob variant flips exactly one dimension
-// from that floor. `shipped` is the pre-experiment behavior (trigger-list
-// descriptions, commit 8db547f) kept verbatim as the descriptions arm;
-// `shipped-v2` is the real-world default. There is intentionally no variant
+// from that floor. `shipped` is the descriptions arm: trigger-list descriptions
+// and nothing else (the wording was Phase-1's through 0.3.0 and is now regenerated
+// from the policy). `shipped-v2` is the real-world default. There is no variant
 // named `baseline`: it would collide with baseline-0 and let a misconfigured
 // rep pass silently.
 
-import { plainDescriptions, triggerListDescriptions, type DescriptionSet } from './descriptions.js';
-import { USAGE_PROTOCOL } from './instructions.js';
+import {
+  plainDescriptions,
+  triggerListDescriptions,
+  SERVER_INSTRUCTIONS,
+  type DescriptionSet,
+} from '../policy/index.js';
 import { CREATE_SUCCESS_NUDGE, EMPTY_SEARCH_NUDGE, type NudgeSet } from './nudges.js';
 
-export type { ToolName, DescriptionSet } from './descriptions.js';
+export type { ToolName, DescriptionSet } from '../policy/index.js';
 export type { NudgeSet } from './nudges.js';
 
 export interface VariantConfig {
@@ -46,8 +52,8 @@ const VARIANTS: Record<string, VariantConfig> = {
     descriptions: plainDescriptions,
     nudges: {},
   },
-  // Pre-experiment shipped behavior; = descriptions knob ON, everything else at
-  // the floor. Kept verbatim: harness configs pin it as the descriptions arm.
+  // Descriptions knob ON, everything else at the floor. Harness configs pin it as
+  // the descriptions arm.
   shipped: {
     name: 'shipped',
     descriptions: triggerListDescriptions,
@@ -57,17 +63,17 @@ const VARIANTS: Record<string, VariantConfig> = {
   'shipped-v2': {
     name: 'shipped-v2',
     descriptions: triggerListDescriptions,
-    instructions: USAGE_PROTOCOL,
+    instructions: SERVER_INSTRUCTIONS,
     nudges: {
       emptySearch: EMPTY_SEARCH_NUDGE,
       createSuccess: CREATE_SUCCESS_NUDGE,
     },
   },
-  // Instructions knob ON (plain descriptions + usage-protocol instructions).
+  // Instructions knob ON (plain descriptions + the server instructions field).
   'server-instructions': {
     name: 'server-instructions',
     descriptions: plainDescriptions,
-    instructions: USAGE_PROTOCOL,
+    instructions: SERVER_INSTRUCTIONS,
     nudges: {},
   },
   // Nudges knob ON (plain descriptions + tool-result nudges).

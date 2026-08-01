@@ -25,10 +25,11 @@ Local, file-owned memory layer for coding agents, exposed as an MCP server.
 ## Structure
 
 - `/src` - Server, tools, and store implementation
+- `/src/policy` - The instruction surfaces, assembled from `memory-policy.md` as data (`blocks.ts`): server instructions, the AGENTS.md fragment, and both tool-description sets. Print either prose surface with `memento instructions [--server]`
 - `/src/variants` - `MEMENTO_VARIANT` registry: context-engineering knob bundles (descriptions/instructions/nudges); `shipped-v2` is the production default, `plain` is the experimental floor
 - `/test` - Vitest specs and fixtures
 - `/test-harness` - Usage-propensity experiment harness (see `harness-spec.md`, esp. §13 findings): runner, scenarios, fixtures, manifests, results
-- `memory-policy.md` - Canonical memory policy and vocabulary (types, scopes, provenance) that every instruction surface derives from. This is the V2 target; `/src` still implements the V1 enums.
+- `memory-policy.md` - Canonical memory policy and vocabulary (types, scopes, provenance). Every instruction surface derives from it; edit it before `/src/policy`, and bump `policy_version` for any change to §2-§10
 
 ## Patterns
 

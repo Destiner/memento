@@ -1,6 +1,6 @@
 ---
-policy_version: 2.0.0
-updated: 2026-07-31
+policy_version: 2.1.0
+updated: 2026-08-01
 ---
 
 # Memento Memory Policy
@@ -138,6 +138,19 @@ memories and universal working agreements; a vendor quirk that happens to affect
 several projects is `projects` with several ids, not `global`. When unsure,
 choose `projects`.
 
+### 8.1 Resolving projects
+
+Project ids are opaque and internal. Before any project-scoped search or write,
+resolve the working directory, git remote, or repository name to a registered
+project id. Never substitute a path, repository name, alias, or git remote for an
+id, and never invent one.
+
+- Candidates rather than an exact match mean reuse one, not create a second. Two
+  projects for one codebase split its memories in half.
+- A moved checkout, a new remote, or a rename updates the existing project. The
+  id — and every memory scoped to it — survives.
+- Create a project only when resolution found nothing.
+
 ## 9. Provenance
 
 **`source`** — where the knowledge came from:
@@ -176,14 +189,18 @@ than one, because retrieval then returns the weaker one half the time.
 
 ## 12. Derived surfaces
 
-Regenerate all of these when §2-§10 changes:
+Every surface is assembled from `src/policy/blocks.ts`, which holds these rules
+as data:
 
-- `src/variants/instructions.ts` — MCP server instructions
-- `src/variants/descriptions.ts` — tool descriptions
-- the shipped AGENTS.md / CLAUDE.md snippet
+- `src/policy/instructions.ts` — MCP server instructions and the shipped
+  AGENTS.md / CLAUDE.md fragment (print either with `memento instructions`)
+- `src/policy/descriptions.ts` — tool descriptions
 
 Terminology must match this file verbatim: type names, the §4 trigger list, and
-the §3 do-not-store rules.
+the §3 do-not-store rules. When §2-§10 changes, edit this document first, bump
+`policy_version`, then mirror it in `POLICY_VERSION` and update the clauses in
+`blocks.ts`; `test/policy.test.ts` parses this file and fails while the two
+disagree. A surface may compress the rules, never contradict or extend them.
 
 ## Appendix A: V1 → V2 vocabulary
 
@@ -215,6 +232,9 @@ filters — losing them is a retrieval change, not just a schema simplification.
 
 ## Appendix B: History
 
+- `2.1.0` (2026-08-01) — added §8.1 (resolving projects) so the derived surfaces
+  can state the prerequisite without inventing policy, and §12 now points at
+  `src/policy/`. No change to what is stored or when.
 - `2.0.0` (2026-07-31) — initial freeze for V2. Six types plus `other`; two
   scopes; provenance replaces `confidence`/`source_kind`. `third_party_service`
   and `testing_strategy` were considered and rejected as overfitting; §7.1
