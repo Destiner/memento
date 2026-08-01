@@ -17,6 +17,7 @@ const ID_PREFIX = 'mem_';
 const PROJECT_ID_PREFIX = 'prj_';
 const QUERY_ID_PREFIX = 'qry_';
 const EVENT_ID_PREFIX = 'evt_';
+const SESSION_ID_PREFIX = 'ses_';
 const DEFAULT_SLUG_MAX = 60;
 
 // Encode a millisecond timestamp as the 10-char ULID time component.
@@ -64,6 +65,16 @@ export function generateQueryId(now: number = Date.now()): string {
 // creation time, distinct namespace from memory and query ids.
 export function generateEventId(now: number = Date.now()): string {
   return EVENT_ID_PREFIX + encodeTime(now) + encodeRandom();
+}
+
+// A `ses_`-prefixed ULID for one server process (§8). MCP over stdio gives a
+// server no session identity of its own, but the client spawns one process per
+// session, so process lifetime is the closest honest proxy: every event a single
+// launch emits shares this id. A client that keeps one process alive across
+// several conversations will pool them under one id — the metrics that group by
+// session are read with that caveat.
+export function generateSessionId(now: number = Date.now()): string {
+  return SESSION_ID_PREFIX + encodeTime(now) + encodeRandom();
 }
 
 // Derive a deterministic, filesystem-safe slug from a title. Lowercased,

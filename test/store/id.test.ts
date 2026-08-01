@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { generateId, memoryFilename, slugify } from '../../src/store/id.js';
+import { generateId, generateSessionId, memoryFilename, slugify } from '../../src/store/id.js';
 
 const CROCKFORD = /^[0-9A-HJKMNP-TV-Z]+$/;
 
@@ -30,6 +30,24 @@ describe('generateId', () => {
     const earlier = generateId(1_751_640_000_000);
     const later = generateId(1_751_640_001_000);
     expect(earlier < later).toBe(true);
+  });
+});
+
+describe('generateSessionId', () => {
+  test('produces a ses_-prefixed 26-char ULID', () => {
+    const id = generateSessionId();
+    expect(id.startsWith('ses_')).toBe(true);
+    const ulid = id.slice('ses_'.length);
+    expect(ulid).toHaveLength(26);
+    expect(ulid).toMatch(CROCKFORD);
+  });
+
+  // Two servers starting in the same millisecond must not pool their events into
+  // one session, or every per-session metric silently merges two clients' work.
+  test('is unique across processes started at the same instant', () => {
+    const now = 1_751_640_000_000;
+    const ids = new Set(Array.from({ length: 500 }, () => generateSessionId(now)));
+    expect(ids.size).toBe(500);
   });
 });
 
