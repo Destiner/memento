@@ -36,7 +36,10 @@ import {
   type UpdateMemoryInput,
 } from './memory-schema.js';
 import { assertProjectsRegistered } from './project-registry.js';
+import { rebuildIndexUnlocked } from './rebuild.js';
 import type { MemoryIndex } from './search-index.js';
+import { memorySnapshotSha256 } from './memory-snapshot.js';
+import { withMemoryMutationLock } from './memory-mutation-lock.js';
 import { isoSeconds } from './time.js';
 
 export interface UpdateMemoryOptions {
@@ -45,6 +48,8 @@ export interface UpdateMemoryOptions {
   index: MemoryIndex;
   // Injectable for deterministic tests; default to wall-clock.
   now?: number;
+  // Internal compare-and-swap guard used by reviewed retrospective updates.
+  expectedCurrentSha256?: string;
 }
 
 export interface UpdateMemoryResult {
@@ -53,6 +58,35 @@ export interface UpdateMemoryResult {
   updated: true;
   memory: MemorySummary;
   dropped_evidence: DroppedEvidence[];
+}
+
+export class MemoryUpdatedPersistenceError extends Error {
+  readonly memoryId: string;
+  readonly memoryPath: string;
+
+  constructor(memoryId: string, memoryPath: string, cause: unknown) {
+    super(
+      `Memory ${memoryId} was written, but post-write cleanup or index repair failed. ` +
+        'Verify the durable files and reconcile before retrying.',
+      { cause },
+    );
+    this.name = 'MemoryUpdatedPersistenceError';
+    this.memoryId = memoryId;
+    this.memoryPath = memoryPath;
+  }
+}
+
+export class MemoryUpdateConflictError extends MementoError {
+  constructor(id: string) {
+    super(
+      'invalid_request',
+      'Memory changed after review; review the current record before updating it.',
+      {
+        id,
+      },
+    );
+    this.name = 'MemoryUpdateConflictError';
+  }
 }
 
 export async function updateMemory(
@@ -69,10 +103,23 @@ export async function updateMemory(
     await assertProjectsRegistered(options.projectsDir, incomingScope.project_ids);
   }
 
+  return withMemoryMutationLock(options.memoriesDir, () => updateMemoryLocked(input, options));
+}
+
+async function updateMemoryLocked(
+  input: UpdateMemoryInput,
+  options: UpdateMemoryOptions,
+): Promise<UpdateMemoryResult> {
   const currentPath = await resolveMemoryPath(options.memoriesDir, input.id);
   const { metadata, body } = parseFrontmatter(await readFile(currentPath, 'utf8'));
   // The current file must itself be valid before we build on it.
   const current = validateMemoryFrontmatter(metadata);
+  if (
+    options.expectedCurrentSha256 !== undefined &&
+    memorySnapshotSha256(current, body) !== options.expectedCurrentSha256
+  ) {
+    throw new MemoryUpdateConflictError(input.id);
+  }
 
   const newBody = applyBodyEdit(body, input);
   const timestamp = isoSeconds(options.now ?? Date.now());
@@ -81,13 +128,33 @@ export async function updateMemory(
 
   const targetPath = join(options.memoriesDir, memoryFilename(record.id, record.title));
   await atomicWrite(targetPath, serializeFrontmatter(orderMemoryMetadata(record), newBody));
-  // A title change moves the file; drop the stale name so no duplicate lingers.
-  if (targetPath !== currentPath) {
-    await unlink(currentPath);
-  }
+  try {
+    // A title change moves the file; drop the stale name so no duplicate lingers.
+    if (targetPath !== currentPath) {
+      await unlink(currentPath);
+    }
 
-  // Re-index the edited record (upsert is keyed on id, so it replaces in place).
-  options.index.upsert(record, newBody);
+    // Re-index the edited record (upsert is keyed on id, so it replaces in place).
+    try {
+      options.index.upsert(record, newBody);
+    } catch (initialError) {
+      try {
+        const rebuilt = await rebuildIndexUnlocked(options.index, options.memoriesDir);
+        const skipped = rebuilt.skipped.find(
+          (entry) => entry.file === memoryFilename(record.id, record.title),
+        );
+        if (skipped !== undefined) throw new Error(skipped.reason);
+      } catch (rebuildError) {
+        throw new MemoryUpdatedPersistenceError(record.id, targetPath, {
+          initialError,
+          rebuildError,
+        });
+      }
+    }
+  } catch (error) {
+    if (error instanceof MemoryUpdatedPersistenceError) throw error;
+    throw new MemoryUpdatedPersistenceError(record.id, targetPath, error);
+  }
 
   return {
     id: record.id,

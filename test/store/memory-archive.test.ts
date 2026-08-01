@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { parseFrontmatter } from '../../src/store/frontmatter.js';
 import { archiveMemory } from '../../src/store/memory-archive.js';
 import { createMemory } from '../../src/store/memory-create.js';
+import { withMemoryMutationLock } from '../../src/store/memory-mutation-lock.js';
 import { searchMemories } from '../../src/store/memory-search.js';
 import { MemoryIndex } from '../../src/store/search-index.js';
 import { createInput, PROJECT_A, seedProjects } from '../helpers/memories.js';
@@ -99,6 +100,29 @@ describe('archiveMemory', () => {
     expect(result.archived).toBe(true);
     const { metadata } = parseFrontmatter(readFileSync(seeded.path, 'utf8'));
     expect(metadata.archive_reason).toBe('Actually superseded by mem_OTHER.');
+  });
+
+  test('shares the mutation lock with updates', async () => {
+    const seeded = await seed();
+    let signalAcquired: (() => void) | undefined;
+    let signalRelease: (() => void) | undefined;
+    const acquired = new Promise<void>((resolve) => {
+      signalAcquired = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      signalRelease = resolve;
+    });
+    const held = withMemoryMutationLock(memoriesDir, async () => {
+      signalAcquired?.();
+      await release;
+    });
+    await acquired;
+
+    await expect(
+      archiveMemory({ id: seeded.id, reason: 'Concurrent archive.' }, { memoriesDir, index }),
+    ).rejects.toThrow(/already being mutated/);
+    signalRelease?.();
+    await held;
   });
 
   test('requires a reason', async () => {

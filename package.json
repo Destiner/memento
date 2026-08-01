@@ -18,8 +18,11 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "report": "bun run src/report/main.ts",
+    "retrospective": "tsx retrospective/main.ts",
     "harness": "bun run test-harness/runner/index.ts",
     "harness:report": "bun run test-harness/runner/report-cli.ts",
+    "typecheck:retrospective": "tsc -p retrospective/tsconfig.json",
+    "test:retrospective": "vitest run --config retrospective/vitest.config.ts",
     "typecheck:harness": "tsc -p test-harness/tsconfig.json",
     "test:harness": "vitest run --config test-harness/vitest.config.ts"
   },
@@ -34,6 +37,7 @@
     "eslint": "^9.38.0",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.6.2",
+    "tsx": "^4.23.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.4",
     "vitest": "^3.2.4"

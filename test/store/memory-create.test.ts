@@ -3,12 +3,12 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { MementoError } from '../../src/errors.js';
 import { parseFrontmatter } from '../../src/store/frontmatter.js';
 import { archiveMemory } from '../../src/store/memory-archive.js';
-import { createMemory } from '../../src/store/memory-create.js';
+import { createMemory, MemoryCreatedIndexError } from '../../src/store/memory-create.js';
 import { validateMemoryFrontmatter } from '../../src/store/memory-schema.js';
 import { MemoryIndex } from '../../src/store/search-index.js';
 import { createInput, PROJECT_A, PROJECT_B, seedProjects } from '../helpers/memories.js';
@@ -66,6 +66,34 @@ describe('createMemory', () => {
       updated_at: '2026-07-04T14:20:00Z',
     });
     expect(result.dropped_evidence).toEqual([]);
+  });
+
+  test('rebuilds the derived index after a post-write indexing failure', async () => {
+    vi.spyOn(index, 'upsert').mockImplementationOnce(() => {
+      throw new Error('transient index failure');
+    });
+
+    const result = createdMemory(
+      await createMemory(createInput(), options({ makeId: () => 'mem_REPAIRED1' })),
+    );
+
+    expect(result.id).toBe('mem_REPAIRED1');
+    expect(memoryFiles()).toHaveLength(1);
+    expect(index.count()).toBe(1);
+  });
+
+  test('reports that the durable file exists when index repair also fails', async () => {
+    vi.spyOn(index, 'upsert').mockImplementation(() => {
+      throw new Error('persistent index failure');
+    });
+
+    await expect(
+      createMemory(createInput(), options({ makeId: () => 'mem_UNCERTAIN1' })),
+    ).rejects.toMatchObject({
+      name: 'MemoryCreatedIndexError',
+      memoryId: 'mem_UNCERTAIN1',
+    } satisfies Partial<MemoryCreatedIndexError>);
+    expect(memoryFiles()).toHaveLength(1);
   });
 
   test('sets lifecycle fields and defaults verification from source', async () => {

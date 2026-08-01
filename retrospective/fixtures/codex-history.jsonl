@@ -1,0 +1,11 @@
+{"timestamp":"2026-07-02T10:00:00.000Z","type":"session_meta","payload":{"id":"codex-root","session_id":"codex-root","cwd":"/home/alice/project","cli_version":"9.8.7","git":{"repository_url":"https://user:password@example.com/acme/project.git"}}}
+{"timestamp":"2026-07-02T10:00:00.100Z","type":"turn_context","payload":{"model":"gpt-test"}}
+{"timestamp":"2026-07-02T10:00:01.000Z","type":"world_state","payload":{"state":"WORLD_STATE_MARKER"}}
+{"timestamp":"2026-07-02T10:00:01.100Z","type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"DEVELOPER_MARKER"}]}}
+{"timestamp":"2026-07-02T10:00:02.000Z","type":"event_msg","payload":{"type":"user_message","message":"Please remember the billing constraint for bob@example.com."}}
+{"timestamp":"2026-07-02T10:00:02.100Z","type":"event_msg","payload":{"type":"agent_reasoning","text":"REASONING_MARKER"}}
+{"timestamp":"2026-07-02T10:00:03.000Z","type":"event_msg","payload":{"type":"agent_message","message":"I found a durable decision."}}
+{"timestamp":"2026-07-02T10:00:04.000Z","type":"event_msg","payload":{"type":"mcp_tool_call_end","call_id":"mcp-call-1","invocation":{"server":"memento","tool":"create_memory","arguments":{"title":"Billing constraint","body":"Authorization: Bearer abcdefghijklmnop","scope":{"kind":"projects","project_ids":["prj_01TEST"]}}},"result":{"Ok":{"structuredContent":{"outcome":"created","id":"mem_01CREATED"}}}}}
+{"timestamp":"2026-07-02T10:00:05.000Z","type":"response_item","payload":{"type":"function_call","call_id":"legacy-call-1","name":"search_memory","arguments":"{\"query\":\"billing\"}"}}
+{"timestamp":"2026-07-02T10:00:06.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"legacy-call-1","output":{"result_ids":["mem_01CREATED"]}}}
+{"timestamp":"2026-07-02T10:00:07.000Z","type":"unknown_future","payload":{}}

@@ -20,6 +20,7 @@ import { validate } from '../validation.js';
 import { atomicWrite } from './atomic.js';
 import { parseFrontmatter, serializeFrontmatter } from './frontmatter.js';
 import { orderMemoryMetadata } from './memory-fields.js';
+import { withMemoryMutationLock } from './memory-mutation-lock.js';
 import { resolveMemoryPath } from './memory-path.js';
 import {
   archiveMemoryInputSchema,
@@ -50,6 +51,13 @@ export async function archiveMemory(
 ): Promise<ArchiveMemoryResult> {
   const input = validate(archiveMemoryInputSchema, rawInput);
 
+  return withMemoryMutationLock(options.memoriesDir, () => archiveMemoryLocked(input, options));
+}
+
+async function archiveMemoryLocked(
+  input: { id: string; reason: string },
+  options: ArchiveMemoryOptions,
+): Promise<ArchiveMemoryResult> {
   const path = await resolveMemoryPath(options.memoriesDir, input.id);
   const { metadata, body } = parseFrontmatter(await readFile(path, 'utf8'));
   const current = validateMemoryFrontmatter(metadata);

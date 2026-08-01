@@ -8,8 +8,10 @@ import { MementoError } from '../../src/errors.js';
 import { parseFrontmatter } from '../../src/store/frontmatter.js';
 import { archiveMemory } from '../../src/store/memory-archive.js';
 import { createMemory } from '../../src/store/memory-create.js';
-import { updateMemory } from '../../src/store/memory-update.js';
+import { MemoryUpdatedPersistenceError, updateMemory } from '../../src/store/memory-update.js';
 import { MemoryIndex } from '../../src/store/search-index.js';
+import { memorySnapshotSha256 } from '../../src/store/memory-snapshot.js';
+import { validateMemoryFrontmatter } from '../../src/store/memory-schema.js';
 import { createInput, PROJECT_A, PROJECT_B, seedProjects } from '../helpers/memories.js';
 import { createdMemory } from '../helpers/outcomes.js';
 
@@ -94,6 +96,49 @@ describe('updateMemory', () => {
     await updateMemory({ id: 'mem_UPD00001', body: 'Rewritten entirely.' }, opts());
 
     expect(frontmatter(path).body).toBe('Rewritten entirely.');
+  });
+
+  test('reports post-write index uncertainty without making the write retryable', async () => {
+    const { path } = await seed();
+    const brokenIndex = {
+      upsert: () => {
+        throw new Error('upsert failed');
+      },
+      clear: () => {
+        throw new Error('rebuild failed');
+      },
+    } as unknown as MemoryIndex;
+
+    await expect(
+      updateMemory(
+        { id: 'mem_UPD00001', body: 'Durably rewritten before indexing failed.' },
+        { memoriesDir, projectsDir, index: brokenIndex, now: T2 },
+      ),
+    ).rejects.toBeInstanceOf(MemoryUpdatedPersistenceError);
+    expect(frontmatter(path).body).toBe('Durably rewritten before indexing failed.');
+  });
+
+  test('checks a reviewed full-record snapshot inside the serialized update', async () => {
+    const { path } = await seed();
+    const reviewed = frontmatter(path);
+    const reviewedHash = memorySnapshotSha256(
+      validateMemoryFrontmatter(reviewed.metadata),
+      reviewed.body,
+    );
+    await updateMemory(
+      { id: 'mem_UPD00001', changes: { description: 'Changed by another update.' } },
+      opts(),
+    );
+
+    await expect(
+      updateMemory(
+        { id: 'mem_UPD00001', body: 'Would overwrite the concurrent metadata edit.' },
+        { ...opts(), expectedCurrentSha256: reviewedHash },
+      ),
+    ).rejects.toMatchObject({ name: 'MemoryUpdateConflictError', code: 'invalid_request' });
+    const current = frontmatter(path);
+    expect(current.metadata.description).toBe('Changed by another update.');
+    expect(current.body).toBe(reviewed.body);
   });
 
   test('rejects old_text that is not found, leaving the file untouched', async () => {

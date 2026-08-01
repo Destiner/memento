@@ -1,0 +1,8 @@
+{"id":"legacy-codex-session","instructions":"LEGACY_INSTRUCTIONS_MARKER Authorization: Bearer abcdefghijklmnop","timestamp":"2026-06-01T09:00:00.000Z","git":{"repository_url":"https://example.com/acme/legacy.git"}}
+{"record_type":"state","state":{"private":"LEGACY_STATE_MARKER"}}
+{"type":"message","role":"developer","content":[{"type":"input_text","text":"LEGACY_DEVELOPER_MARKER"}]}
+{"type":"message","role":"user","content":[{"type":"input_text","text":"Find the earlier billing decision."}]}
+{"type":"reasoning","summary":[{"type":"summary_text","text":"LEGACY_REASONING_MARKER"}],"encrypted_content":"LEGACY_ENCRYPTED_REASONING_MARKER"}
+{"type":"message","role":"assistant","content":[{"type":"output_text","text":"I will search memory."},{"type":"encrypted_content","data":"LEGACY_ENCRYPTED_MESSAGE_MARKER"}]}
+{"type":"function_call","name":"search_memory","arguments":"{\"query\":\"billing decision\"}","call_id":"legacy-search-call"}
+{"type":"function_call_output","call_id":"legacy-search-call","output":"{\"result_ids\":[\"mem_01LEGACY\"]}"}

@@ -12,7 +12,8 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { INDEX_SCHEMA_VERSION } from './index-schema.js';
-import { rebuildIndex, type RebuildResult } from './rebuild.js';
+import { withMemoryMutationLock } from './memory-mutation-lock.js';
+import { rebuildIndexUnlocked, type RebuildResult } from './rebuild.js';
 import { MemoryIndex } from './search-index.js';
 
 const DB_FILENAME = 'memory.sqlite';
@@ -30,27 +31,33 @@ export interface OpenIndexResult {
 }
 
 export async function openIndex(options: OpenIndexOptions): Promise<OpenIndexResult> {
-  await mkdir(options.indexDir, { recursive: true });
+  return withMemoryMutationLock(options.memoriesDir, async () => {
+    await mkdir(options.indexDir, { recursive: true });
 
-  const dbPath = join(options.indexDir, DB_FILENAME);
-  const versionPath = join(options.indexDir, VERSION_FILENAME);
-  const stale = existsSync(dbPath)
-    ? (await readSchemaVersion(versionPath)) !== INDEX_SCHEMA_VERSION
-    : true;
+    const dbPath = join(options.indexDir, DB_FILENAME);
+    const versionPath = join(options.indexDir, VERSION_FILENAME);
+    const stale = existsSync(dbPath)
+      ? (await readSchemaVersion(versionPath)) !== INDEX_SCHEMA_VERSION
+      : true;
 
-  if (stale) {
-    await dropDatabase(dbPath);
-  }
+    if (stale) {
+      await dropDatabase(dbPath);
+    }
 
-  const index = new MemoryIndex(dbPath);
+    const index = new MemoryIndex(dbPath);
+    try {
+      if (!stale) {
+        return { index, rebuilt: false, rebuild: null };
+      }
 
-  if (!stale) {
-    return { index, rebuilt: false, rebuild: null };
-  }
-
-  const rebuild = await rebuildIndex(index, options.memoriesDir);
-  await writeFile(versionPath, `${JSON.stringify({ schema_version: INDEX_SCHEMA_VERSION })}\n`);
-  return { index, rebuilt: true, rebuild };
+      const rebuild = await rebuildIndexUnlocked(index, options.memoriesDir);
+      await writeFile(versionPath, `${JSON.stringify({ schema_version: INDEX_SCHEMA_VERSION })}\n`);
+      return { index, rebuilt: true, rebuild };
+    } catch (error) {
+      index.close();
+      throw error;
+    }
+  });
 }
 
 // Read the recorded index schema version, treating a missing or malformed file

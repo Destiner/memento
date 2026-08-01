@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { parseFrontmatter } from './frontmatter.js';
 import { assertInsideRoot } from './path-safety.js';
 import { validateMemoryFrontmatter } from './memory-schema.js';
+import { withMemoryMutationLock } from './memory-mutation-lock.js';
 import type { MemoryIndex } from './search-index.js';
 
 export interface RebuildResult {
@@ -23,6 +24,13 @@ export interface RebuildResult {
 }
 
 export async function rebuildIndex(
+  index: MemoryIndex,
+  memoriesDir: string,
+): Promise<RebuildResult> {
+  return withMemoryMutationLock(memoriesDir, () => rebuildIndexUnlocked(index, memoriesDir));
+}
+
+export async function rebuildIndexUnlocked(
   index: MemoryIndex,
   memoriesDir: string,
 ): Promise<RebuildResult> {

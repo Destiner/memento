@@ -28,7 +28,9 @@ import {
   type MemoryCandidate,
   type MemorySummary,
 } from './memory-schema.js';
+import { withMemoryMutationLock } from './memory-mutation-lock.js';
 import { assertProjectsRegistered } from './project-registry.js';
+import { rebuildIndexUnlocked } from './rebuild.js';
 import type { MemoryIndex } from './search-index.js';
 import {
   DUPLICATE_CANDIDATE_LIMIT,
@@ -46,6 +48,22 @@ export interface CreateMemoryOptions {
   // Injectable for deterministic tests; default to wall-clock / random ULID.
   now?: number;
   makeId?: (now: number) => string;
+}
+
+export class MemoryCreatedIndexError extends Error {
+  readonly memoryId: string;
+  readonly memoryPath: string;
+
+  constructor(memoryId: string, memoryPath: string, cause: unknown) {
+    super(
+      `Memory ${memoryId} was written, but the derived index could not be repaired. ` +
+        'Verify the durable file and reconcile before retrying.',
+      { cause },
+    );
+    this.name = 'MemoryCreatedIndexError';
+    this.memoryId = memoryId;
+    this.memoryPath = memoryPath;
+  }
 }
 
 export type CreateMemoryResult =
@@ -68,6 +86,13 @@ export async function createMemory(
     await assertProjectsRegistered(options.projectsDir, input.scope.project_ids);
   }
 
+  return withMemoryMutationLock(options.memoriesDir, () => createMemoryLocked(input, options));
+}
+
+async function createMemoryLocked(
+  input: CreateMemoryInput,
+  options: CreateMemoryOptions,
+): Promise<CreateMemoryResult> {
   if (input.force_create !== true) {
     const candidates = duplicateCandidates(options.index, input);
     if (candidates.length > 0) {
@@ -98,7 +123,19 @@ export async function createMemory(
 
   // Index after the canonical write succeeds. The file is already durable, so it
   // is never lost even if indexing fails; the index is rebuildable.
-  options.index.upsert(record, input.body);
+  try {
+    options.index.upsert(record, input.body);
+  } catch (initialError) {
+    try {
+      const rebuilt = await rebuildIndexUnlocked(options.index, options.memoriesDir);
+      const skipped = rebuilt.skipped.find(
+        (entry) => entry.file === memoryFilename(id, record.title),
+      );
+      if (skipped !== undefined) throw new Error(skipped.reason);
+    } catch (rebuildError) {
+      throw new MemoryCreatedIndexError(id, path, { initialError, rebuildError });
+    }
+  }
 
   return {
     outcome: 'created',
