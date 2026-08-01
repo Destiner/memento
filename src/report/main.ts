@@ -14,6 +14,7 @@ import { isoSeconds } from '../store/time.js';
 import { renderReport } from './html.js';
 import { loadEvents } from './load.js';
 import { computeMetrics } from './metrics.js';
+import { loadStoreView } from './store-view.js';
 
 async function main(): Promise<void> {
   const { paths } = loadConfig();
@@ -27,7 +28,11 @@ async function main(): Promise<void> {
       try {
         const events = await loadEvents(paths.logs);
         const metrics = computeMetrics(events);
-        const html = renderReport(metrics, {
+        const store = await loadStoreView(metrics, {
+          memoriesDir: paths.memories,
+          projectsDir: paths.projects,
+        });
+        const html = renderReport(metrics, store, {
           generatedAt: isoSeconds(Date.now()),
           logsDir: paths.logs,
         });
