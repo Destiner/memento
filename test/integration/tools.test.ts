@@ -3,10 +3,11 @@
 //
 // This is the only test that exercises the wiring rather than the operations —
 // that every tool is registered under its frozen name, that a soft outcome comes
-// back as a success rather than an error, and that the flattened tool payloads
-// match the advertised output schemas.
+// back as a success rather than an error, that the flattened tool payloads match
+// the advertised output schemas, and that each tool emits the instrumentation
+// event the report is built on.
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,7 +16,13 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { resolvePaths, type ResolvedConfig } from '../../src/config.js';
-import { createServer } from '../../src/server.js';
+import {
+  LOG_FILE_PATTERN,
+  LOG_SCHEMA_VERSION,
+  type LoggedEvent,
+} from '../../src/logging/events.js';
+import { POLICY_VERSION } from '../../src/policy/index.js';
+import { createServer, SERVER_VERSION } from '../../src/server.js';
 
 const TOOLS = [
   'archive_memory',
@@ -33,29 +40,37 @@ interface CallResult {
   structuredContent?: Record<string, unknown>;
 }
 
+const CLIENT_NAME = 'test-agent';
+const CLIENT_VERSION = '0.0.0';
+
+async function startServer(loggingEnabled: boolean): Promise<{ home: string; client: Client }> {
+  const home = mkdtempSync(join(tmpdir(), 'memento-tools-'));
+  const resolved: ResolvedConfig = {
+    paths: resolvePaths(home),
+    config: {
+      schema_version: 1,
+      search_backend: 'fts5',
+      default_result_limit: 5,
+      max_result_limit: 10,
+      logging_enabled: loggingEnabled,
+    },
+    variant: 'shipped-v2',
+  };
+
+  const server = await createServer(resolved);
+  const client = new Client({ name: CLIENT_NAME, version: CLIENT_VERSION });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  return { home, client };
+}
+
 describe('tool surface', () => {
   let home: string;
   let client: Client;
 
   beforeEach(async () => {
-    home = mkdtempSync(join(tmpdir(), 'memento-tools-'));
-    const resolved: ResolvedConfig = {
-      paths: resolvePaths(home),
-      config: {
-        schema_version: 1,
-        search_backend: 'fts5',
-        default_result_limit: 5,
-        max_result_limit: 10,
-        // Nothing to learn from log files here, and it keeps the run pure.
-        logging_enabled: false,
-      },
-      variant: 'shipped-v2',
-    };
-
-    const server = await createServer(resolved);
-    client = new Client({ name: 'test-agent', version: '0.0.0' });
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    // Nothing to learn from log files here, and it keeps the run pure.
+    ({ home, client } = await startServer(false));
   });
 
   afterEach(async () => {
@@ -207,5 +222,162 @@ describe('tool surface', () => {
     });
 
     expect(result.isError).toBe(true);
+  });
+});
+
+// The report is only as good as what the server actually writes, and the writes
+// are fire-and-forget — a field that silently stops being emitted would show up
+// as a metric quietly reading zero, not as a failure. These tests read the real
+// log file back off disk.
+describe('instrumentation', () => {
+  let home: string;
+  let client: Client;
+
+  beforeEach(async () => {
+    ({ home, client } = await startServer(true));
+  });
+
+  afterEach(async () => {
+    await client.close();
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  async function structured(name: string, args: Record<string, unknown>) {
+    const result = (await client.callTool({ name, arguments: args })) as CallResult;
+    expect(result.isError, `${name} failed: ${JSON.stringify(result)}`).toBeFalsy();
+    return result.structuredContent!;
+  }
+
+  function readEvents(): LoggedEvent[] {
+    const logsDir = resolvePaths(home).logs;
+    let files: string[];
+    try {
+      files = readdirSync(logsDir).filter((name) => LOG_FILE_PATTERN.test(name));
+    } catch {
+      return [];
+    }
+    return files.sort().flatMap((file) =>
+      readFileSync(join(logsDir, file), 'utf8')
+        .split('\n')
+        .filter((line) => line.trim())
+        .map((line) => JSON.parse(line) as LoggedEvent),
+    );
+  }
+
+  // Logging is deliberately fire-and-forget, so a tool call can return before its
+  // append settles. Poll rather than sleep a fixed amount.
+  async function waitForEvents(expected: number): Promise<LoggedEvent[]> {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const events = readEvents();
+      if (events.length >= expected) return events;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error(`Timed out waiting for ${expected} events; saw ${readEvents().length}.`);
+  }
+
+  // One walk through every tool, then assert over the events it produced.
+  async function exerciseEveryTool(): Promise<{ projectId: string; memoryId: string }> {
+    await structured('resolve_project', { name_hint: 'Alpha' });
+    const project = await structured('create_project', {
+      name: 'Alpha',
+      description: 'The billing service.',
+    });
+    const projectId = project.id as string;
+    await structured('update_project', {
+      id: projectId,
+      identifiers: { git_remotes: ['git@github.com:acme/alpha.git'] },
+    });
+
+    const input = {
+      title: 'Invoice retries duplicate charges',
+      description: 'Retrying invoice submission without an idempotency key double-charges.',
+      scope: { kind: 'projects', project_ids: [projectId] },
+      type: 'debugging_pattern',
+      body: 'Deduplicate by event id; the provider retries with backoff.',
+      provenance: { source: 'agent_observed' },
+    };
+    const memory = await structured('create_memory', input);
+    const memoryId = memory.id as string;
+    await structured('create_memory', input); // gated by the near-duplicate check
+    await structured('search_memories', {
+      query: 'invoice retries duplicate charges',
+      scope: { kind: 'projects', project_ids: [projectId] },
+    });
+    await structured('get_memory', { id: memoryId });
+    await structured('update_memory', { id: memoryId, changes: { description: 'Reworded.' } });
+    await structured('archive_memory', { id: memoryId, reason: 'Provider enforces keys now.' });
+
+    return { projectId, memoryId };
+  }
+
+  test('stamps every event with the session, version, and client envelope', async () => {
+    await exerciseEveryTool();
+    const events = await waitForEvents(9);
+
+    const sessions = new Set(events.map((event) => event.session_id));
+    expect(sessions.size).toBe(1);
+    expect([...sessions][0]).toMatch(/^ses_[0-9A-HJKMNP-TV-Z]{26}$/);
+
+    for (const event of events) {
+      expect(event).toMatchObject({
+        server_version: SERVER_VERSION,
+        // Instruction text and server version move independently, so a comparison
+        // that only knows one of them credits the wrong variable.
+        policy_version: POLICY_VERSION,
+        variant: 'shipped-v2',
+        client_name: CLIENT_NAME,
+        client_version: CLIENT_VERSION,
+        log_schema_version: LOG_SCHEMA_VERSION,
+      });
+    }
+  });
+
+  test('records the ids that make reuse and per-project activation answerable', async () => {
+    const { projectId, memoryId } = await exerciseEveryTool();
+    const events = await waitForEvents(9);
+    const byTool = new Map(events.map((event) => [event.tool, event]));
+
+    expect(byTool.get('create_project')).toMatchObject({ project_ids: [projectId] });
+    expect(byTool.get('update_project')).toMatchObject({ project_ids: [projectId] });
+    expect(byTool.get('search_memories')).toMatchObject({
+      project_ids: [projectId],
+      result_ids: [memoryId],
+    });
+    expect(byTool.get('get_memory')).toMatchObject({
+      memory_id: memoryId,
+      project_ids: [projectId],
+    });
+    expect(byTool.get('update_memory')).toMatchObject({ memory_id: memoryId });
+    expect(byTool.get('archive_memory')).toMatchObject({ memory_id: memoryId });
+
+    const creates = events.filter((event) => event.tool === 'create_memory');
+    expect(creates[0]).toMatchObject({ result_outcome: 'created', memory_id: memoryId });
+    // A gated create names what it matched, so a repeated near-miss is traceable.
+    expect(creates[1]).toMatchObject({
+      result_outcome: 'duplicate_candidates',
+      candidate_ids: [memoryId],
+    });
+    expect(creates[1]).not.toHaveProperty('memory_id');
+  });
+
+  test('writes ids and counts but never human-readable content', async () => {
+    await exerciseEveryTool();
+    const events = await waitForEvents(9);
+    const raw = JSON.stringify(events);
+
+    for (const secret of [
+      'Invoice retries duplicate charges', // title
+      'invoice retries duplicate charges', // query text
+      'Deduplicate by event id', // body
+      'Provider enforces keys now', // archive reason
+      'The billing service', // project description
+      'github.com/acme/alpha', // git remote
+    ]) {
+      expect(raw).not.toContain(secret);
+    }
+    // The lengths and counts derived from that content are fine to keep.
+    expect(events.find((event) => event.tool === 'search_memories')?.query_length).toBe(
+      'invoice retries duplicate charges'.length,
+    );
   });
 });

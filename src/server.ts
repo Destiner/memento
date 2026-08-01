@@ -18,6 +18,8 @@ import { loadConfig, type ResolvedConfig } from './config.js';
 import { toErrorShape } from './errors.js';
 import { createLogger, type EventLogger } from './logging/logger.js';
 import type { ToolEventFields } from './logging/events.js';
+import { POLICY_VERSION } from './policy/index.js';
+import { generateSessionId } from './store/id.js';
 import { archiveMemory } from './store/memory-archive.js';
 import { createMemory } from './store/memory-create.js';
 import { getMemory } from './store/memory-get.js';
@@ -113,13 +115,21 @@ function usedFilters(args: Record<string, unknown>, keys: readonly string[]): st
 
 const SEARCH_FILTER_KEYS = ['types', 'status', 'limit'] as const;
 
-// A memory scope, as the event log records it: the kind and how many projects,
-// never which ones.
+// A memory scope, as the event log records it: the kind, how many projects, and
+// their opaque ids. The ids are what make per-project activation answerable —
+// they carry no name, path, or remote, and only resolve against the local
+// registry the log sits beside.
 function scopeFields(scope: { kind: string; project_ids?: readonly string[] }): {
   scope_kind: string;
   project_count: number;
+  project_ids?: string[];
 } {
-  return { scope_kind: scope.kind, project_count: scope.project_ids?.length ?? 0 };
+  const ids = scope.project_ids;
+  return {
+    scope_kind: scope.kind,
+    project_count: ids?.length ?? 0,
+    ...(ids?.length ? { project_ids: [...ids] } : {}),
+  };
 }
 
 export async function createServer(resolved: ResolvedConfig = loadConfig()): Promise<McpServer> {
@@ -133,7 +143,12 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
     logsDir: resolved.paths.logs,
     enabled: resolved.config.logging_enabled,
     serverVersion: SERVER_VERSION,
+    policyVersion: POLICY_VERSION,
     variant: variant.name,
+    sessionId: generateSessionId(),
+    // Resolved per call: the client names itself during the initialize handshake,
+    // which has not happened yet at this point in startup.
+    client: () => server.server.getClientVersion(),
   });
 
   // Open the derived index once at startup, rebuilding from markdown if it is
@@ -161,7 +176,10 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
         (result) => ({
           result_outcome: result.outcome,
           matched_on: result.outcome === 'not_found' ? undefined : result.matched_on,
+          project_ids: result.outcome === 'exact_match' ? [result.project.id] : undefined,
           candidate_count: result.outcome === 'candidates' ? result.candidates.length : undefined,
+          candidate_ids:
+            result.outcome === 'candidates' ? result.candidates.map((c) => c.id) : undefined,
           suggestion_count:
             result.outcome === 'exact_match' ? result.suggestions.length : undefined,
         }),
@@ -187,7 +205,9 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
         },
         (result) => ({
           result_outcome: result.outcome,
+          project_ids: 'id' in result ? [result.id] : undefined,
           candidate_count: 'candidates' in result ? result.candidates.length : undefined,
+          candidate_ids: 'candidates' in result ? result.candidates.map((c) => c.id) : undefined,
           forced: args.force_create === true ? true : undefined,
         }),
       ),
@@ -201,15 +221,20 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       outputSchema: updateProjectOutputShape,
     },
     (args) =>
-      runTool('update_project', logger, async () => {
-        const result = await updateProject(args, { projectsDir });
-        return {
-          id: result.id,
-          path: result.path,
-          updated: result.updated,
-          project: result.record,
-        };
-      }),
+      runTool(
+        'update_project',
+        logger,
+        async () => {
+          const result = await updateProject(args, { projectsDir });
+          return {
+            id: result.id,
+            path: result.path,
+            updated: result.updated,
+            project: result.record,
+          };
+        },
+        (result) => ({ project_ids: [result.id] }),
+      ),
   );
 
   server.registerTool(
@@ -232,6 +257,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
           }),
         (result) => ({
           result_count: result.result_count,
+          result_ids: result.results.map((r) => r.id),
           query_id: result.query_id,
           query_length: args.query.length,
           filters_used: usedFilters(args as Record<string, unknown>, SEARCH_FILTER_KEYS),
@@ -254,7 +280,11 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
         'get_memory',
         logger,
         () => getMemory(args, { memoriesDir, projectsDir }),
-        (result) => ({ memory_type: result.type, ...scopeFields(result.scope) }),
+        (result) => ({
+          memory_id: result.id,
+          memory_type: result.type,
+          ...scopeFields(result.scope),
+        }),
       ),
   );
 
@@ -272,10 +302,12 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
         () => createMemory(args, { memoriesDir, projectsDir, index }),
         (result) => ({
           result_outcome: result.outcome,
+          memory_id: 'id' in result ? result.id : undefined,
           memory_type: args.type,
           verification: args.provenance.verification,
           ...scopeFields(args.scope),
           candidate_count: 'candidates' in result ? result.candidates.length : undefined,
+          candidate_ids: 'candidates' in result ? result.candidates.map((c) => c.id) : undefined,
           dropped_evidence_count:
             'dropped_evidence' in result ? result.dropped_evidence.length : undefined,
           forced: args.force_create === true ? true : undefined,
@@ -297,6 +329,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
         logger,
         () => updateMemory(args, { memoriesDir, projectsDir, index }),
         (result) => ({
+          memory_id: result.id,
           memory_type: result.memory.type,
           ...scopeFields(result.memory.scope),
           mark_verified: args.mark_verified === true ? true : undefined,
@@ -317,7 +350,11 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
         'archive_memory',
         logger,
         () => archiveMemory(args, { memoriesDir, index }),
-        (result) => ({ memory_type: result.memory.type, ...scopeFields(result.memory.scope) }),
+        (result) => ({
+          memory_id: result.id,
+          memory_type: result.memory.type,
+          ...scopeFields(result.memory.scope),
+        }),
       ),
   );
 
