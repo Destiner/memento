@@ -438,6 +438,7 @@ export class RetrospectiveStore {
       actual_operation_id: input.actualOperationId ?? null,
       label: input.label,
       explanation: input.explanation,
+      duplicate_of_comparison_id: input.duplicateOfComparisonId ?? null,
       created_at: this.timestamp(),
     };
     this.insertIdempotent(
@@ -445,10 +446,19 @@ export class RetrospectiveStore {
       values,
       `INSERT INTO comparisons
         (id, run_id, task_id, kind, proposal_id, actual_operation_id, label, explanation,
-         created_at)
+         duplicate_of_comparison_id, created_at)
        VALUES ($id, $run_id, $task_id, $kind, $proposal_id, $actual_operation_id,
-               $label, $explanation, $created_at)`,
-      ['run_id', 'task_id', 'kind', 'proposal_id', 'actual_operation_id', 'label', 'explanation'],
+               $label, $explanation, $duplicate_of_comparison_id, $created_at)`,
+      [
+        'run_id',
+        'task_id',
+        'kind',
+        'proposal_id',
+        'actual_operation_id',
+        'label',
+        'explanation',
+        'duplicate_of_comparison_id',
+      ],
     );
     return id;
   }
@@ -559,23 +569,31 @@ export class RetrospectiveStore {
       )
       .all(...(runId === undefined ? [] : [runId])) as unknown as ComparisonRow[];
     const items = rows.map((row) => this.toReviewItem(row));
+    // `includeDecided` is the audit view (`queue --all`), and a collapsed
+    // duplicate is exactly the kind of row an audit needs to see. Every other
+    // caller wants one row per opportunity.
     return includeDecided
       ? items
       : items.filter(
           (item) =>
-            item.state === 'pending' ||
-            (item.state === 'approved' &&
-              item.kind === 'write' &&
-              item.proposalId !== undefined &&
-              (['duplicate_candidates', 'ambiguous', 'failed'].includes(
-                this.latestPromotion(item.id)?.status ?? '',
-              ) ||
-                hasUnresolvedProjectScope(item.revision ?? item.proposal))),
+            item.duplicateOfComparisonId === undefined &&
+            (item.state === 'pending' ||
+              (item.state === 'approved' &&
+                item.kind === 'write' &&
+                item.proposalId !== undefined &&
+                (['duplicate_candidates', 'ambiguous', 'failed'].includes(
+                  this.latestPromotion(item.id)?.status ?? '',
+                ) ||
+                  hasUnresolvedProjectScope(item.revision ?? item.proposal)))),
         );
   }
 
   listReviewed(runId?: string): ReviewQueueItem[] {
-    return this.listReviewQueue(runId, true).filter((item) => item.state !== 'pending');
+    // Ground truth is per opportunity, so a collapsed duplicate never counts —
+    // otherwise one opportunity would contribute several times to every rate.
+    return this.listReviewQueue(runId, true).filter(
+      (item) => item.state !== 'pending' && item.duplicateOfComparisonId === undefined,
+    );
   }
 
   projectContextForComparison(comparisonId: string): ProjectContext | undefined {
@@ -837,6 +855,9 @@ export class RetrospectiveStore {
       runId: row.run_id,
       taskId: row.task_id,
       kind: row.kind,
+      ...(row.duplicate_of_comparison_id === null
+        ? {}
+        : { duplicateOfComparisonId: row.duplicate_of_comparison_id }),
       ...(row.proposal_id === null ? {} : { proposalId: row.proposal_id }),
       ...(actualOperationId === null || actualOperationId === undefined
         ? {}
@@ -934,6 +955,7 @@ interface ComparisonRow {
   actual_operation_id: string | null;
   label: ReviewQueueItem['label'];
   explanation: string;
+  duplicate_of_comparison_id: string | null;
   payload_json: string | null;
   task_summary: string | null;
   task_context_json: string | null;

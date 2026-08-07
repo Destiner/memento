@@ -198,7 +198,8 @@ bun run retrospective -- export <run-id> --output ./reviewed-regressions.jsonl
 `runs`, `queue`, and `report` accept `--json`. Mutation commands and `export`
 already print JSON. `queue` normally shows undecided items and repairable
 promotion outcomes; use `queue <run-id> --all` to recover the ID and audit trail
-of any decided item.
+of any decided item, or of a proposal collapsed as a repeat of another (see
+"Repeated opportunities").
 
 ## Normalization
 
@@ -285,6 +286,20 @@ evaluation-only `unresolved_projects` scope—never invent an ID or silently wid
 to global. The evaluator may return zero proposals; zero is a normal and
 important result.
 
+A session started in a directory that *contains* registered checkouts rather than
+in one of them gets a further resolution pass. `resolve_project` reports the
+containing project when a caller stands inside a checkout, but has no tier for a
+caller standing above several, so such a session would otherwise fall through to
+the fuzzy-name tier and resolve as ambiguous—leaving every project-specific
+proposal in `unresolved_projects`, which cannot be approved without a review
+edit. The projects registered beneath the directory become the candidate set
+instead: real IDs the evaluator must narrow to a justified subset, with
+`projectResolutionIncomplete` still set, because an unregistered checkout may
+also live there. Ancestor evidence is weaker than a checkout match, so it is
+consulted only when the standard tiers name no single project, and one hint
+contributes at most `MAX_DESCENDANT_PROJECTS` candidates; truncation is reported
+as a session warning rather than applied silently.
+
 ## Actual operations and comparison
 
 Native histories provide the semantic arguments of attempted Memento calls. The
@@ -316,6 +331,35 @@ label and explanation:
 - `attempted_not_stored`
 
 These labels are provisional until reviewed.
+
+## Repeated opportunities
+
+Each search checkpoint is evaluated independently from the prefix ending at it, so
+an opportunity present for a whole task is proposed again at every checkpoint that
+follows it. Because comparison is one-to-one, at most one member of such a set can
+be matched to an actual call and the rest are labelled `missed` however well the
+agent behaved—which would make the missed count scale with checkpoint count
+instead of with behaviour, and make tasks of different lengths incomparable.
+
+Within a task, proposals describing one opportunity are therefore grouped after
+matching, and every member except the representative records
+`duplicate_of_comparison_id`. Grouping is deterministic and local—normalized
+token similarity over query and intent, at or above
+`DUPLICATE_SIMILARITY_THRESHOLD`, within one scope kind—because run identity and
+resumption require the same inputs to produce the same result. The threshold is
+deliberately high: a false merge hides a finding, while a false split only costs
+one review decision.
+
+Matching runs first so it stays free to pick the best proposal for each actual
+call, and a group containing a match is represented by that member, so the group
+reads `timely` or `late` rather than collapsing to `missed`. A matched proposal is
+never recorded as a duplicate: two matches in one group mean the agent really did
+search twice, and collapsing them would erase an operation that happened.
+
+Nothing is discarded. Duplicates stay in the database and remain visible through
+`queue <run-id> --all`; they are excluded from the default queue, from reviewed
+ground truth, and from every rate derived from it, so one opportunity contributes
+once.
 
 ## Review
 

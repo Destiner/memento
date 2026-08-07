@@ -304,6 +304,43 @@ describe('RetrospectiveStore', () => {
     store.close();
   });
 
+  test('keeps a collapsed duplicate auditable but out of the queue and the metrics', () => {
+    const store = preparedStore();
+    const representativeId = insertProposalAndComparison(store);
+    store.insertProposal({
+      id: 'prop_search_repeat',
+      runId: 'run_test',
+      taskId: 'task_1',
+      checkpointId: 'checkpoint_1',
+      ordinal: 1,
+      kind: 'search',
+      payload: { kind: 'search', query: 'webhook retry handling' },
+      rationale: 'The same opportunity, seen from a later checkpoint.',
+      evaluator: EVALUATOR,
+    });
+    const duplicateId = store.insertComparison({
+      runId: 'run_test',
+      taskId: 'task_1',
+      kind: 'search',
+      proposalId: 'prop_search_repeat',
+      label: 'missed',
+      explanation: 'Repeats an opportunity already represented in this task; counted once.',
+      duplicateOfComparisonId: representativeId,
+    });
+
+    // The reviewer sees one row per opportunity...
+    expect(store.listReviewQueue('run_test').map((item) => item.id)).toEqual([representativeId]);
+    // ...while the audit view still accounts for every proposal that was made.
+    expect(store.listReviewQueue('run_test', true).map((item) => item.id)).toContain(duplicateId);
+    expect(store.reviewItem(duplicateId).duplicateOfComparisonId).toBe(representativeId);
+
+    // A decided duplicate stays out of ground truth, so one opportunity cannot
+    // contribute to a rate more than once.
+    store.recordReview(duplicateId, { action: 'reject', actor: 'tester', reason: 'Duplicate.' });
+    expect(store.listReviewed('run_test')).toEqual([]);
+    store.close();
+  });
+
   function tempHome(): string {
     const home = mkdtempSync(join(tmpdir(), 'memento-retrospective-'));
     homes.push(home);

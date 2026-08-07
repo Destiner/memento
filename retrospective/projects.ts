@@ -1,3 +1,5 @@
+import { normalizeWorkingDirectory, workingDirectoryKey } from '../src/store/project-normalize.js';
+import { loadProjectRegistry, projectDirectoryKeys } from '../src/store/project-registry.js';
 import { resolveProject, type ResolveProjectResult } from '../src/store/project-resolve.js';
 import type { NormalizedSession, ProjectResolutionHints } from './model.js';
 
@@ -14,7 +16,24 @@ export type SessionProjectResolution =
       matchedOn: string;
       projectIds: string[];
     }
+  | {
+      sessionId: string;
+      outcome: 'descendant_candidates';
+      matchedOn: 'working_directory_descendants';
+      projectIds: string[];
+    }
   | { sessionId: string; outcome: 'not_found' | 'no_evidence' };
+
+/**
+ * Cap on the candidate set a single ancestor directory may contribute.
+ *
+ * An ancestor match is weaker evidence than the tiers `resolve_project` reports,
+ * and a very high directory (a home directory, a filesystem root) sits above
+ * every checkout at once. The cap keeps one such hint from filling an evaluator
+ * request with the whole registry; truncation is always reported as a warning
+ * rather than applied silently.
+ */
+export const MAX_DESCENDANT_PROJECTS = 25;
 
 export interface ResolveSessionProjectsResult {
   sessions: NormalizedSession[];
@@ -63,16 +82,78 @@ export async function resolveSessionProjects(
     }
 
     const sessionResolutions: ResolveProjectResult[] = [];
+    const descendantIds = new Set<string>();
+    let omittedDescendants = 0;
     for (const input of inputs) {
-      sessionResolutions.push(await resolveProject(input, { projectsDir }));
+      const resolution = await resolveProject(input, { projectsDir });
+      sessionResolutions.push(resolution);
+
+      // Only reach for the weaker ancestor signal when the registry could not
+      // name a single project from the evidence it does understand.
+      if (resolution.outcome === 'exact_match' || input.working_directory === undefined) continue;
+      const descendants = await descendantProjectIds(input.working_directory, projectsDir);
+      for (const id of descendants.ids) descendantIds.add(id);
+      omittedDescendants += descendants.omitted;
     }
-    resolvedSessions.push(applyResolutions(session, sessionResolutions));
+
+    const descendants = [...descendantIds].sort();
+    resolvedSessions.push(
+      applyResolutions(session, sessionResolutions, descendants, omittedDescendants),
+    );
     resolutions.push(
       ...sessionResolutions.map((resolution) => toResolution(session.id, resolution)),
     );
+    if (descendants.length > 0) {
+      resolutions.push({
+        sessionId: session.id,
+        outcome: 'descendant_candidates',
+        matchedOn: 'working_directory_descendants',
+        projectIds: descendants,
+      });
+    }
   }
 
   return { sessions: resolvedSessions, resolutions };
+}
+
+/**
+ * Registered checkouts strictly beneath `directory`.
+ *
+ * `resolve_project` reports the containing project when a caller stands inside a
+ * registered checkout, but has no tier for a caller standing above several — so
+ * a session started in a directory that holds many checkouts falls through to
+ * the fuzzy-name tier and resolves as ambiguous. The projects underneath are the
+ * honest candidate set for such a session: better evidence than a name that
+ * happens to look similar, and weaker than a checkout match, which is why the
+ * caller keeps `projectResolutionIncomplete` set.
+ */
+async function descendantProjectIds(
+  directory: string,
+  projectsDir: string,
+): Promise<{ ids: string[]; omitted: number }> {
+  let key: string;
+  try {
+    key = workingDirectoryKey(await normalizeWorkingDirectory(directory));
+  } catch {
+    // An unusable hint (empty, relative) is no evidence, not a failure.
+    return { ids: [], omitted: 0 };
+  }
+  const boundary = key.endsWith('/') ? key : `${key}/`;
+
+  const registry = await loadProjectRegistry(projectsDir);
+  const ids = registry.active
+    .filter((entry) =>
+      projectDirectoryKeys(entry.record).some(
+        (candidate) => candidate !== key && candidate.startsWith(boundary),
+      ),
+    )
+    .map((entry) => entry.record.id)
+    .sort();
+
+  return {
+    ids: ids.slice(0, MAX_DESCENDANT_PROJECTS),
+    omitted: Math.max(0, ids.length - MAX_DESCENDANT_PROJECTS),
+  };
 }
 
 function resolutionInput(hints: ProjectResolutionHints | undefined):
@@ -96,6 +177,8 @@ function resolutionInput(hints: ProjectResolutionHints | undefined):
 function applyResolutions(
   session: NormalizedSession,
   resolutions: readonly ResolveProjectResult[],
+  descendantIds: readonly string[] = [],
+  omittedDescendants = 0,
 ): NormalizedSession {
   const projectIds = [
     ...new Set([
@@ -103,6 +186,7 @@ function applyResolutions(
       ...resolutions.flatMap((resolution) =>
         resolution.outcome === 'exact_match' ? [resolution.project.id] : [],
       ),
+      ...descendantIds,
     ]),
   ].sort();
   const warnings = resolutions.flatMap((resolution) =>
@@ -114,6 +198,18 @@ function applyResolutions(
         ? ['Project resolution found no registered project.']
         : [],
   );
+  if (descendantIds.length > 0) {
+    warnings.push(
+      `Project scope inferred from ${descendantIds.length} registered checkout(s) beneath the ` +
+        'session working directory; the set may be incomplete.',
+    );
+  }
+  if (omittedDescendants > 0) {
+    warnings.push(
+      `${omittedDescendants} further project(s) beneath the session working directory were ` +
+        `omitted at the ${MAX_DESCENDANT_PROJECTS}-project cap.`,
+    );
+  }
   let output = copySession(session);
   if (projectIds.length > 0) {
     output = { ...output, projectContext: { ...output.projectContext, projectIds } };

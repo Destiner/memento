@@ -112,6 +112,12 @@ export interface ComparisonInput {
   actualOperationId?: string;
   label: ComparisonLabel;
   explanation: string;
+  /**
+   * Set when this comparison repeats an opportunity already represented by
+   * another comparison in the same task. Recorded rather than dropped: the row
+   * stays auditable, but review and metrics count the representative only.
+   */
+  duplicateOfComparisonId?: string;
 }
 
 export type ReviewAction = 'approve' | 'edit' | 'reject' | 'duplicate';
@@ -145,6 +151,8 @@ export interface ReviewQueueItem {
   label: ComparisonLabel;
   originalLabel: ComparisonLabel;
   explanation: string;
+  /** Present when this item repeats an opportunity counted under another item. */
+  duplicateOfComparisonId?: string;
   state: ReviewState;
   proposal?: JsonValue;
   revision?: JsonValue;

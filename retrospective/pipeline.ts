@@ -17,7 +17,7 @@ import { reconcileTelemetry, type TelemetryEvent } from './reconcile.js';
 import { boundText, redactText } from './redact.js';
 import { splitTasks } from './tasks.js';
 
-export const RETROSPECTIVE_PIPELINE_VERSION = '1.2.0' as const;
+export const RETROSPECTIVE_PIPELINE_VERSION = '1.3.0' as const;
 export const EVALUATION_SUITE_VERSION = `checkpoints-${CHECKPOINT_PROMPT_VERSION}/search-${SEARCH_PROMPT_VERSION}/capture-${CAPTURE_PROMPT_VERSION}`;
 
 export interface RunRetrospectiveOptions {

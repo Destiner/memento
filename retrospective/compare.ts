@@ -1,5 +1,6 @@
 import type { JsonValue, ActualMemoryOperation, OperationScope } from './model.js';
 import type { NormalizedTask } from './tasks.js';
+import { assignDuplicates, searchProposalTokens } from './dedupe.js';
 import { evaluationEvents } from './evaluator/context.js';
 import type { RetrospectiveStore } from './db/store.js';
 import type { EvaluatorIdentity } from './db/types.js';
@@ -111,7 +112,15 @@ export function persistAnalysisResult(
       }),
     );
 
-    for (const comparison of analysis.comparisons) {
+    // Representatives first, so a duplicate can point at a comparison that
+    // already exists. Order within each pass is the analysis order.
+    const comparisonIdByProposalIndex = new Map<string, string>();
+    const ordered = [
+      ...analysis.comparisons.filter((entry) => entry.duplicateOfProposalIndex === undefined),
+      ...analysis.comparisons.filter((entry) => entry.duplicateOfProposalIndex !== undefined),
+    ];
+
+    for (const comparison of ordered) {
       const ids = comparison.kind === 'search' ? searchProposalIds : captureProposalIds;
       const proposalId =
         comparison.proposalIndex === null ? undefined : ids[comparison.proposalIndex];
@@ -120,7 +129,20 @@ export function persistAnalysisResult(
           `Comparison references missing ${comparison.kind} proposal ${comparison.proposalIndex}.`,
         );
       }
-      store.insertComparison({
+
+      let duplicateOfComparisonId: string | undefined;
+      if (comparison.duplicateOfProposalIndex !== undefined) {
+        const key = `${comparison.kind}:${comparison.duplicateOfProposalIndex}`;
+        duplicateOfComparisonId = comparisonIdByProposalIndex.get(key);
+        if (duplicateOfComparisonId === undefined) {
+          throw new Error(
+            `Comparison references missing ${comparison.kind} representative ` +
+              `${comparison.duplicateOfProposalIndex}.`,
+          );
+        }
+      }
+
+      const comparisonId = store.insertComparison({
         runId,
         taskId: task.id,
         kind: comparison.kind === 'search' ? 'search' : 'write',
@@ -130,7 +152,14 @@ export function persistAnalysisResult(
           : { actualOperationId: comparison.actualOperationIds[0] }),
         label: comparison.classification,
         explanation: comparison.explanation,
+        ...(duplicateOfComparisonId === undefined ? {} : { duplicateOfComparisonId }),
       });
+      if (comparison.proposalIndex !== null) {
+        comparisonIdByProposalIndex.set(
+          `${comparison.kind}:${comparison.proposalIndex}`,
+          comparisonId,
+        );
+      }
     }
   });
 }
@@ -161,14 +190,31 @@ function compareSearches(
     explanation: explainSearch(pair),
   }));
 
+  // Deliberately after matching, not before: matching stays free to pick the
+  // best proposal for each actual search, and a group that contains a match
+  // inherits that match instead of collapsing to `missed`.
+  const duplicates = assignDuplicates(
+    proposals.map((candidate) => ({
+      index: candidate.proposalIndex,
+      matched: matchedProposals.has(candidate.proposalIndex),
+      tokens: searchProposalTokens(candidate.proposal),
+      scopeKind: candidate.proposal.search.scope.kind,
+    })),
+  );
+
   for (const proposal of proposals) {
     if (matchedProposals.has(proposal.proposalIndex)) continue;
+    const duplicateOf = duplicates.get(proposal.proposalIndex);
     comparisons.push({
       kind: 'search',
       proposalIndex: proposal.proposalIndex,
       actualOperationIds: [],
       classification: 'missed',
-      explanation: 'No actual search matched this checkpoint proposal.',
+      explanation:
+        duplicateOf === undefined
+          ? 'No actual search matched this checkpoint proposal.'
+          : 'Repeats an opportunity already represented in this task; counted once.',
+      ...(duplicateOf === undefined ? {} : { duplicateOfProposalIndex: duplicateOf }),
     });
   }
   for (const operation of actual) {

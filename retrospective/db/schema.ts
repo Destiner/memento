@@ -1,4 +1,4 @@
-export const RETROSPECTIVE_SCHEMA_VERSION = 5 as const;
+export const RETROSPECTIVE_SCHEMA_VERSION = 6 as const;
 
 export interface Migration {
   version: number;
@@ -272,6 +272,17 @@ export const MIGRATIONS: readonly Migration[] = [
         CHECK (target_snapshot_json IS NULL OR json_valid(target_snapshot_json));
       ALTER TABLE review_events ADD COLUMN target_snapshot_set INTEGER NOT NULL DEFAULT 0
         CHECK (target_snapshot_set IN (0, 1));
+    `,
+  },
+  {
+    version: 6,
+    sql: `
+      ALTER TABLE comparisons ADD COLUMN duplicate_of_comparison_id TEXT
+        REFERENCES comparisons(id);
+
+      CREATE INDEX comparisons_duplicate_of
+        ON comparisons(duplicate_of_comparison_id)
+        WHERE duplicate_of_comparison_id IS NOT NULL;
     `,
   },
 ];

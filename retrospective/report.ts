@@ -36,7 +36,11 @@ export interface ReviewedReport {
 export function buildReviewedReport(store: RetrospectiveStore, runId: string): ReviewedReport {
   const run = store.getRun(runId);
   if (run === undefined) throw new Error(`Unknown retrospective run: ${runId}`);
-  const all = store.listReviewQueue(runId, true);
+  // One row per opportunity: a collapsed duplicate would otherwise contribute
+  // to the label totals and to every rate derived from them.
+  const all = store
+    .listReviewQueue(runId, true)
+    .filter((item) => item.duplicateOfComparisonId === undefined);
   const reviewed = all.filter((item) => item.state !== 'pending');
   const acceptedProposals = reviewed.filter(
     (item) => item.state === 'approved' && item.proposalId !== undefined,

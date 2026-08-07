@@ -50,6 +50,58 @@ describe('compareOperations', () => {
     expect(new Set(comparisons.flatMap((item) => item.actualOperationIds)).size).toBe(2);
   });
 
+  test('counts an opportunity proposed at several checkpoints once', () => {
+    const comparisons = compareOperations(
+      task([]),
+      [
+        searchEvaluation(0, 'webhook duplicate retries after a failed delivery'),
+        searchEvaluation(4, 'webhook duplicate retry after failed deliveries'),
+        searchEvaluation(6, 'email sandbox stream behavior'),
+      ],
+      captureEvaluation(),
+    );
+
+    // Without grouping this task reports three misses for two opportunities, and
+    // the count would keep growing with the number of checkpoints.
+    const counted = comparisons.filter((item) => item.duplicateOfProposalIndex === undefined);
+    expect(counted).toHaveLength(2);
+    expect(comparisons.find((item) => item.proposalIndex === 1)).toMatchObject({
+      classification: 'missed',
+      duplicateOfProposalIndex: 0,
+    });
+    expect(
+      comparisons.find((item) => item.proposalIndex === 2)?.duplicateOfProposalIndex,
+    ).toBeUndefined();
+  });
+
+  test('lets a repeated opportunity inherit the checkpoint that actually matched', () => {
+    const comparisons = compareOperations(
+      task([
+        operation('search_actual', 6, {
+          input: { query: 'webhook duplicate retries after a failed delivery' },
+          scope: { kind: 'global' },
+        }),
+      ]),
+      [
+        searchEvaluation(0, 'webhook duplicate retries after a failed delivery'),
+        searchEvaluation(4, 'webhook duplicate retry after failed deliveries'),
+      ],
+      captureEvaluation(),
+    );
+
+    // The agent searched once and did the right thing, so the opportunity must
+    // read as handled rather than as one match plus a phantom miss.
+    const matched = comparisons.find((item) => item.actualOperationIds.length > 0);
+    expect(matched).toMatchObject({ classification: 'late' });
+    const others = comparisons.filter((item) => item !== matched);
+    expect(others.every((item) => item.duplicateOfProposalIndex === matched?.proposalIndex)).toBe(
+      true,
+    );
+    expect(comparisons.filter((item) => item.duplicateOfProposalIndex === undefined)).toHaveLength(
+      1,
+    );
+  });
+
   test('treats a search issued immediately after its checkpoint as timely', () => {
     const comparisons = compareOperations(
       task([

@@ -153,6 +153,108 @@ describe('resolveSessionProjects', () => {
     ]);
   });
 
+  it('scopes a session started above several checkouts to the projects beneath it', async () => {
+    const root = await temporaryDirectory();
+    const projectsDir = join(root, 'projects');
+    const workspace = join(root, 'work');
+    await mkdir(join(workspace, 'api'), { recursive: true });
+    await mkdir(join(workspace, 'web'), { recursive: true });
+    await createProject(
+      {
+        name: 'API',
+        description: 'Backend service.',
+        working_directories: [join(workspace, 'api')],
+      },
+      { projectsDir, makeId: () => 'prj_API' },
+    );
+    await createProject(
+      {
+        name: 'Web',
+        description: 'Frontend application.',
+        working_directories: [join(workspace, 'web')],
+      },
+      { projectsDir, makeId: () => 'prj_WEB' },
+    );
+    const session = normalizedSession();
+
+    const result = await resolveSessionProjects(
+      [session],
+      { [session.id]: [{ workingDirectory: workspace, nameHint: 'work' }] },
+      projectsDir,
+    );
+
+    // The candidate set is real project ids rather than `unresolved_projects`,
+    // but stays flagged incomplete: an unregistered checkout could also live here.
+    expect(result.sessions[0]?.projectContext).toMatchObject({
+      projectIds: ['prj_API', 'prj_WEB'],
+      projectResolutionIncomplete: true,
+    });
+    expect(result.resolutions).toContainEqual({
+      sessionId: session.id,
+      outcome: 'descendant_candidates',
+      matchedOn: 'working_directory_descendants',
+      projectIds: ['prj_API', 'prj_WEB'],
+    });
+    expect(result.sessions[0]?.warnings.join(' ')).toContain('may be incomplete');
+  });
+
+  it('prefers a checkout match over the projects beneath it', async () => {
+    const root = await temporaryDirectory();
+    const projectsDir = join(root, 'projects');
+    const monorepo = join(root, 'work', 'monorepo');
+    await mkdir(join(monorepo, 'packages', 'api'), { recursive: true });
+    await createProject(
+      { name: 'Monorepo', description: 'The repository root.', working_directories: [monorepo] },
+      { projectsDir, makeId: () => 'prj_ROOT' },
+    );
+    await createProject(
+      {
+        name: 'API',
+        description: 'A package inside the monorepo.',
+        working_directories: [join(monorepo, 'packages', 'api')],
+      },
+      { projectsDir, makeId: () => 'prj_API' },
+    );
+    const session = normalizedSession();
+
+    const result = await resolveSessionProjects(
+      [session],
+      { [session.id]: [{ workingDirectory: monorepo, nameHint: 'monorepo' }] },
+      projectsDir,
+    );
+
+    // The directory is itself registered, so the descendant pass never runs and
+    // the nested package does not widen the scope.
+    expect(result.sessions[0]?.projectContext).toMatchObject({ projectIds: ['prj_ROOT'] });
+    expect(result.sessions[0]?.projectContext?.projectResolutionIncomplete).toBeUndefined();
+    expect(result.resolutions.map((resolution) => resolution.outcome)).toEqual(['exact_match']);
+  });
+
+  it('adds no candidates when nothing is registered beneath the directory', async () => {
+    const root = await temporaryDirectory();
+    const projectsDir = join(root, 'projects');
+    const elsewhere = join(root, 'elsewhere');
+    await mkdir(elsewhere, { recursive: true });
+    await createProject(
+      {
+        name: 'API',
+        description: 'Backend service.',
+        working_directories: [join(root, 'work', 'api')],
+      },
+      { projectsDir, makeId: () => 'prj_API' },
+    );
+    const session = normalizedSession();
+
+    const result = await resolveSessionProjects(
+      [session],
+      { [session.id]: [{ workingDirectory: elsewhere }] },
+      projectsDir,
+    );
+
+    expect(result.sessions[0]?.projectContext?.projectIds).toBeUndefined();
+    expect(result.resolutions.map((resolution) => resolution.outcome)).toEqual(['not_found']);
+  });
+
   async function temporaryDirectory(): Promise<string> {
     const path = await mkdtemp(join(tmpdir(), 'memento-retrospective-projects-'));
     temporaryDirectories.push(path);

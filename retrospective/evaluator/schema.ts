@@ -200,6 +200,9 @@ export const operationComparisonSchema = z
     actualOperationIds: z.array(nonEmpty).max(1),
     classification: comparisonClassificationSchema,
     explanation: nonEmpty.max(500),
+    // Locally computed, never evaluator output: the index of the proposal that
+    // represents this opportunity when several checkpoints proposed it.
+    duplicateOfProposalIndex: z.number().int().nonnegative().optional(),
   })
   .strict();
 
