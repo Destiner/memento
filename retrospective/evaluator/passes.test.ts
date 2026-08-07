@@ -285,7 +285,29 @@ describe('evaluator passes', () => {
     expect(capture.proposals[0]?.memory.scope).toEqual({ kind: 'unresolved_projects' });
   });
 
-  test('rejects a known-id subset when project resolution is incomplete', async () => {
+  test('accepts a known-id subset when project resolution is incomplete', async () => {
+    // Incompleteness means a project may be missing from the resolved set, not that its
+    // members are wrong, so scoping to those members must survive. Rejecting it here forced
+    // every proposal from an ancestor-directory session to unresolved_projects, which cannot
+    // be promoted without a review edit.
+    const incompleteTask: NormalizedTask = {
+      ...task,
+      projectContext: {
+        ...task.projectContext,
+        projectResolutionIncomplete: true,
+      },
+    };
+    const scope = { kind: 'projects' as const, project_ids: ['prj_alpha'] };
+    const evaluator = scopedEvaluator(scope);
+
+    const search = await evaluateSearchCheckpoint(incompleteTask, checkpoint, evaluator);
+    const capture = await evaluateCaptureTask(incompleteTask, evaluator);
+
+    expect(search.proposals[0]?.search.scope).toMatchObject(scope);
+    expect(capture.proposals[0]?.memory.scope).toMatchObject(scope);
+  });
+
+  test('still rejects invented ids when project resolution is incomplete', async () => {
     const incompleteTask: NormalizedTask = {
       ...task,
       projectContext: {
@@ -295,14 +317,14 @@ describe('evaluator passes', () => {
     };
     const evaluator = scopedEvaluator({
       kind: 'projects',
-      project_ids: ['prj_alpha'],
+      project_ids: ['prj_alpha', 'prj_invented'],
     });
 
     await expect(evaluateSearchCheckpoint(incompleteTask, checkpoint, evaluator)).rejects.toThrow(
-      /project resolution is incomplete.*unresolved_projects/,
+      /project ids absent.*prj_invented/,
     );
     await expect(evaluateCaptureTask(incompleteTask, evaluator)).rejects.toThrow(
-      /project resolution is incomplete.*unresolved_projects/,
+      /project ids absent.*prj_invented/,
     );
   });
 

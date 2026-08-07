@@ -87,7 +87,7 @@ describe('analyzeTask', () => {
     expect(result.comparisons).toEqual([]);
     expect(evaluator.prompts).toHaveLength(3);
     expect(result.checkpointPlan.evaluator.cliVersion).toBe('2.1.220');
-    expect(result.searchEvaluations[0]?.evaluator.promptVersion).toBe('5');
+    expect(result.searchEvaluations[0]?.evaluator.promptVersion).toBe('6');
     expect(result.captureEvaluation.evaluator.schemaVersion).toBe('2');
   });
 });

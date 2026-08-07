@@ -62,6 +62,37 @@ describe('promotion', () => {
     }
   });
 
+  test('promotes a resolved-subset scope when project resolution was incomplete', async () => {
+    // A session started in a directory of checkouts resolves its projects from those
+    // checkouts, which may miss an unregistered one — but never yields a wrong id. Blocking
+    // promotion on that flag sent every such proposal back for a manual scope edit.
+    const root = mkdtempSync(join(tmpdir(), 'memento-promotion-'));
+    temporaryDirectories.push(root);
+    const projectsDir = join(root, 'projects');
+    const memoriesDir = join(root, 'memories');
+    await createProject(
+      { name: 'Memento', description: 'Local memory layer for coding agents.' },
+      { projectsDir, makeId: () => 'prj_RESOLVED01' },
+    );
+    const index = new MemoryIndex();
+    const { store, comparisonId } = fixture('write', 'create', true, false, false, true);
+    store.recordReview(comparisonId, { action: 'approve', actor: 'timur' });
+
+    try {
+      const result = await promoteApprovedWrite(store, comparisonId, {
+        memoriesDir,
+        projectsDir,
+        index,
+      });
+
+      expect(result).toMatchObject({ status: 'succeeded', promotedMemoryId: expect.any(String) });
+      expect(readdirSync(memoriesDir)).toHaveLength(1);
+    } finally {
+      index.close();
+      store.close();
+    }
+  });
+
   test('validates stable scope and leaves duplicate candidates unpromoted', async () => {
     const { store, comparisonId } = fixture('write');
     store.recordReview(comparisonId, { action: 'approve', actor: 'timur' });
@@ -643,6 +674,7 @@ function fixture(
   useStoredProjectIds = true,
   successfulActualWrite: boolean | 'error' = false,
   unresolvedProjectScope = false,
+  incompleteResolution = false,
 ) {
   const store = new RetrospectiveStore(':memory:', () => new Date('2026-08-01T10:00:00Z'));
   store.createRun({
@@ -694,6 +726,7 @@ function fixture(
       ? {
           workingDirectory: '<path:redacted>',
           projectIds: ['prj_RESOLVED01'],
+          ...(incompleteResolution ? { projectResolutionIncomplete: true as const } : {}),
         }
       : { repositorySlug: 'destiner/memento' },
     warnings: [],

@@ -326,13 +326,8 @@ async function resolveScope(
       scope: { kind: 'projects', project_ids: proposedIds },
     };
   }
-  if (context?.projectResolutionIncomplete === true) {
-    return {
-      outcome: 'ambiguous',
-      reason:
-        'Project resolution was incomplete during ingestion; a reviewer must confirm the full scope.',
-    };
-  }
+  // An incomplete resolution may omit a project but never contains a wrong id, so a proposal
+  // confined to the resolved set still promotes; the subset check below is the real guard.
   if ((context?.projectIds?.length ?? 0) > 0) {
     const resolvedIds = new Set(context?.projectIds ?? []);
     if (!proposedIds.every((id) => resolvedIds.has(id))) {

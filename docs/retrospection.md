@@ -278,13 +278,24 @@ explicit scope. Capture proposals contain a complete create/update candidate in
 the canonical Memento taxonomy plus a rationale. Before evaluation, every
 distinct checkout hint retained across a merged parent/child session is resolved;
 all exact canonical IDs become task context. If any hint is ambiguous or missing,
-the context is marked `projectResolutionIncomplete`; the evaluator must not treat
-the known IDs as the whole scope. Otherwise, evaluator-proposed project IDs must
-be a subset of those IDs. When the evaluator knows an opportunity is
-project-specific but canonical IDs are missing, it must use the
-evaluation-only `unresolved_projects` scope—never invent an ID or silently widen
-to global. The evaluator may return zero proposals; zero is a normal and
-important result.
+the context is marked `projectResolutionIncomplete`, meaning the resolved set may
+omit a project the task also touched. It never means a listed ID is wrong:
+name-similarity guesses are recorded as warnings and never enter `projectIds`, so
+only exact matches and registered descendants appear there. Evaluator-proposed
+project IDs must therefore be a subset of those IDs whether or not resolution was
+complete, and the subset check is the only scope guard. When the evaluator knows
+an opportunity is project-specific but the responsible project is not among the
+resolved IDs, it must use the evaluation-only `unresolved_projects` scope—never
+invent an ID or silently widen to global. The evaluator may return zero proposals;
+zero is a normal and important result.
+
+Treating incompleteness as untrustworthiness instead was measured to cost
+everything the ancestor pass buys: with the flag set, the prompt required
+`unresolved_projects` for every project-scoped proposal and an assertion rejected
+any `projects` scope, so a run over an ancestor-directory session resolved nine
+real project IDs and still emitted twelve proposals scoped `unresolved_projects`,
+none of them promotable. Promotion applied the same rule a second time, so a
+reviewer-approved subset was also refused. Both now rely on the subset check.
 
 A session started in a directory that *contains* registered checkouts rather than
 in one of them gets a further resolution pass. `resolve_project` reports the
@@ -293,7 +304,7 @@ caller standing above several, so such a session would otherwise fall through to
 the fuzzy-name tier and resolve as ambiguous—leaving every project-specific
 proposal in `unresolved_projects`, which cannot be approved without a review
 edit. The projects registered beneath the directory become the candidate set
-instead: real IDs the evaluator must narrow to a justified subset, with
+instead: real IDs the evaluator narrows to a justified subset, with
 `projectResolutionIncomplete` still set, because an unregistered checkout may
 also live there. Ancestor evidence is weaker than a checkout match, so it is
 consulted only when the standard tiers name no single project, and one hint

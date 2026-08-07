@@ -18,8 +18,8 @@ import {
 } from './schema.js';
 import type { Evaluator } from './types.js';
 
-export const SEARCH_PROMPT_VERSION = '5' as const;
-export const CAPTURE_PROMPT_VERSION = '5' as const;
+export const SEARCH_PROMPT_VERSION = '6' as const;
+export const CAPTURE_PROMPT_VERSION = '6' as const;
 
 export async function evaluateSearchCheckpoint(
   task: NormalizedTask,
@@ -138,9 +138,12 @@ function scopeInstructions(): string[] {
     '',
     'Scope safety:',
     '- Canonical project ids in any projects scope must be a subset of',
-    '  task.projectContext.projectIds.',
-    '- If task.projectContext.projectResolutionIncomplete is true, the known ids are only a',
-    '  subset: use unresolved_projects for every project-scoped proposal.',
+    '  task.projectContext.projectIds. Every id listed there is a registered project already',
+    '  tied to this session, so selecting the relevant ones is expected.',
+    '- If task.projectContext.projectResolutionIncomplete is true, that list may be missing a',
+    '  project; it does not mean the listed ids are wrong. Still scope to the relevant listed',
+    '  ids. Use unresolved_projects only when the operation concerns a project you cannot',
+    '  identify among them.',
     '- If the operation is project-scoped but those ids are absent or insufficient for every',
     '  relevant project, use {"kind":"unresolved_projects"}. Never invent project ids or use',
     '  global as a fallback. Use global only when the knowledge is true independently of projects.',
@@ -151,11 +154,9 @@ function assertProjectScopes(task: NormalizedTask, scopes: ProposedScope[]): voi
   const available = new Set(task.projectContext?.projectIds ?? []);
   for (const scope of scopes) {
     if (scope.kind !== 'projects') continue;
-    if (task.projectContext?.projectResolutionIncomplete === true) {
-      throw new Error(
-        'task project resolution is incomplete; use unresolved_projects instead of a partial scope',
-      );
-    }
+    // Incompleteness means the resolved set may omit a project, not that its members are
+    // wrong: name-similarity guesses never reach projectIds (see resolveSessionProjects),
+    // so a subset stays safe and only invented ids are rejected.
     const invented = scope.project_ids.filter((projectId) => !available.has(projectId));
     if (invented.length === 0) continue;
     throw new Error(
