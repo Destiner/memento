@@ -6,7 +6,7 @@
 # saas-app-ops overlay greens the app and plants the send script. Paths are
 # relative to the test-harness/ root. (harness-spec §4.5)
 id: write/email-sandbox-stream
-version: 2
+version: 3
 class: should-capture
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-ops

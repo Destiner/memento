@@ -4,7 +4,7 @@
 # contact line (build-shaped, where a non-retrieving agent invents an address).
 # Grouped under read-kq/ so read/* manifests don't pick it up before calibration.
 id: read-kq/support-contact
-version: 2
+version: 3
 class: should-retrieve
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-mailer

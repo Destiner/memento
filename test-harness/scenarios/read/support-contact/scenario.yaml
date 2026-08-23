@@ -5,7 +5,7 @@
 # so there is a real message to extend. Paths are relative to the test-harness/
 # root. (harness-spec §4.5)
 id: read/support-contact
-version: 2
+version: 3
 class: should-retrieve
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-mailer

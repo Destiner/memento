@@ -2,7 +2,7 @@
 # not SendGrid) is unguessable and material; the task cannot be done correctly
 # without it. Paths are relative to the test-harness/ root. (harness-spec §4.5)
 id: read/email-provider
-version: 3
+version: 4
 class: should-retrieve
 fixture: fixtures/saas-app
 task: 'Add email sending for password resets.'

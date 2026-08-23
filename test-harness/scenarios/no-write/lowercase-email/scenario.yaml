@@ -5,7 +5,7 @@
 # lands cleanly; task_success is a guardrail, capture_fp_rate is the metric.
 # Paths are relative to the test-harness/ root. (harness-spec §4.5)
 id: no-write/lowercase-email
-version: 2
+version: 3
 class: should-not-capture
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-mailer

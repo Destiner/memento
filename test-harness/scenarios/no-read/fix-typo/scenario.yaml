@@ -3,7 +3,7 @@
 # is a false positive (§4.1). The typo ("isse") is planted by the mailer overlay.
 # Paths are relative to the test-harness/ root. (harness-spec §4.5)
 id: no-read/fix-typo
-version: 2
+version: 3
 class: should-not-retrieve
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-mailer

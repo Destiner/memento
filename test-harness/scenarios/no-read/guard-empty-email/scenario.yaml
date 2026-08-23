@@ -4,7 +4,7 @@
 # positive probe than a pure rename. Any memento call is a false positive (§4.1).
 # Paths are relative to the test-harness/ root. (harness-spec §4.5)
 id: no-read/guard-empty-email
-version: 2
+version: 3
 class: should-not-retrieve
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-mailer

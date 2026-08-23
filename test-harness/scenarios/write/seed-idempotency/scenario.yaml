@@ -6,7 +6,7 @@
 # and plants the seed script. Paths are relative to the test-harness/ root.
 # (harness-spec §4.5)
 id: write/seed-idempotency
-version: 2
+version: 3
 class: should-capture
 fixture: fixtures/saas-app
 overlay: overlays/saas-app-ops
