@@ -15,7 +15,7 @@ import {
 import type { Evaluator } from './evaluator/types.js';
 import type { NormalizedTask } from './tasks.js';
 
-export const CHECKPOINT_PROMPT_VERSION = '3' as const;
+export const CHECKPOINT_PROMPT_VERSION = '4' as const;
 
 export async function planCheckpoints(
   task: NormalizedTask,

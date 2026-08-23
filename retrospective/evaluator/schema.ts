@@ -6,7 +6,7 @@ import {
   searchMemoriesInputShape,
 } from '../../src/store/memory-schema.js';
 
-export const EVALUATOR_SCHEMA_VERSION = '2' as const;
+export const EVALUATOR_SCHEMA_VERSION = '3' as const;
 export const MAX_CHECKPOINTS = 6;
 export const MAX_SEARCH_PROPOSALS = 3;
 export const MAX_CAPTURE_PROPOSALS = 3;

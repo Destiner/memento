@@ -142,6 +142,15 @@ describe('createMemoryInputSchema', () => {
     expect(createMemoryInputSchema.safeParse(createInput).success).toBe(true);
   });
 
+  test.each([{ kind: 'projects', project_ids: ['prj_TEST0001'] }, { kind: 'global' }])(
+    'accepts a papercut with $kind scope',
+    (scope) => {
+      expect(
+        createMemoryInputSchema.safeParse({ ...createInput, type: 'papercut', scope }).success,
+      ).toBe(true);
+    },
+  );
+
   test('rejects server-managed fields', () => {
     for (const field of ['id', 'status', 'created_at', 'updated_at', 'archive_reason']) {
       const input = { ...createInput, [field]: 'anything' };

@@ -1,6 +1,6 @@
 ---
-policy_version: 2.1.0
-updated: 2026-08-01
+policy_version: 2.2.0
+updated: 2026-08-23
 ---
 
 # Memento Memory Policy
@@ -80,6 +80,7 @@ Create or update, unprompted, after learning:
 - a durable user preference or working agreement
 - a decision a future agent could otherwise unknowingly contradict
 - an environment or workflow quirk that cost real time and will recur
+- a durable papercut encountered and worked around during the task
 
 Always search before creating. Prefer `update_memory` when an existing memory
 expresses substantially the same knowledge. Never pass the dedupe gate by
@@ -103,7 +104,8 @@ Exactly one type per memory.
 | `product_rationale`          | Product or customer constraint explaining a technical shape        | "The legacy export stays because two enterprise accounts script against it"                             | Feature descriptions                 |
 | `preference`                 | How the user wants work done                                       | "Conventional commits, minimal bodies"                                                                  | One-off instructions for one task    |
 | `environment_workflow_quirk` | Local machine, tooling, external service, or workflow behaviour that surprises | "Headless `codex exec` cancels MCP calls without `--dangerously-bypass-approvals-and-sandbox`"  | Documented, expected tool usage      |
-| `other`                      | Discouraged. Only when nothing above fits.                         | —                                                                                                       | Anything the six above cover         |
+| `papercut`                    | A concrete inconvenience encountered and worked around that remains worth fixing | "The local review tool drops draft comments on refresh, so agents copy them aside before continuing"    | A fleeting annoyance; a feature idea |
+| `other`                      | Discouraged. Only when nothing above fits.                         | —                                                                                                       | Anything the seven above cover       |
 
 `other` requires a justification in the body. A rising `other` rate is a signal
 the taxonomy needs a new type, not that agents are using it correctly.
@@ -204,6 +206,8 @@ disagree. A surface may compress the rules, never contradict or extend them.
 
 ## Appendix: History
 
+- `2.2.0` (2026-08-23) — added `papercut` and encourages capturing durable
+  inconveniences that an agent encountered and worked around.
 - `2.1.0` (2026-08-01) — added §8.1 (resolving projects) so the derived surfaces
   can state the prerequisite without inventing policy, and §12 now points at
   `src/policy/`. No change to what is stored or when.

@@ -37,6 +37,7 @@ export const MEMORY_TYPES = [
   'product_rationale',
   'preference',
   'environment_workflow_quirk',
+  'papercut',
   'other',
 ] as const;
 

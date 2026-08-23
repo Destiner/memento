@@ -17,7 +17,7 @@
 import { MEMORY_TYPES, type MemoryType } from '../store/memory-schema.js';
 
 /** `policy_version` from the docs/memory-policy.md front matter. Pinned by tests. */
-export const POLICY_VERSION = '2.1.0';
+export const POLICY_VERSION = '2.2.0';
 
 /** A policy rule plus the wording that identifies it in a rendered surface. */
 export interface PolicyClause<Key extends string> {
@@ -35,10 +35,9 @@ export interface CompactClause<Key extends string> {
 // --- §1 The boundary -------------------------------------------------------
 
 export const PURPOSE =
-  'Memento is a durable memory layer for context that helps coding work but that ' +
-  'no single repository owns: decisions and the alternatives they rejected, ' +
-  'product and customer constraints, how projects and services relate, standing ' +
-  'preferences, and environment or vendor behaviour learned the hard way.';
+  'Memento stores durable context that helps coding work but no single repository ' +
+  'owns: decisions, product constraints, project relationships, preferences, and ' +
+  'environment or vendor lessons.';
 
 export const PURPOSE_COMPACT =
   'Memento stores durable, non-obvious context that no repository owns.';
@@ -217,7 +216,13 @@ export const SEARCH_ANTI_TRIGGERS =
 // --- §5 When to create or update ------------------------------------------
 
 export type WriteTriggerKey =
-  'root_cause' | 'rationale' | 'relationship' | 'preference' | 'contradiction' | 'quirk';
+  | 'root_cause'
+  | 'rationale'
+  | 'relationship'
+  | 'preference'
+  | 'contradiction'
+  | 'quirk'
+  | 'papercut';
 
 export const WRITE_TRIGGERS: readonly PolicyClause<WriteTriggerKey>[] = [
   {
@@ -251,6 +256,11 @@ export const WRITE_TRIGGERS: readonly PolicyClause<WriteTriggerKey>[] = [
     clause: 'an environment or workflow quirk that cost real time and will recur',
     probe: /quirk that (?:cost|will)/,
   },
+  {
+    key: 'papercut',
+    clause: 'a durable papercut encountered and worked around during the task',
+    probe: /durable papercut/,
+  },
 ];
 
 export const WRITE_TRIGGERS_COMPACT: readonly CompactClause<WriteTriggerKey>[] = [
@@ -259,6 +269,7 @@ export const WRITE_TRIGGERS_COMPACT: readonly CompactClause<WriteTriggerKey>[] =
   { covers: ['relationship'], clause: 'how two projects depend on each other' },
   { covers: ['preference'], clause: 'a durable preference' },
   { covers: ['quirk'], clause: 'an environment quirk that cost real time' },
+  { covers: ['papercut'], clause: 'a durable papercut encountered and worked around' },
 ];
 
 export const FRAGMENT_OMITTED_WRITE_TRIGGERS: readonly WriteTriggerKey[] = ['contradiction'];
@@ -271,7 +282,7 @@ export const PROACTIVITY = 'Use it unprompted.';
 
 // --- §7 Types --------------------------------------------------------------
 
-// The six real types, in enum order. `other` is deliberately absent: it is
+// The seven real types, in enum order. `other` is deliberately absent: it is
 // described by ROUTING instead, so nothing advertises it as a normal choice.
 export const TYPE_LINES: Record<Exclude<MemoryType, 'other'>, string> = {
   debugging_pattern:
@@ -281,14 +292,15 @@ export const TYPE_LINES: Record<Exclude<MemoryType, 'other'>, string> = {
   product_rationale: 'a product or customer constraint that explains a technical shape',
   preference: 'how the user wants work done',
   environment_workflow_quirk: 'machine, tooling, vendor, or workflow behaviour that surprises',
+  papercut: 'a concrete inconvenience encountered and worked around that remains worth fixing',
 };
 
-/** The six type names in enum order — the fragment's whole taxonomy surface. */
+/** The seven type names in enum order — the fragment's whole taxonomy surface. */
 export const TYPE_NAMES = MEMORY_TYPES.filter((type) => type !== 'other');
 
 export const ROUTING =
   'Third-party behaviour, testing pitfalls, and incident lessons route into those ' +
-  'six; `other` is discouraged and needs a justification in the body.';
+  'seven; `other` is discouraged and needs a justification in the body.';
 
 // --- §8 Scope --------------------------------------------------------------
 

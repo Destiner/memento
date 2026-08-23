@@ -18,8 +18,8 @@ import {
 } from './schema.js';
 import type { Evaluator } from './types.js';
 
-export const SEARCH_PROMPT_VERSION = '5' as const;
-export const CAPTURE_PROMPT_VERSION = '5' as const;
+export const SEARCH_PROMPT_VERSION = '6' as const;
+export const CAPTURE_PROMPT_VERSION = '6' as const;
 
 export async function evaluateSearchCheckpoint(
   task: NormalizedTask,
