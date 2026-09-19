@@ -4,6 +4,15 @@
   "description": "Coding-agent memory layer",
   "type": "module",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Destiner/memento.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Destiner/memento/issues"
+  },
+  "homepage": "https://github.com/Destiner/memento#readme",
   "engines": {
     "node": ">=22.5"
   },
