@@ -1,10 +1,9 @@
-import { rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { describe, expect, test } from 'vitest';
 
-import { preflightMemento, probeMcpServer } from './preflight.js';
+import { bundleMementoServer, preflightMemento, probeMcpServer } from './preflight.js';
 
 const HARNESS_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const REPO_ROOT = resolve(HARNESS_ROOT, '..');
@@ -37,12 +36,14 @@ describe('probeMcpServer', () => {
 });
 
 describe('preflightMemento', () => {
-  test('forces a real V2 tool call through the bundled server and observes its log', async () => {
-    const entry = await preflightMemento(REPO_ROOT, ['plain']);
-    try {
-      expect(entry).toMatch(/server\.js$/);
-    } finally {
-      rmSync(dirname(entry), { recursive: true, force: true });
-    }
+  test.each([{ variants: [] }, { variants: ['plain'] }])(
+    'fails closed for $variants',
+    async ({ variants }) => {
+      await expect(preflightMemento(REPO_ROOT, variants)).rejects.toThrow(/disabled.*cloud-only/);
+    },
+  );
+
+  test('cannot bundle a production stdio entry', () => {
+    expect(() => bundleMementoServer(REPO_ROOT)).toThrow(/No production stdio/);
   });
 });

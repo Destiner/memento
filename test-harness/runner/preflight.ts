@@ -6,10 +6,8 @@
 // chose not to use memory." A dead server must abort the run loudly, not
 // fabricate a behavioral result.
 
-import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { spawn } from 'node:child_process';
+import { HARNESS_EXECUTION_DISABLED } from './execution-policy.js';
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import {
@@ -18,7 +16,7 @@ import {
 } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 import { readMementoCalls } from './event-log.js';
-import { mementoServer, type McpServerSpec } from './mcp.js';
+import type { McpServerSpec } from './mcp.js';
 
 const INITIALIZE_REQUEST =
   JSON.stringify({
@@ -32,21 +30,10 @@ const INITIALIZE_REQUEST =
     },
   }) + '\n';
 
-/**
- * Bundle the memento server into a single self-contained file in a neutral temp
- * dir and return its path. Reps launch THIS file, not the dev checkout's dist/:
- * the server path in the rep's MCP config is a breadcrumb an exploring agent
- * will follow, and dist/main.js led codex sessions straight to the harness repo
- * — scenario definitions, answer regexes, corpus sources (§7.2 isolation).
- */
-export function bundleMementoServer(repoRoot: string): string {
-  const out = join(mkdtempSync(join(tmpdir(), 'mcp-server-')), 'server.js');
-  execFileSync(
-    'bun',
-    ['build', join(repoRoot, 'src', 'main.ts'), '--target=node', `--outfile=${out}`],
-    { cwd: repoRoot, stdio: 'ignore' },
-  );
-  return out;
+/** Production entry bundling is deliberately unavailable; probes below are fixture helpers only. */
+export function bundleMementoServer(repoRoot: string): never {
+  void repoRoot;
+  throw new Error(HARNESS_EXECUTION_DISABLED);
 }
 
 /**
@@ -169,17 +156,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: str
  * registers no memento at all).
  */
 export async function preflightMemento(repoRoot: string, variants: string[]): Promise<string> {
-  if (variants.length === 0) return '';
-  const serverEntry = bundleMementoServer(repoRoot);
-  for (const variant of [...new Set(variants)]) {
-    const home = mkdtempSync(join(tmpdir(), 'memento-preflight-'));
-    try {
-      const spec = mementoServer({ serverEntry, mementoHome: home, variant });
-      await probeMcpServer(spec);
-      await probeMementoTool(spec, home);
-    } finally {
-      rmSync(home, { recursive: true, force: true });
-    }
-  }
-  return serverEntry;
+  void repoRoot;
+  void variants;
+  throw new Error(HARNESS_EXECUTION_DISABLED);
 }

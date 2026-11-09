@@ -3,16 +3,10 @@
 // sees exactly these servers and nothing from the operator's machine — a leak
 // here silently invalidates results (§7.2).
 //
-// The memento server is launched as `node dist/main.js` — NOT `bun run
-// src/main.ts`: the store uses node:sqlite, which Bun does not implement, so a
-// bun-launched server dies at import and Claude Code reports it as eternally
-// "connecting" while every rep silently sees zero memento tools. The runner's
-// preflight (preflight.ts) keeps dist/ fresh and proves
-// the handshake before any paid session. The rep's MEMENTO_HOME (seeded corpus)
-// and MEMENTO_VARIANT (the config's knob bundle) ride in the server env. baseline-no-memento passes `memento: null`, yielding
-// an empty server list — Memento is simply absent (§10). The crowded arm adds a
-// fixed set of stub servers (§7.3) for deferred-tool discoverability pressure;
-// each is the same stub binary under a different profile/server name.
+// Legacy descriptors are retained for offline fixture/config tests only. The
+// production entry point and bundling/preflight are disabled for cloud-only
+// Memento. These helpers do not provide a supported local production transport.
+// Crowded-environment stub profiles remain controlled no-op test servers.
 
 import { join } from 'node:path';
 
@@ -29,7 +23,7 @@ export interface McpConfig {
 }
 
 export interface MementoOptions {
-  serverEntry: string; // bundled server file — no path back to the dev checkout (§7.2)
+  serverEntry: string; // explicit test fixture entry; no production default
   mementoHome: string; // seeded MEMENTO_HOME for this rep
   variant: string; // MEMENTO_VARIANT (the config's knob bundle)
 }
@@ -38,7 +32,7 @@ export interface StubOptions {
   stubsDir: string; // test-harness/stubs — where server.ts lives
 }
 
-/** The memento MCP server descriptor: `node <bundle>.js` over stdio. */
+/** Legacy fixture descriptor; production execution is disabled. */
 export function mementoServer(opts: MementoOptions): McpServerSpec {
   return {
     command: 'node',

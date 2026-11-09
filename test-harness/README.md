@@ -24,27 +24,20 @@ bun run typecheck:harness
 bun run test:harness
 ```
 
-## Running a batch (paid)
+## Paid execution is disabled
 
-**This launches real agent sessions and consumes money/quota. Obtain explicit
-approval before running.** Authenticate the selected client first; Codex requires
-file-based authentication from `codex login`.
+`bun run harness -- <manifest.yaml>` exits nonzero before any server build,
+authentication copying, corpus seeding, agent execution, or results append. This
+also applies to no-Memento baselines. Production bundling/preflight fail closed.
+There is no production stdio server or local-memory fallback.
 
-Review the manifest's model, configs, scenario versions, repetitions, concurrency,
-retry count, and required `max_spend_usd`. Spend accounting can overshoot while
-in-flight sessions finish; Codex uses an estimated per-session charge rather than
-reported dollar cost. See [§7.4](../docs/harness-spec.md#74-timeouts-retries-and-spend).
-
-```sh
-bun run harness -- test-harness/manifests/<name>.yaml
-```
-
-Preflight verifies a real call against the bundled server before paid reps.
-Before interpreting zero-call results, also force a call through the exact
-client/model/config path and verify the **server event log**, not the transcript
-([§7.2](../docs/harness-spec.md#72-hermetic-lifecycle-and-event-verification)).
-Use only trusted fixtures and config artifacts: headless client execution
-bypasses permission protections.
+Re-enabling execution requires isolated authenticated HTTP fixture accounts,
+remote corpus lifecycle and variant control, and authoritative per-rep event and
+capture evidence. It must not use a live user's cloud account. Current local
+sandbox/scoring helpers remain for offline fixture tests and interpreting saved
+results, not as an alternate production workflow. See
+[§1](../docs/harness-spec.md#1-purpose-and-scope) for the remote integration gap.
+Never launch paid agent evaluations without explicit cost approval.
 
 ## Reporting (no new sessions)
 

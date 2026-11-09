@@ -1,5 +1,12 @@
-import { resolveProject, type ResolveProjectResult } from '../src/store/project-resolve.js';
+import { resolveProject } from '../src/store/project-resolve.js';
+import type { ResolveProjectInput } from '../src/store/project-schema.js';
 import type { NormalizedSession, ProjectResolutionHints } from './model.js';
+
+export type ProjectLookupResult =
+  | { outcome: 'exact_match'; matched_on: string; project: { id: string } }
+  | { outcome: 'candidates'; matched_on: string; candidates: { id: string }[] }
+  | { outcome: 'not_found' };
+export type ProjectLookup = (input: ResolveProjectInput) => Promise<ProjectLookupResult>;
 
 export type SessionProjectResolution =
   | {
@@ -31,7 +38,7 @@ export interface ResolveSessionProjectsResult {
 export async function resolveSessionProjects(
   sessions: readonly NormalizedSession[],
   hintsBySessionId: Readonly<Record<string, readonly ProjectResolutionHints[]>>,
-  projectsDir: string,
+  projects: string | ProjectLookup,
 ): Promise<ResolveSessionProjectsResult> {
   const resolvedSessions: NormalizedSession[] = [];
   const resolutions: SessionProjectResolution[] = [];
@@ -62,9 +69,13 @@ export async function resolveSessionProjects(
       continue;
     }
 
-    const sessionResolutions: ResolveProjectResult[] = [];
+    const sessionResolutions: ProjectLookupResult[] = [];
     for (const input of inputs) {
-      sessionResolutions.push(await resolveProject(input, { projectsDir }));
+      sessionResolutions.push(
+        await (typeof projects === 'string'
+          ? resolveProject(input, { projectsDir: projects })
+          : projects(input)),
+      );
     }
     resolvedSessions.push(applyResolutions(session, sessionResolutions));
     resolutions.push(
@@ -95,7 +106,7 @@ function resolutionInput(hints: ProjectResolutionHints | undefined):
 
 function applyResolutions(
   session: NormalizedSession,
-  resolutions: readonly ResolveProjectResult[],
+  resolutions: readonly ProjectLookupResult[],
 ): NormalizedSession {
   const projectIds = [
     ...new Set([
@@ -137,7 +148,7 @@ function markResolutionIncomplete(session: NormalizedSession): NormalizedSession
 
 function toResolution(
   sessionId: string,
-  resolution: ResolveProjectResult,
+  resolution: ProjectLookupResult,
 ): SessionProjectResolution {
   if (resolution.outcome === 'exact_match') {
     return {

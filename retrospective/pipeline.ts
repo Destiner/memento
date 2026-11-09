@@ -12,17 +12,18 @@ import { EVALUATOR_SCHEMA_VERSION } from './evaluator/schema.js';
 import type { Evaluator, EvaluatorRuntimeIdentity } from './evaluator/types.js';
 import { ingestHistorySources } from './ingest.js';
 import type { JsonValue, NormalizedSession } from './model.js';
-import { resolveSessionProjects } from './projects.js';
+import { resolveSessionProjects, type ProjectLookup } from './projects.js';
 import { reconcileTelemetry, type TelemetryEvent } from './reconcile.js';
 import { boundText, redactText } from './redact.js';
 import { splitTasks } from './tasks.js';
 
-export const RETROSPECTIVE_PIPELINE_VERSION = '1.3.0' as const;
+export const RETROSPECTIVE_PIPELINE_VERSION = '1.4.0' as const;
 export const EVALUATION_SUITE_VERSION = `checkpoints-${CHECKPOINT_PROMPT_VERSION}/search-${SEARCH_PROMPT_VERSION}/capture-${CAPTURE_PROMPT_VERSION}`;
 
 export interface RunRetrospectiveOptions {
   store: RetrospectiveStore;
-  paths: MementoPaths;
+  paths?: MementoPaths; // Explicit test/core fixture only; CLI uses projectLookup.
+  projectLookup?: ProjectLookup;
   sources: HistorySource[];
   telemetryEvents: TelemetryEvent[];
   evaluator: Evaluator;
@@ -67,7 +68,7 @@ export async function runRetrospective(
   const projectResolution = await resolveSessionProjects(
     withPolicy,
     ingestion.projectResolutionHints,
-    options.paths.projects,
+    options.projectLookup ?? options.paths!.projects,
   );
   const sessions = projectResolution.sessions;
   const tasks = sessions.flatMap(splitTasks).slice(0, options.maxTasks);
@@ -281,6 +282,9 @@ function reconciliationIdentity(
 }
 
 function assertOptions(options: RunRetrospectiveOptions): void {
+  if (options.projectLookup === undefined && options.paths === undefined) {
+    throw new Error('An authenticated project lookup or explicit core fixture paths is required.');
+  }
   if (options.sources.length === 0) {
     throw new Error('At least one explicit history source is required.');
   }

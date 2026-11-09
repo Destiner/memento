@@ -17,6 +17,34 @@ describe('resolveSessionProjects', () => {
     );
   });
 
+  it('accepts a transport-independent remote lookup without any local paths', async () => {
+    const session = normalizedSession();
+    const inputs: unknown[] = [];
+    const result = await resolveSessionProjects(
+      [session],
+      { [session.id]: [{ nameHint: 'cloud-fixture' }] },
+      async (input) => {
+        inputs.push(input);
+        return { outcome: 'exact_match', matched_on: 'name', project: { id: 'prj_REMOTE' } };
+      },
+    );
+    expect(inputs).toEqual([{ name_hint: 'cloud-fixture' }]);
+    expect(result.sessions[0]?.projectContext?.projectIds).toEqual(['prj_REMOTE']);
+  });
+
+  it('propagates remote failures rather than falling back to a registry', async () => {
+    const session = normalizedSession();
+    await expect(
+      resolveSessionProjects(
+        [session],
+        { [session.id]: [{ nameHint: 'cloud-fixture' }] },
+        async () => {
+          throw new Error('remote unavailable');
+        },
+      ),
+    ).rejects.toThrow('remote unavailable');
+  });
+
   it('turns process-local checkout evidence into an opaque project id', async () => {
     const root = await temporaryDirectory();
     const projectsDir = join(root, 'projects');

@@ -1,8 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { loadConfig, resolveHome } from '../src/config.js';
-import { loadEvents } from '../src/report/load.js';
 import { stableId as historyStableId } from './adapters/common.js';
 import { openRetrospectiveStore, type RetrospectiveStore } from './db/store.js';
 import { COMPARISON_LABELS, type ComparisonLabel, type ReviewCommand } from './db/types.js';
@@ -11,13 +9,11 @@ import { ClaudeCodeEvaluator, CodexEvaluator } from './evaluator/index.js';
 import { exportRegressionJsonl } from './export.js';
 import type { JsonValue } from './model.js';
 import { runRetrospective } from './pipeline.js';
-import {
-  isPromotionEligible,
-  promoteApprovedWriteFromHome,
-  reconcileStartedPromotionFromHome,
-} from './promote.js';
+import { isPromotionEligible } from './promote.js';
+import { connectRemoteProjects } from './remote.js';
+import { captureProposalSchema } from './evaluator/schema.js';
 import { buildReviewedReport, renderReviewedReport } from './report.js';
-import { applyReviewFromHome, renderReviewItem } from './review.js';
+import { applyReview, renderReviewItem } from './review.js';
 
 const FLAG_OPTIONS = new Set(['allow-remote', 'all', 'json', 'help']);
 
@@ -54,10 +50,20 @@ export async function runCli(argv: string[], io: CliIo = DEFAULT_IO): Promise<vo
     return;
   }
 
-  const home = resolve(singleOption(parsed, 'home') ?? resolveHome());
-  const store = await openRetrospectiveStore({ home });
+  if (command === 'promote' || command === 'reconcile-promotion') {
+    throw new Error(
+      `${command} is disabled: authenticated HTTP promotion requires server-side conditional writes, idempotency, and reconciliation evidence. No local store will be used.`,
+    );
+  }
+  if (parsed.options.has('home')) {
+    throw new Error(
+      '--home is no longer supported. Use --data-dir for the offline evaluation database only.',
+    );
+  }
+  const dataDir = resolve(requiredOption(parsed, 'data-dir'));
+  const store = await openRetrospectiveStore({ home: dataDir });
   try {
-    await dispatchStoreCommand(command, parsed, store, home, io);
+    await dispatchStoreCommand(command, parsed, store, io);
   } finally {
     store.close();
   }
@@ -67,7 +73,6 @@ async function dispatchStoreCommand(
   command: string,
   parsed: ParsedArguments,
   store: RetrospectiveStore,
-  home: string,
   io: CliIo,
 ): Promise<void> {
   if (command === 'run') {
@@ -78,7 +83,7 @@ async function dispatchStoreCommand(
       'max-tasks',
       'source-policy-version',
       'run-salt',
-      'home',
+      'data-dir',
       'allow-remote',
     ]);
     assertNoPositionals(parsed);
@@ -103,26 +108,29 @@ async function dispatchStoreCommand(
     if (evaluator === undefined) {
       throw new Error('--evaluator must be either claude-code or codex.');
     }
-    const config = loadConfig(home);
-    const telemetryEvents = await loadEvents(config.paths.logs);
-    const result = await runRetrospective({
-      store,
-      paths: config.paths,
-      sources,
-      telemetryEvents,
-      evaluator,
-      maxTasks,
-      ...(singleOption(parsed, 'source-policy-version')
-        ? { sourcePolicyVersion: singleOption(parsed, 'source-policy-version') }
-        : {}),
-      ...(singleOption(parsed, 'run-salt') ? { runSalt: singleOption(parsed, 'run-salt') } : {}),
-    });
-    io.stdout(JSON.stringify(result, null, 2));
+    const remote = await connectRemoteProjects();
+    try {
+      const result = await runRetrospective({
+        store,
+        projectLookup: remote.lookup,
+        sources,
+        telemetryEvents: [],
+        evaluator,
+        maxTasks,
+        ...(singleOption(parsed, 'source-policy-version')
+          ? { sourcePolicyVersion: singleOption(parsed, 'source-policy-version') }
+          : {}),
+        ...(singleOption(parsed, 'run-salt') ? { runSalt: singleOption(parsed, 'run-salt') } : {}),
+      });
+      io.stdout(JSON.stringify(result, null, 2));
+    } finally {
+      await remote.close();
+    }
     return;
   }
 
   if (command === 'runs') {
-    assertOptions(parsed, ['home', 'json']);
+    assertOptions(parsed, ['data-dir', 'json']);
     assertNoPositionals(parsed);
     const runs = store.listRuns();
     io.stdout(
@@ -139,7 +147,7 @@ async function dispatchStoreCommand(
   }
 
   if (command === 'queue') {
-    assertOptions(parsed, ['home', 'all', 'json']);
+    assertOptions(parsed, ['data-dir', 'all', 'json']);
     const runId = optionalPositional(parsed);
     const items = store.listReviewQueue(runId, parsed.flags.has('all'));
     io.stdout(
@@ -152,7 +160,7 @@ async function dispatchStoreCommand(
 
   if (command === 'review') {
     assertOptions(parsed, [
-      'home',
+      'data-dir',
       'actor',
       'reason',
       'revision',
@@ -164,7 +172,21 @@ async function dispatchStoreCommand(
     const action = requiredPositional(parsed, 'review action');
     assertNoPositionals(parsed);
     const review = await reviewCommand(action, parsed);
-    const event = await applyReviewFromHome(store, comparisonId, review, home);
+    const existing = store.reviewItem(comparisonId);
+    const candidate =
+      review.action === 'edit' ? review.revision : (existing.revision ?? existing.proposal);
+    const capture = captureProposalSchema.safeParse(candidate);
+    if (
+      review.action === 'duplicate' ||
+      ((review.action === 'approve' || review.action === 'edit') &&
+        capture.success &&
+        capture.data.action === 'update')
+    ) {
+      throw new Error(
+        'This review requires remote durable-memory verification, which is not yet supported. No local store will be used.',
+      );
+    }
+    const event = applyReview(store, comparisonId, review);
     const item = store.reviewItem(comparisonId);
     const runStatus = refreshRunStatus(store, item.runId);
     const pending = store.listReviewQueue(item.runId).length;
@@ -172,51 +194,8 @@ async function dispatchStoreCommand(
     return;
   }
 
-  if (command === 'promote') {
-    assertOptions(parsed, ['home']);
-    const comparisonId = requiredPositional(parsed, 'comparison id');
-    assertNoPositionals(parsed);
-    const item = store.reviewItem(comparisonId);
-    const result = await promoteApprovedWriteFromHome(store, comparisonId, home);
-    const runStatus = refreshRunStatus(store, item.runId);
-    io.stdout(JSON.stringify({ ...result, runStatus }, null, 2));
-    return;
-  }
-
-  if (command === 'reconcile-promotion') {
-    assertOptions(parsed, ['home', 'actor', 'reason', 'memory']);
-    const comparisonId = requiredPositional(parsed, 'comparison id');
-    const status = requiredPositional(parsed, 'reconciliation status');
-    assertNoPositionals(parsed);
-    const actor = requiredOption(parsed, 'actor');
-    const reason = requiredOption(parsed, 'reason');
-    const outcome =
-      status === 'succeeded'
-        ? {
-            status: 'succeeded' as const,
-            actor,
-            reason,
-            memoryId: requiredOption(parsed, 'memory'),
-            home,
-          }
-        : status === 'failed'
-          ? { status: 'failed' as const, actor, reason, home }
-          : undefined;
-    if (outcome === undefined) {
-      throw new Error('Reconciliation status must be either succeeded or failed.');
-    }
-    if (status === 'failed' && singleOption(parsed, 'memory') !== undefined) {
-      throw new Error('--memory is only valid for a succeeded reconciliation.');
-    }
-    const result = await reconcileStartedPromotionFromHome(store, comparisonId, outcome);
-    const item = store.reviewItem(comparisonId);
-    const runStatus = refreshRunStatus(store, item.runId);
-    io.stdout(JSON.stringify({ ...result, runStatus }, null, 2));
-    return;
-  }
-
   if (command === 'report') {
-    assertOptions(parsed, ['home', 'json']);
+    assertOptions(parsed, ['data-dir', 'json']);
     const runId = requiredPositional(parsed, 'run id');
     assertNoPositionals(parsed);
     const report = buildReviewedReport(store, runId);
@@ -227,7 +206,7 @@ async function dispatchStoreCommand(
   }
 
   if (command === 'export') {
-    assertOptions(parsed, ['home', 'output']);
+    assertOptions(parsed, ['data-dir', 'output']);
     const runId = requiredPositional(parsed, 'run id');
     assertNoPositionals(parsed);
     const output = resolve(requiredOption(parsed, 'output'));
@@ -256,16 +235,16 @@ export function parseHistorySource(value: string): HistorySource {
 async function reviewCommand(action: string, parsed: ParsedArguments): Promise<ReviewCommand> {
   const actor = requiredOption(parsed, 'actor');
   if (action === 'approve') {
-    assertOptions(parsed, ['home', 'actor']);
+    assertOptions(parsed, ['data-dir', 'actor']);
     return { action, actor };
   }
   const reason = requiredOption(parsed, 'reason');
   if (action === 'reject') {
-    assertOptions(parsed, ['home', 'actor', 'reason']);
+    assertOptions(parsed, ['data-dir', 'actor', 'reason']);
     return { action, actor, reason };
   }
   if (action === 'duplicate') {
-    assertOptions(parsed, ['home', 'actor', 'reason', 'target-memory']);
+    assertOptions(parsed, ['data-dir', 'actor', 'reason', 'target-memory']);
     return {
       action,
       actor,
@@ -274,7 +253,7 @@ async function reviewCommand(action: string, parsed: ParsedArguments): Promise<R
     };
   }
   if (action === 'edit') {
-    assertOptions(parsed, ['home', 'actor', 'reason', 'revision', 'label', 'actual-operation']);
+    assertOptions(parsed, ['data-dir', 'actor', 'reason', 'revision', 'label', 'actual-operation']);
     const path = resolve(requiredOption(parsed, 'revision'));
     const revision = JSON.parse(await readFile(path, 'utf8')) as JsonValue;
     const label = requiredOption(parsed, 'label');
@@ -413,5 +392,8 @@ Usage:
   bun run retrospective -- report <run-id> [--json]
   bun run retrospective -- export <run-id> --output <path>
 
-Every store command accepts --home <MEMENTO_HOME>. Run analyzes only explicit source paths,
-defaults to one task, and cannot contact a remote evaluator without --allow-remote.`;
+Every evaluation database command requires --data-dir <directory>; there is no default home.
+Run requires MEMENTO_URL (HTTPS) and MEMENTO_ACCESS_TOKEN in the environment for project resolution.
+Run analyzes only explicit source paths, defaults to one task, and requires --allow-remote.
+Promotion and reconciliation are disabled pending safe server-side remote write support.
+Update approvals/edits and duplicate links requiring durable verification are also disabled.`;

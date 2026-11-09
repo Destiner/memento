@@ -7,8 +7,23 @@ For commands and directory navigation, see [the harness README](../test-harness/
 
 ## 1. Purpose and scope
 
-Each rep is a paid, single-shot headless Claude Code or Codex session in an
-isolated fixture. A manifest selects the client, model, environment, configs,
+**Paid execution is disabled for cloud-only Memento.** The harness entry point
+and production preflight fail closed before building a server, copying client
+authentication, seeding storage, or launching agents, including no-Memento
+baselines. No production stdio/local-store alternative is supported. Offline
+planning, fixture tests, scoring, and reports remain available.
+
+Re-enabling execution requires isolated authenticated HTTP fixture accounts,
+remote corpus setup/cleanup, per-config variant control, and authoritative
+per-rep telemetry/capture evidence. A live user's account or a local substitute
+would invalidate isolation and may pollute production memory. Future clients must
+use HTTPS `MEMENTO_URL` and environment-only `MEMENTO_ACCESS_TOKEN`, never stored
+bearer credentials. Current MCP operations alone do not provide that lifecycle
+and measurement contract.
+
+The lifecycle below describes retained test/core machinery and historical result
+semantics, not an executable production workflow. Each rep is a paid,
+single-shot headless Claude Code or Codex session in an isolated fixture. A manifest selects the client, model, environment, configs,
 scenarios, repetition count, and spend cap. Do not launch sessions without
 explicit approval for the cost. Local harness tests do not require paid runs.
 
@@ -67,8 +82,8 @@ This is an operator requirement, not an automatic calibration gate.
 
 `corpus` names a directory of memory Markdown files; `seeded_memory` adds the
 relevant fact for retrieval scenarios. Use plausible distractors so retrieval
-must find the right fact, not merely notice that a server exists. The runner
-seeds a fresh Memento home and project registry for every rep. Each home's
+must find the right fact, not merely notice that a server exists. The retained offline fixture machinery
+seeds a fresh test-only memory root and project registry for each fixture. Each home's
 `config.json` sets `memory_archive_after_days` and `memory_delete_after_days` to
 `MAX_MEMORY_RETENTION_DAYS` from `src/config.ts` (365000 days), identically for
 all configs including baselines. This controlled retention setting keeps
@@ -208,7 +223,8 @@ are otherwise comparable. Reserve fresh holdouts for confirmation.
 - `manifest.ts`, `config.ts`, `scenario.ts`, `plan.ts`: validation and cell planning.
 - `harness.ts`: client invocation, authentication setup, and transcript parsing.
 - `sandbox.ts`, `mcp.ts`, `settings.ts`: isolated installation and MCP wiring.
-- `preflight.ts`: bundle and verify the server before paid reps.
+- `index.ts`, `execution-policy.ts`: fail-closed paid entry point.
+- `preflight.ts`: disabled production bundling/preflight; generic test-stub probes remain.
 - `session.ts`, `run.ts`: process supervision, scheduling, retries, spend accounting.
 - `score.ts`, `utility.ts`, `capture.ts`, `event-log.ts`: per-rep facts.
 - `record.ts`, `report.ts`, `report-cli.ts`: persistence and reporting.
@@ -229,9 +245,11 @@ After the session, the runner collects events, diff, capture results, oracle
 results, and transcript usage; it saves artifacts, appends a record, and cleans
 up temporary directories.
 
-Preflight bundles the current server, checks initialization for each requested
-variant, forces `resolve_project` through the same bundled stdio server, and
-requires its event-log entry before paid reps start. This does **not** prove a
+The historical runner bundled a stdio server and verified `resolve_project`
+against a local event log. Production bundling and preflight are now disabled;
+remaining generic probes are for test stubs only. A future HTTP preflight must
+force a call through the authenticated fixture path and verify authoritative
+server telemetry before any paid rep. A transport handshake does **not** prove a
 client permits MCP calls. Before trusting a zero-call result, force a call through
 the exact client/model/config production path and verify the server event log.
 Headless Codex needs `--dangerously-bypass-approvals-and-sandbox` (included by the
