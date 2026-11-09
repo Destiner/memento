@@ -1,4 +1,4 @@
-// Calibration for the should-capture scenarios (harness-spec §11.2b): the
+// Calibration for the should-capture scenarios: the
 // discovery is forced and the fact is discoverable *and* completable, without a
 // live agent. For each write/* scenario, in a real fixture+overlay copy:
 //   - the naive invocation fails and its message matches the scenario's own
@@ -54,14 +54,24 @@ beforeAll(() => {
   repo = mkdtempSync(join(tmpdir(), 'memento-capscen-'));
   cpSync(join(HARNESS_ROOT, 'fixtures', 'saas-app'), repo, { recursive: true });
   cpSync(join(HARNESS_ROOT, 'overlays', 'saas-app-ops'), repo, { recursive: true });
-});
+  // The temp checkout cannot resolve dependencies from Memento's node_modules.
+  execFileSync('bun', ['install', '--frozen-lockfile', '--ignore-scripts'], {
+    cwd: repo,
+    stdio: 'inherit',
+    timeout: 60_000,
+  });
+}, 65_000);
 
 afterAll(() => rmSync(repo, { recursive: true, force: true }));
 
 describe('should-capture scenarios calibrate', () => {
   test('the overlay greens bun run check (guardrail baseline)', () => {
     // Throws if check fails, failing the test with the tsc/bun output.
-    execFileSync('bun', ['run', 'check'], { cwd: repo, encoding: 'utf8' });
+    execFileSync('bun', ['run', 'check'], {
+      cwd: repo,
+      stdio: 'inherit',
+      timeout: 30_000,
+    });
   });
 
   // Guard against the answer key leaking into the repo the agent explores. An
