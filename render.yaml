@@ -1,0 +1,47 @@
+# One paid instance owns the persistent disk. Infrastructure changes need review:
+# Blueprint auto-sync is not gated by application CI.
+services:
+  - type: web
+    name: memento
+    runtime: node
+    repo: https://github.com/Destiner/memento
+    branch: main
+    region: frankfurt
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: checksPass
+    buildCommand: bun install --frozen-lockfile && bun run build
+    startCommand: node dist/main.js serve
+    healthCheckPath: /health
+    disk:
+      name: memento-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: BUN_VERSION
+        value: 1.4.4
+      - key: MEMENTO_DATA_DIR
+        value: /var/data/memento
+      - key: MEMENTO_PUBLIC_ORIGIN
+        fromService:
+          name: memento
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: AUTH_ALLOWED_EMAILS
+        sync: false
+      # Configure at least one provider pair privately; callbacks are documented
+      # in docs/deployment.md. Neither provider is enabled implicitly.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
