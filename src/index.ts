@@ -44,7 +44,9 @@ export { generateId, generateProjectId, slugify, memoryFilename } from './store/
 export { atomicWrite, ensureDir } from './store/atomic.js';
 export { createMemory } from './store/memory-create.js';
 export type { CreateMemoryOptions, CreateMemoryResult } from './store/memory-create.js';
-export { getMemory } from './store/memory-get.js';
+export { getMemory, readMemory } from './store/memory-get.js';
+export { decayMemories } from './store/memory-decay.js';
+export type { MemoryDecayOptions, MemoryDecayResult } from './store/memory-decay.js';
 export { updateMemory } from './store/memory-update.js';
 export { archiveMemory } from './store/memory-archive.js';
 export { searchMemories } from './store/memory-search.js';

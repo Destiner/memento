@@ -11,9 +11,13 @@
 // scope it cannot interpret.
 
 import { readFile } from 'node:fs/promises';
+import { basename } from 'node:path';
 
 import { validate } from '../validation.js';
-import { parseFrontmatter } from './frontmatter.js';
+import { atomicWrite } from './atomic.js';
+import { parseFrontmatter, serializeFrontmatter } from './frontmatter.js';
+import { orderMemoryMetadata } from './memory-fields.js';
+import { withMemoryMutationLock } from './memory-mutation-lock.js';
 import { resolveMemoryPath } from './memory-path.js';
 import {
   getMemoryInputSchema,
@@ -24,23 +28,67 @@ import {
   type MemoryRecord,
 } from './memory-schema.js';
 import { loadProjectRegistry } from './project-registry.js';
+import { rebuildIndexUnlocked } from './rebuild.js';
+import type { MemoryIndex } from './search-index.js';
+import { isoSeconds } from './time.js';
 
-export interface GetMemoryOptions {
+export interface ReadMemoryOptions {
   memoriesDir: string;
   projectsDir: string;
 }
 
+export interface GetMemoryOptions extends ReadMemoryOptions {
+  index: MemoryIndex;
+  now?: number;
+}
+
+/** Explicit access, serialized with decay and edits so a read cannot be lost. */
 export async function getMemory(
   rawInput: unknown,
   options: GetMemoryOptions,
 ): Promise<MemoryDetail> {
   const input = validate(getMemoryInputSchema, rawInput);
+  return withMemoryMutationLock(options.memoriesDir, async () => {
+    const { path, record, body, projects } = await loadMemory(input.id, options);
+    const timestamp = isoSeconds(options.now ?? Date.now());
+    record.last_accessed_at = timestamp;
+    if (record.status === 'archived' && record.archive_source === 'decay') {
+      record.status = 'active';
+      record.updated_at = timestamp;
+      delete record.archive_reason;
+      delete record.archive_source;
+      delete record.archived_at;
+    } else if (record.status === 'archived' && record.archived_at === undefined) {
+      // Legacy manual archives acquire a full deletion grace period on first access.
+      record.archived_at = timestamp;
+    }
+    await atomicWrite(path, serializeFrontmatter(orderMemoryMetadata(record), body));
+    try {
+      options.index.upsert(record, body);
+    } catch (error) {
+      const rebuilt = await rebuildIndexUnlocked(options.index, options.memoriesDir);
+      if (rebuilt.skipped.some((entry) => entry.file === basename(path))) throw error;
+    }
+    return { ...record, body, projects };
+  });
+}
 
-  const path = await resolveMemoryPath(options.memoriesDir, input.id);
+/** Internal inspection must not keep a memory alive or change review snapshots. */
+export async function readMemory(
+  rawInput: unknown,
+  options: ReadMemoryOptions,
+): Promise<MemoryDetail> {
+  const input = validate(getMemoryInputSchema, rawInput);
+  const { record, body, projects } = await loadMemory(input.id, options);
+  return { ...record, body, projects };
+}
+
+async function loadMemory(id: string, options: ReadMemoryOptions) {
+  const path = await resolveMemoryPath(options.memoriesDir, id);
   const { metadata, body } = parseFrontmatter(await readFile(path, 'utf8'));
   const record = validateMemoryFrontmatter(metadata);
-
-  return { ...record, body, projects: await resolveProjectNames(options.projectsDir, record) };
+  const projects = await resolveProjectNames(options.projectsDir, record);
+  return { path, record, body, projects };
 }
 
 /**

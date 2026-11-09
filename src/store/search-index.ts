@@ -153,6 +153,13 @@ export class MemoryIndex {
     });
   }
 
+  /** Retention reconciles interrupted state transitions against canonical files. */
+  statusOf(id: string): MemoryStatus | undefined {
+    const row = this.db.prepare('SELECT status FROM memories WHERE id = ?;').get(id) as
+      { status: MemoryStatus } | undefined;
+    return row?.status;
+  }
+
   // Remove a memory from the index. Safe to call when absent.
   remove(id: string): void {
     this.transaction(() => this.deleteById(id));

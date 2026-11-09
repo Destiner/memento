@@ -27,6 +27,7 @@ import {
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
+import { MAX_MEMORY_RETENTION_DAYS } from '../../src/config.js';
 import { serializeFrontmatter } from '../../src/store/frontmatter.js';
 import { AGENT_FRAGMENT } from '../../src/policy/index.js';
 
@@ -91,6 +92,11 @@ export function createSandbox(spec: SandboxSpec): Sandbox {
     const mementoHome = join(root, 'memento-home');
     seedCorpus(harnessRoot, scenario, join(mementoHome, 'memories'));
     seedProject(mementoHome, repoDir);
+    // Retention is controlled across all configs; preserve authored corpus ages.
+    writeJson(join(mementoHome, 'config.json'), {
+      memory_archive_after_days: MAX_MEMORY_RETENTION_DAYS,
+      memory_delete_after_days: MAX_MEMORY_RETENTION_DAYS,
+    });
 
     const ccConfigDir = join(cfgRoot, 'cc-config');
     mkdirSync(ccConfigDir, { recursive: true });

@@ -95,6 +95,38 @@ evaluator, but only when explicitly run with `--allow-remote`. Review
 [the retrospection guide](docs/retrospection.md) before using it with sensitive
 histories.
 
+## Memory lifecycle
+
+By default, active memories unread for 90 days are archived; archived memories
+are permanently deleted after another 90 days without an explicit read. Override
+either interval in `$MEMENTO_HOME/config.json` (default `~/.memento/config.json`):
+
+```json
+{
+  "memory_archive_after_days": 90,
+  "memory_delete_after_days": 90
+}
+```
+
+Both fields must be positive integers, at most 365000 days. Every successful
+explicit `get_memory` persists `last_accessed_at`; search, dedupe, edits, and
+internal reads do not count. Missing access timestamps fall back to `created_at`.
+Reading a decay archive automatically restores it. Reading a manual archive
+leaves it archived but restarts its deletion grace. Explicit restore through
+`update_memory` clears `archived_at` and `archive_source` (`manual` or `decay`).
+Deletion grace starts at the later of archive time and last explicit read.
+
+Maintenance runs at startup, hourly while the server runs, and before searches;
+there is no standalone daemon. A direct get before a sweep can rescue an
+existing record. Newly decayed archives receive the actual sweep timestamp and
+cannot be deleted in the same sweep. Legacy archives without `archived_at`
+receive a fresh full deletion grace on first maintenance.
+
+Search excludes archives unless `include_archived: true`; the optional `status`
+filter only narrows results and never overrides this flag. Agents must still
+provide a reason for manual archival and have no hard-delete tool, but automated
+retention permanently removes expired records.
+
 ## Development
 
 ```sh

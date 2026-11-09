@@ -4,7 +4,13 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
-import { DEFAULT_CONFIG, loadConfig, resolveHome, resolveVariantName } from '../src/config.js';
+import {
+  DEFAULT_CONFIG,
+  MAX_MEMORY_RETENTION_DAYS,
+  loadConfig,
+  resolveHome,
+  resolveVariantName,
+} from '../src/config.js';
 
 describe('resolveHome', () => {
   test('defaults to ~/.memento when unset', () => {
@@ -59,6 +65,39 @@ describe('loadConfig', () => {
   test('returns defaults when no config.json exists', () => {
     const { config } = loadConfig(home);
     expect(config).toEqual(DEFAULT_CONFIG);
+  });
+
+  test('defaults both retention intervals to 90 days', () => {
+    const { config } = loadConfig(home);
+    expect(config.memory_archive_after_days).toBe(90);
+    expect(config.memory_delete_after_days).toBe(90);
+  });
+
+  describe.each(['memory_archive_after_days', 'memory_delete_after_days'] as const)('%s', (key) => {
+    test.each([1, 30, MAX_MEMORY_RETENTION_DAYS])('accepts %s days independently', (value) => {
+      writeFileSync(join(home, 'config.json'), JSON.stringify({ [key]: value }));
+      const { config } = loadConfig(home);
+      expect(config[key]).toBe(value);
+      const other =
+        key === 'memory_archive_after_days'
+          ? 'memory_delete_after_days'
+          : 'memory_archive_after_days';
+      expect(config[other]).toBe(90);
+    });
+
+    test.each([
+      0,
+      -1,
+      1.5,
+      '90',
+      null,
+      true,
+      MAX_MEMORY_RETENTION_DAYS + 1,
+      Number.MAX_SAFE_INTEGER,
+    ])('rejects invalid interval %s', (value) => {
+      writeFileSync(join(home, 'config.json'), JSON.stringify({ [key]: value }));
+      expect(() => loadConfig(home)).toThrow(key);
+    });
   });
 
   test('derives the standard subpaths from home', () => {

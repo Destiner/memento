@@ -1,5 +1,5 @@
 import { createMemory, MemoryCreatedIndexError } from '../src/store/memory-create.js';
-import { getMemory } from '../src/store/memory-get.js';
+import { readMemory as getMemory } from '../src/store/memory-get.js';
 import {
   updateMemory,
   MemoryUpdatedPersistenceError,

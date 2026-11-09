@@ -17,7 +17,7 @@
 import { MEMORY_TYPES, type MemoryType } from '../store/memory-schema.js';
 
 /** `policy_version` from the docs/memory-policy.md front matter. Pinned by tests. */
-export const POLICY_VERSION = '2.2.0';
+export const POLICY_VERSION = '2.3.0';
 
 /** A policy rule plus the wording that identifies it in a rendered surface. */
 export interface PolicyClause<Key extends string> {
@@ -316,6 +316,30 @@ export const PROJECT_RESOLUTION =
   'and a path, name, or alias is never accepted in their place. Candidates mean ' +
   'reuse one, not create a second project; a moved checkout, a new remote, or a ' +
   'rename is an update_project.';
+
+// --- §10 Status and retention ---------------------------------------------
+
+export const SEARCH_ARCHIVES =
+  'Archived memories are excluded unless `include_archived` is true (defaults to false); ' +
+  '`status` only narrows results and never ' +
+  'bypasses include_archived. Search does not reset last_accessed_at.';
+
+export const READ_LIFECYCLE =
+  'Every successful explicit get_memory resets persisted last_accessed_at. ' +
+  'Decay archives auto-restore; manual archives stay archived but reading resets ' +
+  'their deletion grace. A direct get before maintenance can rescue an existing record.';
+
+export const RESTORE_LIFECYCLE =
+  'Explicit restore clears archived_at and archive_source, plus archive_reason. Edits, dedupe, and ' +
+  'internal reads do not reset last_accessed_at.';
+
+export const ARCHIVE_LIFECYCLE =
+  'Agents must supply an archive reason; there is no hard-delete tool. Automated ' +
+  'retention permanently deletes expired archives: by default 90 days unread to ' +
+  'archive, then 90 days archived without an explicit read to delete. Configure ' +
+  'memory_archive_after_days and memory_delete_after_days (positive integers, maximum ' +
+  '365000 days). Maintenance runs at startup, hourly while running, and before searches; ' +
+  'there is no standalone daemon.';
 
 // --- §11 Duplicates --------------------------------------------------------
 

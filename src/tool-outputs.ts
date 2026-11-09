@@ -117,6 +117,9 @@ export const getMemoryOutputShape = {
   created_at: z.string(),
   updated_at: z.string(),
   last_verified_at: z.string().optional(),
+  last_accessed_at: z.string().optional(),
+  archived_at: z.string().optional(),
+  archive_source: z.enum(['manual', 'decay']).optional(),
   archive_reason: z.string().optional(),
   // The names behind the scope's opaque project ids; null for a dangling id.
   projects: z.array(z.object({ id: z.string(), name: z.string().nullable() })),

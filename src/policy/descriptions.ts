@@ -4,8 +4,8 @@
 //
 //   plain        — neutral mechanics only, no when-to-use guidance. This is the
 //                  harness's baseline-0 floor, so it is hand-written and stays
-//                  byte-stable: regenerating it would move the line every knob is
-//                  measured against.
+//                  stable except for required tool-contract changes, which move
+//                  the measurement baseline and require a package-version bump.
 //   triggerList  — the same mechanics plus the policy's triggers, prerequisites,
 //                  and recovery paths. Each entry answers five questions: what the
 //                  tool does, when to call it, when not to, what must happen first,
@@ -17,7 +17,11 @@
 // schema already enumerates the names.
 
 import {
+  ARCHIVE_LIFECYCLE,
   DO_NOT_STORE,
+  READ_LIFECYCLE,
+  RESTORE_LIFECYCLE,
+  SEARCH_ARCHIVES,
   SEARCH_ANTI_TRIGGERS,
   SEARCH_TRIGGERS,
   WRITE_TRIGGERS_COMPACT,
@@ -49,15 +53,19 @@ export const plainDescriptions: DescriptionSet = {
     'identifiers, working directories, or status. The project id never changes.',
   search_memories:
     'Search stored memories within an explicit project or global scope. Returns ' +
-    'ranked summaries without bodies.',
-  get_memory: 'Read one memory in full by its stable id, including body and provenance.',
+    `ranked summaries without bodies. ${SEARCH_ARCHIVES}`,
+  get_memory:
+    'Read one memory in full by its stable id, including body and provenance. ' + READ_LIFECYCLE,
   create_memory:
     'Create a memory as a canonical markdown file. Returns near-duplicate ' +
     'candidates instead of creating when one already covers the same knowledge.',
   update_memory:
     'Edit an existing memory in place: metadata changes, a body edit (exact-match ' +
-    'old_text/new_text or full replacement), or a re-verification stamp.',
-  archive_memory: 'Archive a memory with a reason. Soft deletion; the file is kept.',
+    'old_text/new_text or full replacement), or a re-verification stamp. ' +
+    RESTORE_LIFECYCLE,
+  archive_memory:
+    'Archive a memory with a required reason; it remains readable until retention expires. ' +
+    ARCHIVE_LIFECYCLE,
 };
 
 const searchTriggerList = joinClauses(
@@ -118,8 +126,9 @@ export const triggerListDescriptions: DescriptionSet = {
     `targeted search, unprompted, before: ${searchTriggerList}. ${SEARCH_ANTI_TRIGGERS} ` +
     'Scope is required: `projects` with resolved ids (`match: any` by default, `all` ' +
     'for knowledge shared by every one) or `global` — a projects search never returns ' +
-    'global memories, so preferences need their own call. Archived memories are ' +
-    'excluded unless `status` asks for them. Read the top one or two results, call ' +
+    'global memories, so preferences need their own call. ' +
+    SEARCH_ARCHIVES +
+    ' Read the top one or two results, call ' +
     'get_memory on a promising one, and stop; zero results is a normal answer, not a ' +
     'reason to rephrase and retry. Code and current repository docs outrank whatever ' +
     'comes back.',
@@ -130,7 +139,8 @@ export const triggerListDescriptions: DescriptionSet = {
     'or list tool — it takes an exact id, and ids come from search_memories or from a ' +
     'create/update result. If what you read contradicts current code or repository ' +
     'docs, the memory is stale: correct it with update_memory, or retire it with ' +
-    'archive_memory. Do not work around it.',
+    'archive_memory. Do not work around it. ' +
+    READ_LIFECYCLE,
   create_memory:
     'Write a new memory: `title`, `description`, `scope`, `type`, `body`, ' +
     '`provenance`. Call it once something durable, non-obvious, not repo-owned, and ' +
@@ -154,13 +164,15 @@ export const triggerListDescriptions: DescriptionSet = {
     'code or current docs contradict, to add a project id once knowledge turns out to ' +
     'be shared, and to restore an archived memory (`changes.status: active`). Evidence ' +
     'and project ids merge by default; `replace: true` overwrites them. It cannot ' +
-    'archive: that is archive_memory, because archiving always needs a reason.',
+    'archive: that is archive_memory, because archiving always needs a reason. ' +
+    RESTORE_LIFECYCLE,
   archive_memory:
-    'Retire a memory that no longer holds, with a required `reason`. Soft deletion: ' +
-    'the file stays, the memory stays readable by id, and it drops out of normal ' +
-    'search. Call it when the knowledge became false or irrelevant and editing cannot ' +
+    'Retire a memory that no longer holds, with a required `reason`. It stays ' +
+    'readable by id until retention expires and drops out of normal search. ' +
+    'Call it when the knowledge became false or irrelevant and editing cannot ' +
     'rescue it — a superseded decision, a quirk fixed at the root, a project that no ' +
     'longer exists. Do not call it to sharpen a memory that is still broadly true ' +
     '(update_memory), and never to tidy away memories you merely find unhelpful. ' +
-    'Restore with update_memory setting `changes.status: active`.',
+    'Restore with update_memory setting `changes.status: active`. ' +
+    ARCHIVE_LIFECYCLE,
 };

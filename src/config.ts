@@ -19,6 +19,8 @@ export interface MementoConfig {
   default_result_limit: number;
   max_result_limit: number;
   logging_enabled: boolean;
+  memory_archive_after_days: number;
+  memory_delete_after_days: number;
 }
 
 export interface MementoPaths {
@@ -42,12 +44,17 @@ export interface ResolvedConfig {
 
 export const DEFAULT_HOME_DIR = '.memento';
 
+// Bound retention arithmetic to a practical range well within Date precision.
+export const MAX_MEMORY_RETENTION_DAYS = 365000;
+
 export const DEFAULT_CONFIG: MementoConfig = {
   schema_version: 1,
   search_backend: 'fts5',
   default_result_limit: 5,
   max_result_limit: 10,
   logging_enabled: true,
+  memory_archive_after_days: 90,
+  memory_delete_after_days: 90,
 };
 
 /** Resolve the memory home directory, honouring MEMENTO_HOME. */
@@ -145,6 +152,12 @@ function mergeConfig(base: MementoConfig, overrides: Partial<MementoConfig>): Me
   assertPositiveInt(merged, 'schema_version');
   assertPositiveInt(merged, 'default_result_limit');
   assertPositiveInt(merged, 'max_result_limit');
+  for (const key of ['memory_archive_after_days', 'memory_delete_after_days'] as const) {
+    assertPositiveInt(merged, key);
+    if (merged[key] > MAX_MEMORY_RETENTION_DAYS) {
+      throw new Error(`${key} must not exceed ${MAX_MEMORY_RETENTION_DAYS} days.`);
+    }
+  }
 
   if (merged.default_result_limit > merged.max_result_limit) {
     throw new Error(
@@ -160,7 +173,12 @@ function mergeConfig(base: MementoConfig, overrides: Partial<MementoConfig>): Me
 
 function assertPositiveInt(
   config: MementoConfig,
-  key: 'schema_version' | 'default_result_limit' | 'max_result_limit',
+  key:
+    | 'schema_version'
+    | 'default_result_limit'
+    | 'max_result_limit'
+    | 'memory_archive_after_days'
+    | 'memory_delete_after_days',
 ): void {
   const value = config[key];
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {

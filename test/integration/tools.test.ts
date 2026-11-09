@@ -15,7 +15,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
-import { resolvePaths, type ResolvedConfig } from '../../src/config.js';
+import { DEFAULT_CONFIG, resolvePaths, type ResolvedConfig } from '../../src/config.js';
 import {
   LOG_FILE_PATTERN,
   LOG_SCHEMA_VERSION,
@@ -48,6 +48,7 @@ async function startServer(loggingEnabled: boolean): Promise<{ home: string; cli
   const resolved: ResolvedConfig = {
     paths: resolvePaths(home),
     config: {
+      ...DEFAULT_CONFIG,
       schema_version: 1,
       search_backend: 'fts5',
       default_result_limit: 5,
@@ -375,6 +376,7 @@ describe('instrumentation', () => {
         scope: { kind: 'projects', project_ids: [projectId] },
         types: ['debugging_pattern'],
         status: ['active', 'archived'],
+        include_archived: true,
         limit,
       });
       const events = await waitForEvents(effective === 2 ? 10 : 11);

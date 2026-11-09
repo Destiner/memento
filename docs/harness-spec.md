@@ -68,7 +68,13 @@ This is an operator requirement, not an automatic calibration gate.
 `corpus` names a directory of memory Markdown files; `seeded_memory` adds the
 relevant fact for retrieval scenarios. Use plausible distractors so retrieval
 must find the right fact, not merely notice that a server exists. The runner
-seeds a fresh Memento home and project registry for every rep.
+seeds a fresh Memento home and project registry for every rep. Each home's
+`config.json` sets `memory_archive_after_days` and `memory_delete_after_days` to
+`MAX_MEMORY_RETENTION_DAYS` from `src/config.ts` (365000 days), identically for
+all configs including baselines. This controlled retention setting keeps
+historical seeds available at real server startup without rewriting corpus
+timestamps or ranking data, or simulating reads. Logging retains its defaults.
+The harness measures retrieval of the authored corpus, not wall-clock decay.
 
 ### 4.3 Fixture repos
 

@@ -37,7 +37,7 @@ const seedSchema = z
           query: text,
           scope: searchMemoriesInputSchema.shape.scope,
           types: searchMemoriesInputSchema.shape.types,
-          status: searchMemoriesInputSchema.shape.status,
+          status: searchMemoriesInputSchema.shape.status.default(['active']),
           split: text.default('unspecified'),
           category: text.optional(),
           rationale: text.optional(),
@@ -121,7 +121,15 @@ export function parseSeed(raw: unknown): Seed {
   return seed;
 }
 export function searchInput(q: Query) {
-  return { query: q.query, scope: q.scope, types: q.types, status: q.status, limit: LIMIT };
+  // These fixtures predate the opt-in flag; translate their explicit archived requests.
+  return {
+    query: q.query,
+    scope: q.scope,
+    types: q.types,
+    status: q.status,
+    include_archived: q.status.includes('archived'),
+    limit: LIMIT,
+  };
 }
 export interface Hit {
   id: string;

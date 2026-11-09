@@ -210,6 +210,9 @@ export function orderMemoryMetadata(record: MemoryRecord): Record<string, unknow
     updated_at: record.updated_at,
   };
   if (record.last_verified_at) metadata.last_verified_at = record.last_verified_at;
+  if (record.last_accessed_at) metadata.last_accessed_at = record.last_accessed_at;
+  if (record.archived_at) metadata.archived_at = record.archived_at;
+  if (record.archive_source) metadata.archive_source = record.archive_source;
   if (record.archive_reason) metadata.archive_reason = record.archive_reason;
   return metadata;
 }

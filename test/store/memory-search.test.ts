@@ -215,13 +215,28 @@ describe('searchMemories', () => {
       expect(result.results.map((r) => r.id)).not.toContain('mem_OLD');
     });
 
-    test('are returned when explicitly requested', async () => {
-      const result = await searchMemories(
-        { query: 'webhook delivery', scope: PROJECTS, status: ['active', 'archived'] },
-        opts(),
-      );
-      expect(result.results.map((r) => r.id)).toContain('mem_OLD');
-    });
+    test.each([
+      [undefined, undefined, ['mem_EMAIL']],
+      [false, undefined, ['mem_EMAIL']],
+      [true, undefined, ['mem_EMAIL', 'mem_OLD']],
+      [undefined, ['archived'], []],
+      [false, ['archived'], []],
+      [false, ['active', 'archived'], ['mem_EMAIL']],
+      [true, ['archived'], ['mem_OLD']],
+      [true, ['active'], ['mem_EMAIL']],
+      [true, ['active', 'archived'], ['mem_EMAIL', 'mem_OLD']],
+    ])(
+      'intersects include_archived=%s with status=%j',
+      async (include_archived, status, expected) => {
+        const result = await searchMemories(
+          { query: 'webhook delivery', scope: PROJECTS, include_archived, status },
+          opts(),
+        );
+        expect(result.results.map((r) => r.id).sort()).toEqual(expected);
+        expect(result.result_count).toBe(expected.length);
+        expect(result.query_id).toBe('qry_TEST');
+      },
+    );
   });
 
   describe('input validation', () => {

@@ -288,7 +288,10 @@ describe('retrieval acceptance', () => {
   });
 
   test('an archived memory does not rank above its active replacement', async () => {
-    const ids = await topIds('authentication approach', 10, { status: ['active', 'archived'] });
+    const ids = await topIds('authentication approach', 10, {
+      include_archived: true,
+      status: ['active', 'archived'],
+    });
     expect(ids).toContain('mem_c09');
     expect(ids.indexOf('mem_c09')).toBeLessThan(
       ids.indexOf('mem_c08') === -1 ? Number.MAX_SAFE_INTEGER : ids.indexOf('mem_c08'),

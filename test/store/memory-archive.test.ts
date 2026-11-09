@@ -80,7 +80,7 @@ describe('archiveMemory', () => {
     expect(active.result_count).toBe(0);
 
     const archived = await searchMemories(
-      { query: 'webhook retries', scope, status: ['archived'] },
+      { query: 'webhook retries', scope, include_archived: true, status: ['archived'] },
       options,
     );
     expect(archived.results.map((r) => r.id)).toEqual([seeded.id]);

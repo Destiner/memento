@@ -1,5 +1,5 @@
 ---
-policy_version: 2.2.0
+policy_version: 2.3.0
 updated: 2026-08-23
 ---
 
@@ -179,8 +179,33 @@ ids, stable paths. Never session transcripts, temp files, or line numbers.
 
 ## 10. Status
 
-`active` or `archived`. Archive rather than delete, always with a reason.
-Restoration is an `update_memory` back to `active`. Agents never hard-delete.
+`active` or `archived`. Agents archive rather than delete, always with a reason;
+there is no hard-delete tool. Explicit restoration is an `update_memory` back to
+`active` and clears `archived_at`, `archive_source`, and `archive_reason`.
+
+Automated retention permanently deletes expired archived memories. By default,
+90 days unread archives an active memory, then 90 days archived without an
+explicit read deletes it. Configure positive integer `memory_archive_after_days`
+and `memory_delete_after_days` values (maximum 365000 days each).
+
+Every successful explicit `get_memory` persists `last_accessed_at`. Search,
+dedupe, edits, and internal reads do not reset it. An absent `last_accessed_at`
+falls back to `created_at`. Reading a decay archive automatically restores it;
+reading a manual archive leaves it archived but resets its deletion grace.
+The optional persisted fields are `last_accessed_at`, `archived_at`, and
+`archive_source` (`manual` or `decay`). Deletion grace runs from the later of
+`archived_at` and `last_accessed_at` (falling back to `created_at`).
+
+Legacy archives missing `archived_at` receive a fresh full deletion grace on
+first maintenance. New decay archives use the actual sweep time as `archived_at`,
+never a backdated deadline, so a memory cannot be archived and deleted in one
+sweep. Maintenance runs at startup, hourly while the server is running, and
+before searches; there is no standalone daemon. A direct `get_memory` before a
+sweep can rescue a record that still exists.
+
+`search_memories` excludes archives unless `include_archived` is explicitly
+true (default false). Optional `status` narrows results but never bypasses
+`include_archived`; searching for archived status alone returns no archives.
 
 ## 11. Duplicates
 

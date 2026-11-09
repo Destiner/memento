@@ -14,7 +14,11 @@
 
 import { validate } from '../validation.js';
 import { generateQueryId } from './id.js';
-import { searchMemoriesInputSchema, type SearchResultItem } from './memory-schema.js';
+import {
+  searchMemoriesInputSchema,
+  type MemoryStatus,
+  type SearchResultItem,
+} from './memory-schema.js';
 import { assertProjectsRegistered } from './project-registry.js';
 import type { MemoryIndex, SearchHit } from './search-index.js';
 
@@ -44,12 +48,16 @@ export async function searchMemories(
     await assertProjectsRegistered(options.projectsDir, input.scope.project_ids);
   }
 
-  const hits = options.index.search(input.query, {
-    scope: input.scope,
-    types: input.types,
-    status: input.status,
-    limit: clampLimit(input.limit, options.defaultLimit, options.maxLimit),
-  });
+  const statuses = searchStatuses(input);
+  // The raw index treats an empty status list as no filter, not no matches.
+  const hits = statuses.length
+    ? options.index.search(input.query, {
+        scope: input.scope,
+        types: input.types,
+        status: statuses,
+        limit: clampLimit(input.limit, options.defaultLimit, options.maxLimit),
+      })
+    : [];
 
   const queryId = (options.makeQueryId ?? generateQueryId)(options.now ?? Date.now());
   return {
@@ -57,6 +65,14 @@ export async function searchMemories(
     results: hits.map(toResultItem),
     result_count: hits.length,
   };
+}
+
+export function searchStatuses(input: {
+  include_archived?: boolean;
+  status?: MemoryStatus[];
+}): MemoryStatus[] {
+  const allowed: MemoryStatus[] = input.include_archived ? ['active', 'archived'] : ['active'];
+  return allowed.filter((status) => !input.status || input.status.includes(status));
 }
 
 // A caller may request fewer than the default, but never more than the maximum.

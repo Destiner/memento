@@ -305,11 +305,16 @@ describe('updateMemory', () => {
       const { metadata } = frontmatter(result.path);
       expect(metadata.status).toBe('active');
       expect(metadata).not.toHaveProperty('archive_reason');
+      expect(metadata).not.toHaveProperty('archived_at');
+      expect(metadata).not.toHaveProperty('archive_source');
     });
 
     test('an unrelated edit keeps an archived memory archived, reason intact', async () => {
       const seeded = await seed();
-      await archiveMemory({ id: seeded.id, reason: 'No longer true.' }, { memoriesDir, index });
+      await archiveMemory(
+        { id: seeded.id, reason: 'No longer true.' },
+        { memoriesDir, index, now: Date.parse('2026-07-30T00:00:00Z') },
+      );
 
       const result = await updateMemory(
         { id: seeded.id, changes: { description: 'Kept for the record.' } },
@@ -319,6 +324,8 @@ describe('updateMemory', () => {
       const { metadata } = frontmatter(result.path);
       expect(metadata.status).toBe('archived');
       expect(metadata.archive_reason).toBe('No longer true.');
+      expect(metadata.archived_at).toBe('2026-07-30T00:00:00Z');
+      expect(metadata.archive_source).toBe('manual');
     });
 
     // Archiving always carries a reason (docs/memory-policy.md §10), so it cannot come

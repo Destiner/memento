@@ -42,7 +42,7 @@ describe('getMemory', () => {
   test('returns the full record, the body, and the project names', async () => {
     await seed({ scope: { kind: 'projects', project_ids: [PROJECT_A, PROJECT_B] } });
 
-    const result = await getMemory({ id: 'mem_GET00001' }, { memoriesDir, projectsDir });
+    const result = await getMemory({ id: 'mem_GET00001' }, { memoriesDir, projectsDir, index });
 
     expect(result.id).toBe('mem_GET00001');
     expect(result.title).toBe('Webhook retries duplicate sends under load');
@@ -64,7 +64,7 @@ describe('getMemory', () => {
   test('a global memory resolves to no project names', async () => {
     await seed({ scope: { kind: 'global' } }, 'mem_GETGLOBAL');
 
-    const result = await getMemory({ id: 'mem_GETGLOBAL' }, { memoriesDir, projectsDir });
+    const result = await getMemory({ id: 'mem_GETGLOBAL' }, { memoriesDir, projectsDir, index });
 
     expect(result.scope).toEqual({ kind: 'global' });
     expect(result.projects).toEqual([]);
@@ -75,28 +75,28 @@ describe('getMemory', () => {
     await seed();
     rmSync(projectsDir, { recursive: true, force: true });
 
-    const result = await getMemory({ id: 'mem_GET00001' }, { memoriesDir, projectsDir });
+    const result = await getMemory({ id: 'mem_GET00001' }, { memoriesDir, projectsDir, index });
 
     expect(result.projects).toEqual([{ id: PROJECT_A, name: null }]);
   });
 
   test('throws not_found for an unknown id', async () => {
     await expect(
-      getMemory({ id: 'mem_MISSING' }, { memoriesDir, projectsDir }),
+      getMemory({ id: 'mem_MISSING' }, { memoriesDir, projectsDir, index }),
     ).rejects.toMatchObject({ code: 'not_found' });
   });
 
   test('rejects a corrupt on-disk record', async () => {
     writeFileSync(join(memoriesDir, 'mem_BROKEN-x.md'), '---\ntype: nonsense\n---\n\nbody\n');
     await expect(
-      getMemory({ id: 'mem_BROKEN' }, { memoriesDir, projectsDir }),
+      getMemory({ id: 'mem_BROKEN' }, { memoriesDir, projectsDir, index }),
     ).rejects.toBeInstanceOf(MementoError);
   });
 
   test('rejects unknown input keys', async () => {
     await seed();
     await expect(
-      getMemory({ id: 'mem_GET00001', version: 2 }, { memoriesDir, projectsDir }),
+      getMemory({ id: 'mem_GET00001', version: 2 }, { memoriesDir, projectsDir, index }),
     ).rejects.toBeInstanceOf(MementoError);
   });
 });

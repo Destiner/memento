@@ -1,6 +1,6 @@
 import { captureProposalSchema, searchProposalSchema } from './evaluator/schema.js';
 import { resolvePaths } from '../src/config.js';
-import { getMemory } from '../src/store/memory-get.js';
+import { readMemory as getMemory } from '../src/store/memory-get.js';
 import { getMemoryInputSchema } from '../src/store/memory-schema.js';
 import type { RetrospectiveStore } from './db/store.js';
 import type { JsonValue } from './model.js';

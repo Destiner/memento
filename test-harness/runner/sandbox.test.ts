@@ -4,9 +4,15 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'vitest';
 
+import { DEFAULT_CONFIG, loadConfig, MAX_MEMORY_RETENTION_DAYS } from '../../src/config.js';
 import { AGENT_FRAGMENT } from '../../src/policy/index.js';
+import { createServer } from '../../src/server.js';
+import { serializeFrontmatter } from '../../src/store/frontmatter.js';
+import { memoryRecord } from '../../test/helpers/memories.js';
 import { type Config } from './config.js';
 import { createSandbox, HARNESS_PROJECT_ID, type Sandbox } from './sandbox.js';
 import { type Scenario } from './scenario.js';
@@ -125,6 +131,58 @@ describe('createSandbox', () => {
     const sandbox = open({ config: BASELINE_0, scenario: RETRIEVE_SCENARIO });
     const seeded = readdirSync(join(sandbox.mementoHome, 'memories')).sort();
     expect(seeded).toEqual(['a.md', 'b.md', 'planted.md']);
+  });
+
+  test.each(['plain', 'shipped-v2', null] as const)(
+    'controls retention with logging defaults for variant %s',
+    (variant) => {
+      const sandbox = open({
+        config: { ...BASELINE_0, memento_variant: variant },
+        scenario: RETRIEVE_SCENARIO,
+      });
+      const overrides = {
+        memory_archive_after_days: MAX_MEMORY_RETENTION_DAYS,
+        memory_delete_after_days: MAX_MEMORY_RETENTION_DAYS,
+      };
+      expect(readJson(join(sandbox.mementoHome, 'config.json'))).toEqual(overrides);
+      expect(loadConfig(sandbox.mementoHome).config).toEqual({ ...DEFAULT_CONFIG, ...overrides });
+    },
+  );
+
+  test('historical seed survives actual server startup and search without timestamp changes', async () => {
+    const record = memoryRecord({
+      scope: { kind: 'global' },
+      created_at: '2000-01-01T00:00:00Z',
+      updated_at: '2000-01-01T00:00:00Z',
+    });
+    const source = serializeFrontmatter(record, 'Preserve idempotency keys for webhook retries.');
+    const seedPath = join(harnessRoot, 'facts', 'historical.md');
+    writeFileSync(seedPath, source);
+    const sandbox = open({
+      config: BASELINE_0,
+      scenario: { ...RETRIEVE_SCENARIO, seeded_memory: 'facts/historical.md' },
+    });
+    const server = await createServer(loadConfig(sandbox.mementoHome));
+    const client = new Client({ name: 'harness-retention-test', version: '0.0.0' });
+    try {
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+      const result = await client.callTool({
+        name: 'search_memories',
+        arguments: { query: 'webhook', scope: { kind: 'global' } },
+      });
+      expect(result.isError).toBeFalsy();
+      expect(result.structuredContent).toMatchObject({
+        result_count: 1,
+        results: [{ id: record.id, status: 'active' }],
+      });
+      expect(readFileSync(join(sandbox.mementoHome, 'memories', 'historical.md'), 'utf8')).toBe(
+        source,
+      );
+    } finally {
+      await server.close();
+      await client.close();
+    }
   });
 
   test('registers the synthetic checkout so V2 project resolution can succeed', () => {

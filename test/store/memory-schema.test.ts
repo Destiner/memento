@@ -64,6 +64,36 @@ describe('validateMemoryFrontmatter', () => {
     expect(() => validateMemoryFrontmatter(archived)).not.toThrow();
   });
 
+  test('accepts decay tracking while keeping legacy records valid', () => {
+    expect(validateMemoryFrontmatter(record)).not.toHaveProperty('last_accessed_at');
+    expect(() =>
+      validateMemoryFrontmatter({
+        ...record,
+        status: 'archived',
+        last_accessed_at: record.created_at,
+        archived_at: record.updated_at,
+        archive_source: 'decay',
+        archive_reason: 'No explicit read for 90 days.',
+      }),
+    ).not.toThrow();
+  });
+
+  test.each(['archived_at', 'archive_source'])('rejects %s on an active memory', (field) => {
+    const value = field === 'archived_at' ? record.created_at : 'manual';
+    expect(() => validateMemoryFrontmatter({ ...record, [field]: value })).toThrow(MementoError);
+  });
+
+  test('rejects malformed tracking fields and decay archives without a timestamp', () => {
+    for (const patch of [
+      { last_accessed_at: 'yesterday' },
+      { status: 'archived', archive_reason: 'Expired', archived_at: 'yesterday' },
+      { status: 'archived', archive_reason: 'Expired', archive_source: 'unknown' },
+      { status: 'archived', archive_reason: 'Expired', archive_source: 'decay' },
+    ]) {
+      expect(() => validateMemoryFrontmatter({ ...record, ...patch })).toThrow(MementoError);
+    }
+  });
+
   test('accepts a re-verified memory', () => {
     const verified = { ...record, last_verified_at: '2026-08-04T09:02:11Z' };
     expect(() => validateMemoryFrontmatter(verified)).not.toThrow();
@@ -152,7 +182,16 @@ describe('createMemoryInputSchema', () => {
   );
 
   test('rejects server-managed fields', () => {
-    for (const field of ['id', 'status', 'created_at', 'updated_at', 'archive_reason']) {
+    for (const field of [
+      'id',
+      'status',
+      'created_at',
+      'updated_at',
+      'archive_reason',
+      'archived_at',
+      'archive_source',
+      'last_accessed_at',
+    ]) {
       const input = { ...createInput, [field]: 'anything' };
       expect(createMemoryInputSchema.safeParse(input).success).toBe(false);
     }
@@ -198,18 +237,44 @@ describe('searchMemoriesInputSchema', () => {
       project_ids: ['prj_TEST0001'],
       match: 'any',
     });
-    expect(parsed.status).toEqual(['active']);
+    expect(parsed.include_archived).toBe(false);
+    expect(parsed.status).toBeUndefined();
   });
 
   test('accepts all-project matching and an explicit archived request', () => {
     const parsed = searchMemoriesInputSchema.parse({
       query: 'onboarding',
       scope: { kind: 'projects', project_ids: ['prj_A', 'prj_B'], match: 'all' },
+      include_archived: true,
       status: ['active', 'archived'],
     });
+    expect(parsed.include_archived).toBe(true);
     expect(parsed.scope).toMatchObject({ match: 'all' });
     expect(parsed.status).toEqual(['active', 'archived']);
   });
+
+  test.each([true, false])('accepts include_archived=%s', (include_archived) => {
+    expect(
+      searchMemoriesInputSchema.parse({
+        query: 'x',
+        scope: { kind: 'global' },
+        include_archived,
+      }).include_archived,
+    ).toBe(include_archived);
+  });
+
+  test.each(['true', 'false', 0, 1, null, [], {}])(
+    'rejects invalid include_archived=%j',
+    (include_archived) => {
+      expect(
+        searchMemoriesInputSchema.safeParse({
+          query: 'x',
+          scope: { kind: 'global' },
+          include_archived,
+        }).success,
+      ).toBe(false);
+    },
+  );
 
   test('accepts a global search', () => {
     expect(

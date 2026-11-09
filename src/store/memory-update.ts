@@ -196,10 +196,12 @@ function applyChanges(
 
   const verifiedAt = input.mark_verified === true ? timestamp : current.last_verified_at;
   if (verifiedAt !== undefined) draft.last_verified_at = verifiedAt;
-  // A restore to `active` drops the reason it was archived for; the schema rejects
-  // an active memory that still carries one.
-  if (status === 'archived' && current.archive_reason !== undefined) {
+  if (current.last_accessed_at !== undefined) draft.last_accessed_at = current.last_accessed_at;
+  // An edit is not access. A restore clears archive metadata but does not fake a read.
+  if (status === 'archived') {
     draft.archive_reason = current.archive_reason;
+    if (current.archived_at !== undefined) draft.archived_at = current.archived_at;
+    if (current.archive_source !== undefined) draft.archive_source = current.archive_source;
   }
 
   return { draft, dropped };

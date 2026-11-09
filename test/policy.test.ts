@@ -250,10 +250,44 @@ describe('tool descriptions are locally actionable', () => {
     }
   });
 
+  test.each([plainDescriptions, triggerListDescriptions])(
+    'lifecycle mechanics agree in each set',
+    (set) => {
+      expect(set.search_memories).toMatch(/include_archived.*defaults to false/);
+      expect(set.search_memories).toMatch(/status.*only narrows.*never bypasses/);
+      expect(set.search_memories).toMatch(/Search does not reset last_accessed_at/);
+      expect(set.get_memory).toMatch(
+        /successful explicit get_memory resets persisted last_accessed_at/,
+      );
+      expect(set.get_memory).toMatch(/Decay archives auto-restore; manual archives stay archived/);
+      expect(set.get_memory).toMatch(/reading resets their deletion grace/);
+      expect(set.get_memory).toMatch(/before maintenance can rescue an existing record/);
+      expect(set.update_memory).toMatch(/restore clears archived_at and archive_source/);
+      expect(set.update_memory).toMatch(/Edits, dedupe, and internal reads do not reset/);
+      expect(set.archive_memory).toMatch(/no hard-delete tool/);
+      expect(set.archive_memory).toMatch(/retention permanently deletes/);
+      expect(set.archive_memory).toMatch(/90 days unread.*90 days archived/);
+      expect(set.archive_memory).toMatch(/startup, hourly while running, and before searches/);
+      expect(set.archive_memory).toMatch(/no standalone daemon/);
+    },
+  );
+
+  test('canonical lifecycle defines timestamp migration and sweep safety', () => {
+    const lifecycle = section('## 10. Status').replace(/\s+/g, ' ');
+    expect(lifecycle).toMatch(/absent `last_accessed_at` falls back to `created_at`/);
+    expect(lifecycle).toMatch(/later of `archived_at` and `last_accessed_at`/);
+    expect(lifecycle).toMatch(
+      /Legacy archives missing `archived_at` receive a fresh full deletion grace/,
+    );
+    expect(lifecycle).toMatch(/actual sweep time as `archived_at`, never a backdated deadline/);
+    expect(lifecycle).toMatch(/cannot be archived and deleted in one sweep/);
+    expect(lifecycle).toMatch(/maximum 365000 days each/);
+  });
+
   test('every description stays under budget', () => {
     for (const tool of TOOL_NAMES) {
       expect(triggerListDescriptions[tool].length, tool).toBeLessThanOrEqual(1500);
-      expect(plainDescriptions[tool].length, tool).toBeLessThanOrEqual(200);
+      expect(plainDescriptions[tool].length, tool).toBeLessThanOrEqual(650);
     }
   });
 });

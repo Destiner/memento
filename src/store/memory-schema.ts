@@ -46,8 +46,7 @@ export const MEMORY_TYPES = [
 // independently of every project, and should stay rare.
 export const MEMORY_SCOPE_KINDS = ['projects', 'global'] as const;
 
-// Soft deletion only (§10): a memory that no longer holds gets archived with a
-// reason, and one that changed gets updated.
+// Agents archive with a reason; automated retention eventually deletes (§10).
 export const MEMORY_STATUSES = ['active', 'archived'] as const;
 
 // Where the knowledge came from (§9).
@@ -157,8 +156,9 @@ export const provenanceSchema = z
 /**
  * Full persisted front matter, in canonical field order.
  *
- * Lifecycle fields (`id`, `status`, both timestamps, `last_verified_at`,
- * `archive_reason`) are server-managed; the rest are agent-supplied.
+ * Lifecycle fields (ids, status, timestamps, and archive metadata) are
+ * server-managed; the rest are agent-supplied. Optional decay timestamps keep
+ * legacy files readable without inventing an access or archive date.
  */
 export const memoryFrontmatterSchema = z
   .object({
@@ -172,6 +172,9 @@ export const memoryFrontmatterSchema = z
     created_at: z.iso.datetime(),
     updated_at: z.iso.datetime(),
     last_verified_at: z.iso.datetime().optional(),
+    last_accessed_at: z.iso.datetime().optional(),
+    archived_at: z.iso.datetime().optional(),
+    archive_source: z.enum(['manual', 'decay']).optional(),
     archive_reason: reasonSchema.optional(),
   })
   .strict()
@@ -186,11 +189,20 @@ export const memoryFrontmatterSchema = z
         path: ['archive_reason'],
       });
     }
-    if (record.status === 'active' && record.archive_reason !== undefined) {
+    for (const field of ['archive_reason', 'archived_at', 'archive_source'] as const) {
+      if (record.status === 'active' && record[field] !== undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `${field} is only valid on an archived memory; restoring clears it.`,
+          path: [field],
+        });
+      }
+    }
+    if (record.archive_source === 'decay' && record.archived_at === undefined) {
       ctx.addIssue({
         code: 'custom',
-        message: 'archive_reason is only valid on an archived memory; restoring clears it.',
-        path: ['archive_reason'],
+        message: 'A decay archive must carry archived_at.',
+        path: ['archived_at'],
       });
     }
   });
@@ -279,15 +291,16 @@ export const searchScopeSchema = z.discriminatedUnion('kind', [
 /**
  * `search_memories` input (v2.md §5).
  *
- * `status` defaults to active-only, so archived memories are excluded unless
- * explicitly requested. `intent` is advisory: it never touches retrieval and
+ * `include_archived` defaults to false; `status` only narrows the allowed statuses
+ * and never bypasses that opt-in. `intent` is advisory: it never touches retrieval and
  * exists so the event log can record what the agent thought it was doing.
  */
 export const searchMemoriesInputShape = {
   query: z.string().max(MAX_SEARCH_QUERY_LENGTH).trim().min(1),
   scope: searchScopeSchema,
   types: z.array(memoryTypeSchema).min(1).optional(),
-  status: z.array(memoryStatusSchema).min(1).default(['active']),
+  include_archived: z.boolean().default(false),
+  status: z.array(memoryStatusSchema).min(1).optional(),
   intent: nonEmpty.optional(),
   limit: z.number().int().min(1).optional(),
 } as const;

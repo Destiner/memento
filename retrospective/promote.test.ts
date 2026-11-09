@@ -6,7 +6,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { createProject } from '../src/store/project-create.js';
 import { createMemory, MemoryCreatedIndexError } from '../src/store/memory-create.js';
-import { getMemory } from '../src/store/memory-get.js';
+import { readMemory as getMemory } from '../src/store/memory-get.js';
 import type { MemoryDetail } from '../src/store/memory-schema.js';
 import { MemoryUpdatedPersistenceError } from '../src/store/memory-update.js';
 import { openIndex } from '../src/store/index-open.js';

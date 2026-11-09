@@ -62,11 +62,14 @@ async function archiveMemoryLocked(
   const { metadata, body } = parseFrontmatter(await readFile(path, 'utf8'));
   const current = validateMemoryFrontmatter(metadata);
 
+  const timestamp = isoSeconds(options.now ?? Date.now());
   const record = validateMemoryFrontmatter({
     ...current,
     status: 'archived',
     archive_reason: input.reason,
-    updated_at: isoSeconds(options.now ?? Date.now()),
+    archive_source: 'manual',
+    archived_at: current.archived_at ?? timestamp,
+    updated_at: timestamp,
   });
 
   // The title is untouched, so the filename is unchanged and no rename is needed.

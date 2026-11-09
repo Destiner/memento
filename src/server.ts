@@ -23,6 +23,7 @@ import { generateSessionId } from './store/id.js';
 import { archiveMemory } from './store/memory-archive.js';
 import { createMemory } from './store/memory-create.js';
 import { getMemory } from './store/memory-get.js';
+import { decayMemories } from './store/memory-decay.js';
 import {
   archiveMemoryInputShape,
   createMemoryInputShape,
@@ -30,7 +31,7 @@ import {
   searchMemoriesInputShape,
   updateMemoryInputShape,
 } from './store/memory-schema.js';
-import { searchMemories } from './store/memory-search.js';
+import { searchMemories, searchStatuses } from './store/memory-search.js';
 import { SEARCH_RANKER_VERSION } from './store/search-relevance.js';
 import { updateMemory } from './store/memory-update.js';
 import { openIndex } from './store/index-open.js';
@@ -58,7 +59,7 @@ export const SERVER_NAME = 'memento';
 // Kept in step with package.json by a test: the harness pools runs by the package
 // version while the event log records this one, so a drift between them silently
 // mixes pre- and post-change reps in one comparison.
-export const SERVER_VERSION = '0.5.1';
+export const SERVER_VERSION = '0.6.0';
 
 interface ToolCallResult {
   content: { type: 'text'; text: string }[];
@@ -110,11 +111,12 @@ function usedFilters(args: Record<string, unknown>, keys: readonly string[]): st
   return keys.filter((key) => {
     const value = args[key];
     if (value === undefined) return false;
+    if (key === 'include_archived') return value === true;
     return Array.isArray(value) ? value.length > 0 : true;
   });
 }
 
-const SEARCH_FILTER_KEYS = ['types', 'status', 'limit'] as const;
+const SEARCH_FILTER_KEYS = ['types', 'status', 'include_archived', 'limit'] as const;
 
 // A memory scope, as the event log records it: the kind, how many projects, and
 // their opaque ids. The ids are what make per-project activation answerable —
@@ -161,6 +163,59 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
 
   const memoriesDir = resolved.paths.memories;
   const projectsDir = resolved.paths.projects;
+
+  const maintain = async () => {
+    const result = await decayMemories({ memoriesDir, index, config: resolved.config });
+    if (result.skipped.length) {
+      console.error(`Memento retention skipped ${result.skipped.length} invalid or unsafe files.`);
+    }
+  };
+  try {
+    await maintain();
+  } catch (error) {
+    index.close();
+    throw error;
+  }
+
+  // Serialize local calls with maintenance; the store lock also protects other processes.
+  let pending = Promise.resolve();
+  let closed = false;
+  let indexClosed = false;
+  const enqueue = <T>(operation: () => Promise<T>): Promise<T> => {
+    if (closed) return Promise.reject(new Error('The memory server is closed.'));
+    const task = pending.then(operation);
+    pending = task.then(
+      () => undefined,
+      () => undefined,
+    );
+    return task;
+  };
+  const timer = setInterval(
+    () => {
+      void enqueue(maintain).catch((error: unknown) => {
+        console.error('Memento retention failed; it will retry on the next sweep.', error);
+      });
+    },
+    60 * 60 * 1000,
+  );
+  timer.unref();
+  const stop = async () => {
+    closed = true;
+    clearInterval(timer);
+    await pending;
+    if (!indexClosed) {
+      indexClosed = true;
+      index.close();
+    }
+  };
+  server.server.onclose = () => {
+    void stop();
+  };
+  const close = server.close.bind(server);
+  server.close = async () => {
+    await stop();
+    await close();
+  };
 
   server.registerTool(
     'resolve_project',
@@ -250,11 +305,14 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
         'search_memories',
         logger,
         () =>
-          searchMemories(args, {
-            index,
-            projectsDir,
-            defaultLimit: resolved.config.default_result_limit,
-            maxLimit: resolved.config.max_result_limit,
+          enqueue(async () => {
+            await maintain();
+            return searchMemories(args, {
+              index,
+              projectsDir,
+              defaultLimit: resolved.config.default_result_limit,
+              maxLimit: resolved.config.max_result_limit,
+            });
           }),
         (result) => ({
           search_ranker: SEARCH_RANKER_VERSION,
@@ -264,7 +322,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
             resolved.config.max_result_limit,
           ),
           search_types: args.types,
-          search_statuses: args.status ?? ['active'],
+          search_statuses: searchStatuses(args),
           result_count: result.result_count,
           result_ids: result.results.map((r) => r.id),
           query_id: result.query_id,
@@ -288,7 +346,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       runTool(
         'get_memory',
         logger,
-        () => getMemory(args, { memoriesDir, projectsDir }),
+        () => enqueue(() => getMemory(args, { memoriesDir, projectsDir, index })),
         (result) => ({
           memory_id: result.id,
           memory_type: result.type,
@@ -308,7 +366,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       runTool(
         'create_memory',
         logger,
-        () => createMemory(args, { memoriesDir, projectsDir, index }),
+        () => enqueue(() => createMemory(args, { memoriesDir, projectsDir, index })),
         (result) => ({
           result_outcome: result.outcome,
           memory_id: 'id' in result ? result.id : undefined,
@@ -336,7 +394,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       runTool(
         'update_memory',
         logger,
-        () => updateMemory(args, { memoriesDir, projectsDir, index }),
+        () => enqueue(() => updateMemory(args, { memoriesDir, projectsDir, index })),
         (result) => ({
           memory_id: result.id,
           memory_type: result.memory.type,
@@ -358,7 +416,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       runTool(
         'archive_memory',
         logger,
-        () => archiveMemory(args, { memoriesDir, index }),
+        () => enqueue(() => archiveMemory(args, { memoriesDir, index })),
         (result) => ({
           memory_id: result.id,
           memory_type: result.memory.type,
