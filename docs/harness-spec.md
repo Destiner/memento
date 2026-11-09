@@ -1,18 +1,14 @@
 # Memento Usage-Propensity Test Harness — Specification
 
-Status: V2 harness implemented. Fresh Claude Code and Codex calibration and
-activation runs are pending.
+Status: V2 harness implemented.
 Owner: Timur
 
 This document specifies a test harness that measures how context-engineering
 interventions ("knobs") change a coding agent's propensity to use the Memento
 MCP server — and whether that use is *appropriate*, not merely frequent.
 
-It builds on `docs/memory-policy.md` for the behavior boundary and `v2.md` for the
-V2 schemas, instruction surfaces, telemetry, and rollout plan.
-
-Those documents are not duplicated here; this spec covers only the experiment
-design and the harness needed to build and run it.
+It builds on `docs/memory-policy.md` for the behavior boundary; this spec
+covers the experiment design and harness.
 
 ---
 
@@ -22,30 +18,23 @@ design and the harness needed to build and run it.
 agent uses Memento when it should, and leaves it alone when it shouldn't —
 measured separately for retrieval (read) and capture (write)?
 
-**Phase 1 scope (this spec):**
+**Scope:**
 
 - Harness: Claude Code (`claude -p`) or Codex (`codex exec`), single-shot
   headless sessions, selected per manifest (`harness:` key; adapter seam in
-  `runner/harness.ts`). Codex added 2026-07 — see §7.2 note. Cross-harness
-  numbers compare *ecosystems* (harness+model change together), never
-  harnesses in isolation (§12).
+  `runner/harness.ts`). Cross-harness numbers compare *ecosystems*
+  (harness+model change together), never harnesses in isolation (§11).
 - Model: per manifest (`claude-opus-4-8` default; codex manifests set their
   own, e.g. `gpt-5.6-sol`).
 - Harness version: detected at run time, recorded per rep (as `cc_version`,
-  name kept for log compatibility); baselines rerun on version change (§10).
-
-**Deferred:**
-
-- Multi-turn session scripting (§12).
-- Pollution experiment to empirically calibrate λ_write (§5.4).
+  name kept for log compatibility); comparisons are version-bound (§9).
 
 ---
 
 ## 2. Terminology
 
 - **Knob** — one intervention with 2–3 variants (off / weak / strong).
-- **Config** — a concrete, installable combination of knob variants. Phase 1
-  uses one-knob-at-a-time configs plus baselines.
+- **Config** — a concrete, installable combination of knob variants.
 - **Scenario** — fixture repo + task prompt + seeded memory corpus +
   ground-truth label + checks.
 - **Rep** — one headless coding-agent session for a (config, scenario) cell.
@@ -63,13 +52,13 @@ decision rule (§6), they need only a marginal real improvement to ship.
 
 | Knob | Variants | Side |
 | --- | --- | --- |
-| Tool descriptions | plain (neutral/terse, to be written) / trigger-list (today's shipped text — `8db547f` embedded §11 guidance) | read+write |
+| Tool descriptions | plain (neutral/terse) / trigger-list (shipped guidance) | read+write |
 | Tool surface shape | the frozen V2 eight-tool surface; future alternatives require a new server version | read |
 | MCP server `instructions` field | empty / usage-protocol text (hoisted into system prompt by the client) | read+write |
 | Tool-result nudges | plain results / appended prompts (empty search → "consider `create_memory` after the task"; create success → reinforce search habit) | read+write |
 
-**Prerequisite product change — status: complete.** The `MEMENTO_VARIANT`
-switch lives in `src/variants/` (registry + env var). Variants: `plain`
+The `MEMENTO_VARIANT` switch lives in `src/variants/` (registry + env var).
+Variants: `plain`
 (baseline-0 floor), `shipped` (pre-experiment descriptions, kept verbatim),
 `server-instructions`, `result-nudges`, and `shipped-v2` — the current
 real-world DEFAULT_VARIANT combining all screening-cleared auto knobs
@@ -77,9 +66,9 @@ real-world DEFAULT_VARIANT combining all screening-cleared auto knobs
 
 Note the descriptions knob is an **ablation**: the shipped text already
 embeds the trigger-list guidance (commit `8db547f`), so measured from the
-`plain` floor, today's wording is the knob's strong variant. The code's
-`baseline` variant name means "shipped behavior verbatim" — it is *not* the
-harness's baseline-0.
+`plain` floor, today's wording is the knob's strong variant. The `shipped`
+variant preserves the pre-experiment behavior; it is *not* the harness's
+baseline-0.
 
 ### 3.2 User-installed knobs (Claude Code-specific unless noted)
 
@@ -101,8 +90,7 @@ Notes:
   guardrail numbers are the interesting part.
 - **Permission friction** (memento tools pre-allowed vs prompted) is a real
   knob but not honestly testable headless (non-interactive mode auto-denies
-  rather than prompting). Deferred; all Phase 1 configs pre-allow memento
-  tools.
+  rather than prompting). Harness configs pre-allow memento tools.
 
 ### 3.3 Controlled dimensions (not knobs; fixed or explicitly varied)
 
@@ -118,8 +106,7 @@ Notes:
 
 ### 4.1 Classes
 
-Each scenario is labeled with exactly one class. Target: 3–4 scenarios per
-class, plus holdouts (§4.4).
+Each scenario is labeled with exactly one class.
 
 1. **should-retrieve** — the corpus contains one memory holding an
    *unguessable, material* fact; the task cannot be done correctly without
@@ -142,15 +129,15 @@ class, plus holdouts (§4.4).
 
 Seeded facts must be: arbitrary (unguessable from training or the repo),
 checkable by string/regex in the output or diff, and material to the task.
-Calibration (§9 Phase 0) verifies unguessability empirically.
+Baseline calibration checks unguessability empirically (§10).
 
 ### 4.2 Corpus
 
 Every scenario runs against a seeded corpus of ~10–15 memories: the relevant
 one (should-retrieve only) plus plausible **distractors** — retrieval has to
 find the right memory among noise, or we're testing propensity but not the
-product. Corpus files follow the V2 record format in `v2.md` §3
-and are seeded into a temp `MEMENTO_HOME` per rep.
+product. Corpus files follow the memory record format and are seeded into a
+temp `MEMENTO_HOME` per rep.
 
 ### 4.3 Fixture repos
 
@@ -161,24 +148,11 @@ specify an **overlay** — a small dir copied on top of the base fixture after
 the per-rep copy — used to plant discovery artifacts (e.g. a rate-limited
 stub API for should-capture) without forking the whole fixture.
 
-Inventory:
-
-| Fixture | Purpose | Needed by |
-| --- | --- | --- |
-| `saas-app` (built) | small web app; hosts should-retrieve, should-not-retrieve, and should-not-capture scenarios | Phase 0 |
-| `saas-app` overlays | per-scenario planted discoveries for should-capture (stubbed third-party API with rate limit, etc.) | Phase 0 |
-| `bigger-app` | larger, realistic repo — the toy-repo-bias reality check (§12); also hosts the holdout scenarios (§4.4) so holdouts run on code the knob wording has never seen | Phase 2 |
-
 ### 4.4 Holdout set (Goodhart guard)
 
-~20% of scenarios are held out: never used while iterating knob wording,
-run exactly once against the final candidate configs before shipping
-recommendations. If a knob's win doesn't survive the holdout, it doesn't
-ship.
-
-**STATUS: the `holdout-*` groups are no longer held out.** They are ordinary
-scenarios; any future ship decision needs freshly authored holdouts that no knob
-iteration has touched.
+Holdouts protect against tuning to the scenarios used during iteration. The
+`holdout-*` groups have been spent and are now ordinary scenarios; future ship
+decisions need fresh holdouts untouched by knob iteration.
 
 ### 4.5 Scenario definition format
 
@@ -239,10 +213,8 @@ write_score = good_capture_rate   − 1.00 × capture_fp_rate
 λ constants: **λ_read = 0.33** (a spurious search is transient token flow),
 **λ_write = 1.0** (a junk memory is persistent stock that taxes future
 retrievals — a cost invisible to single-session reps, which the weight
-imports). λ_write is provisional: the V2 pollution experiment (seed junk
-memories, measure read-score degradation vs a clean corpus) converts the
-intuition into a number. Escalate λ_write above 1.0 only if results show
-configs winning via prolific writing.
+imports). λ_write is provisional, not an empirically calibrated cost of
+pollution.
 
 Properties worth preserving: a config that never touches memory scores
 exactly 0 on both; positive = beats ignoring memory; nag-into-spam can go
@@ -355,7 +327,7 @@ getting this wrong invalidates results silently.
 5. Append one JSONL record (§8); save the transcript; delete temp dirs.
 
 Reps are independent; the manifest sets `concurrency` (default 2) —
-mind API rate limits and that spend-cap accounting (§9) stays accurate
+mind API rate limits and that spend-cap accounting (§7.4) stays accurate
 under parallelism.
 
 ### 7.3 Crowded environment
@@ -374,7 +346,7 @@ This reproduces the deferred-tool discoverability pressure of real setups.
   inspection instead of being scored.
 - The runner reads per-session cost from Claude Code's JSON output,
   accumulates it, and **halts the run at `max_spend_usd`**, finishing the
-  in-flight reps only.
+  in-flight reps only. Sessions without reported cost charge a fallback estimate.
 
 ---
 
@@ -409,8 +381,10 @@ Every rep appends one record to `results/results.jsonl`:
   "config_hash": "sha256:...",
   "scenario": "read/email-provider",
   "scenario_version": 1,
+  "scenario_class": "should-retrieve",
   "rep": 2,
   "model": "claude-opus-4-8",
+  "harness": "claude-code",
   "cc_version": "1.6.9",
   "memento_version": "...",
   "policy_version": "2.1.0",
@@ -424,7 +398,8 @@ Every rep appends one record to `results/results.jsonl`:
     "tokens_in": 0, "tokens_out": 0,
     "cost_usd": 0.42, "duration_s": 141, "turns": 9
   },
-  "transcript_path": "results/transcripts/screening-1/..."
+  "transcript_path": "results/transcripts/screening-1/...",
+  "diff_path": "results/transcripts/screening-1/..."
 }
 ```
 
@@ -434,59 +409,20 @@ dir's artifacts, so silent config drift is detectable.
 **Scores are always recomputed from this log, never stored as the only
 copy** — when λ changes or a diagnostic is added, all history re-scores for
 free. A small report script renders the config × (read_score, write_score)
-table with guardrail violations greyed out, plus diagnostics per config.
+table with guardrail violations flagged, plus diagnostics per config.
+Results are append-only; invalidated runs move to `quarantine-*.jsonl`, not
+deleted.
 
 ---
 
-## 9. Execution plan
+## 9. Versioning and comparisons
 
-Historical initial budget: **~$100**; assume ~$0.30–1.00 per short-fixture session
-(~100–300 sessions total). More credits later for Phase 2.
-
-### Phase 0 — Calibration (~$15–25)
-
-`baseline-no-memento` (Memento not registered at all) × **all** scenarios ×
-N=2. Validates the instruments before spending on knobs:
-
-- Seeded facts must be unguessable: utility ≈ 0 without memory. Any
-  scenario where the model guesses the fact cold gets rewritten and
-  re-calibrated.
-- Tasks must be completable: high task-success rate; this doubles as the
-  guardrail baseline.
-
-### Phase 1 — Screening (~$50–60, `max_spend_usd: 60`)
-
-`baseline-0` (Memento installed, `plain` variant) + 4–6 single-knob configs, clean
-env only, N=3, scenario subset matched to knob side (read knobs → read +
-no-read scenarios; write knobs → write + no-write). Goal: kill obvious
-losers, produce preliminary deltas, and let Timur set the user-action ship
-threshold (§6) from real numbers.
-
-### Phase 2 — Focused (next credit batch)
-
-Top 3–4 knobs from screening: both envs, all non-holdout scenarios, N=10.
-This produces the numbers the decision rules run on. Only after Phase 2:
-small factorials over the 2–3 most promising combinations (knobs interact;
-one-at-a-time first, combos second).
-
-### Phase 3 — Holdout + recommendation
-
-Final candidate configs × holdout scenarios × once. Survivors ship per §6.
-
-### Rerun / tweaking workflow (ongoing)
-
-- **New knob:** add a config dir + meta.yaml; run it against `baseline-0`
-  in a new manifest. Baselines already logged for the same (model,
-  cc_version, memento_version, policy_version, env, scenario_version) are
-  reusable — the log is the cache.
-- **Changed scenario:** bump `version`; it needs Phase-0 calibration before
-  use; no cross-version comparisons.
-- **Changed λ / new metric:** recompute from `results.jsonl`; nothing reruns.
-- **Model or CC version changed:** new run name; rerun `baseline-0` (and
-  `baseline-no-memento` if scenarios changed) under the new version before
-  comparing anything. Comparisons are only valid within one (harness, model,
-  cc_version, memento_version, policy_version, env, scenario_version) tuple.
-- **Iterating knob wording:** freely, against non-holdout scenarios only.
+Comparisons are valid only within the same (harness, model, cc_version,
+memento_version, policy_version, env, scenario_version) tuple. Bump the
+scenario version for any scenario change, and the package version for any
+measurement-relevant server change. Do not compare scores across versions.
+Config hashes make artifact drift visible. Scores and diagnostics can be
+recomputed from the append-only log when metrics change.
 
 ---
 
@@ -503,47 +439,21 @@ Final candidate configs × holdout scenarios × once. Survivors ship per §6.
   baseline-0 carried an undeclared intervention, every knob's delta —
   not just the descriptions knob's — would be measured on top of it.
 
-Both rerun whenever model or CC version changes (§9).
+Baselines from a different comparison tuple are not comparable (§9).
 
 ---
 
-## 11. Prerequisites checklist (build order)
-
-1. `MEMENTO_VARIANT` switch — done (`src/variants/`). Remaining product
-   change: the `plain` neutral variant baseline-0 pins (§3.1, §10).
-2. Fixtures + corpus + scenario definitions (calibration-ready), per the §4.3
-   inventory (`saas-app` done; `bigger-app` deferred to Phase 2). Overlay
-   staging (§4.3) is in place. Splits by scoring dependency:
-   - **2a (now):** the retrieve, no-retrieve, and no-capture classes —
-     scored by the regex/oracle checks the runner already runs.
-   - **2b (with step 4):** should-capture scenarios + their discovery
-     overlays. A capture scenario can't be calibrated without the capture
-     rubric that scores it, so it is authored alongside the scorer, not
-     here. Still lands before Phase 0 — all of §11 precedes the execution
-     plan (§9).
-3. Runner: hermetic per-rep lifecycle (§7.2), manifest execution, spend cap,
-   flake policy.
-4. Scorers: event-log/transcript parsers, checks, capture rubric, oracle
-   runner — plus the should-capture scenarios + discovery overlays deferred
-   from 2b, built and calibrated against the rubric here.
-5. Report script over `results.jsonl`.
-6. Stub MCP server (needed for Phase 2, not Phase 0/1).
-
----
-
-## 12. Known blind spots
+## 11. Known blind spots
 
 Stated so results are not mistaken for more than they are:
 
 - **Single-shot sessions underestimate capture** — real capture often
-  follows a "works, thanks" turn. Multi-turn scripting is V2.
+  follows a "works, thanks" turn. The harness uses single-shot sessions.
 - **Fresh-session propensity only** — no longitudinal dynamics (staleness,
-  reuse over weeks, corpus growth; cf. `product.md` §14 "shape of
-  behavior").
+  reuse over weeks, corpus growth).
 - **Permission friction untestable headless** — deferred knob.
-- **Toy-repo and single-fixture bias** — Phase 0/1 run almost entirely on
-  `saas-app`, and retrieval propensity likely differs on long tasks;
-  `bigger-app` in Phase 2 (§4.3) is the partial control for both.
+- **Toy-repo and fixture bias** — retrieval propensity may differ in larger
+  repositories and on longer tasks.
 - **Harness and model are confounded** — a Codex arm changes both at once, so
   cross-harness tables answer "does memento work in that ecosystem," never
   "which harness uses memory better." Knob rankings must be established

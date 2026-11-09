@@ -45,13 +45,10 @@ bun run typecheck:harness
 
 ## Status
 
-Build order (§11): variant switch (done) → fixtures/corpus/scenarios (done) →
-runner (done) → scorers (done) → report (done) → stub server (done). The runner
-executes the hermetic per-rep lifecycle (§7.2) under the spend cap and flake policy
-(§7.4), scores each rep, and appends a record to `results/results.jsonl`; the report
-(`bun run harness:report`) recomputes scores and guardrails from that log.
-The result log starts empty; baseline-no-memento calibration is required before
-new comparisons.
+The runner executes the hermetic per-rep lifecycle (§7.2) under the spend cap
+and flake policy (§7.4), scores each rep, and appends a record to
+`results/results.jsonl`; the report (`bun run harness:report`) recomputes scores
+and guardrails from that log. See §9–§10 for comparison boundaries and baselines.
 
 The crowded env (§7.3) is now available: a single stub MCP server (`stubs/server.ts`)
 is instantiated once per profile in `stubs/profiles.ts` (issue tracker, error
@@ -61,7 +58,7 @@ set is fixed and version-controlled (`CROWDED_PROFILES`); a manifest opts in wit
 `env: crowded`. Stubs are pure distractors — deliberately not source-control or
 filesystem tools the agent might legitimately call and then hit a no-op.
 
-Scoring (§5, §11 step 4) reads three sources while the sandbox is still on disk:
+Scoring (§5) reads three sources while the sandbox is still on disk:
 Memento's event log (`$MEMENTO_HOME/logs/`) for the authoritative list of tool
 calls the report derives FP rates from; the git diff of the session's changes for
 the should-retrieve utility check (regex over added lines only); and the fixture
@@ -80,5 +77,5 @@ sandbox stream, seed idempotency — each plants a discovery artifact whose fail
 message states a cross-project constraint the agent must find, then capture). The
 no-read/no-write scenarios stage a green saas-app via the `saas-app-mailer`
 overlay; the write scenarios use `saas-app-ops`, which greens the app and plants
-the discovery scripts. Thematic diversity within saas-app is limited by design —
-`bigger-app` in Phase 2 is the fix (§12).
+the discovery scripts. Thematic diversity within saas-app is limited by design;
+toy-repo and fixture bias remain limitations (§11).
