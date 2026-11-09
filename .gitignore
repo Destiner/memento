@@ -1,6 +1,14 @@
 node_modules/
 dist/
 .env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+.data/
+.memento/
 
 # Harness run outputs (results.jsonl + transcripts); keep the dir, not its contents.
 test-harness/results/*
