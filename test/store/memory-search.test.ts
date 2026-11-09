@@ -110,7 +110,7 @@ describe('searchMemories', () => {
 
   test('applies the type filter', async () => {
     const result = await searchMemories(
-      { query: 'webhook cache', scope: PROJECTS, types: ['decision_history'] },
+      { query: 'cache', scope: PROJECTS, types: ['decision_history'] },
       opts(),
     );
 

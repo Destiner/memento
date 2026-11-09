@@ -7,6 +7,7 @@
 // archive reasons, no filesystem paths. An id is only meaningful next to the
 // local store it came from, which is the same machine the log lives on.
 
+import type { MemoryStatus, MemoryType } from '../store/memory-schema.js';
 import { generateEventId } from '../store/id.js';
 import { isoSeconds } from '../store/time.js';
 
@@ -14,7 +15,8 @@ export type ToolOutcome = 'success' | 'error';
 
 // Bumped when the record changes in a way a reader must notice. Schema 2 includes
 // session ids, the policy version, client identity, and record ids. Readers accept
-// only this complete envelope.
+// only this complete envelope. Optional additive search diagnostics remain v2:
+// older records omit them, and readers must not require them.
 export const LOG_SCHEMA_VERSION = 2;
 
 // Identity the client declared during the MCP initialize handshake. Both fields
@@ -34,6 +36,11 @@ export interface ToolEventFields {
   outcome: ToolOutcome;
   latency_ms: number;
   // search_memories
+  search_ranker?: string;
+  result_scores?: number[];
+  search_limit?: number;
+  search_types?: MemoryType[];
+  search_statuses?: MemoryStatus[];
   result_count?: number;
   query_length?: number;
   filters_used?: string[];

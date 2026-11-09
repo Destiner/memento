@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { MemoryIndex, normalizeBm25, toMatchQuery } from '../../src/store/search-index.js';
+import { MemoryIndex, toMatchQuery } from '../../src/store/search-index.js';
 import { memoryRecord, PROJECT_A, PROJECT_B } from '../helpers/memories.js';
 
 const SCOPE = { kind: 'projects' as const, project_ids: [PROJECT_A] };
@@ -170,13 +170,5 @@ describe('toMatchQuery', () => {
 
   test('returns null when nothing usable remains', () => {
     expect(toMatchQuery('  , . a ')).toBeNull();
-  });
-});
-
-describe('normalizeBm25', () => {
-  test('maps more-negative scores to higher relevance in (0,1)', () => {
-    expect(normalizeBm25(0)).toBe(0);
-    expect(normalizeBm25(-1)).toBeCloseTo(0.5);
-    expect(normalizeBm25(-9)).toBeCloseTo(0.9);
   });
 });

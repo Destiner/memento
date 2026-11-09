@@ -31,6 +31,7 @@ import {
   updateMemoryInputShape,
 } from './store/memory-schema.js';
 import { searchMemories } from './store/memory-search.js';
+import { SEARCH_RANKER_VERSION } from './store/search-relevance.js';
 import { updateMemory } from './store/memory-update.js';
 import { openIndex } from './store/index-open.js';
 import { createProject } from './store/project-create.js';
@@ -57,7 +58,7 @@ export const SERVER_NAME = 'memento';
 // Kept in step with package.json by a test: the harness pools runs by the package
 // version while the event log records this one, so a drift between them silently
 // mixes pre- and post-change reps in one comparison.
-export const SERVER_VERSION = '0.4.0';
+export const SERVER_VERSION = '0.5.0';
 
 interface ToolCallResult {
   content: { type: 'text'; text: string }[];
@@ -256,6 +257,14 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
             maxLimit: resolved.config.max_result_limit,
           }),
         (result) => ({
+          search_ranker: SEARCH_RANKER_VERSION,
+          result_scores: result.results.map((r) => r.score),
+          search_limit: Math.min(
+            args.limit ?? resolved.config.default_result_limit,
+            resolved.config.max_result_limit,
+          ),
+          search_types: args.types,
+          search_statuses: args.status ?? ['active'],
           result_count: result.result_count,
           result_ids: result.results.map((r) => r.id),
           query_id: result.query_id,

@@ -13,7 +13,8 @@ tracker, or a secret manager.
 ## Features
 
 - Human-readable Markdown files are the source of truth.
-- SQLite FTS5 provides a rebuildable search index.
+- SQLite FTS5 provides a rebuildable, model-free search index; weak matches can
+  return fewer results or none rather than filling the requested limit.
 - Memories can be scoped to one or more registered projects or marked global.
 - Provenance and verification are explicit.
 - Deduplication, archival, and project resolution are built into the tool
@@ -23,7 +24,8 @@ tracker, or a secret manager.
   Claude Code and Codex histories.
 
 See [the memory policy](docs/memory-policy.md) for the complete storage and
-usage boundary.
+usage boundary. [Search behavior and limits](docs/search.md) describe lexical
+ranking, exact references, scope boundaries, and what result scores mean.
 
 ## Requirements
 

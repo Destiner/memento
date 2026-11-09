@@ -47,7 +47,15 @@ try {
   await mkdir(memoriesDir);
   for (const project of seed.projects) {
     await createProject(
-      { name: project.name, description: 'Offline evaluation fixture.' },
+      // Historical registries can contain duplicate display names. Retrieval
+      // validates opaque IDs only; do not merge or alias their distinct scopes.
+      {
+        name: project.id,
+        description: 'Offline evaluation fixture.',
+        force_create: true,
+        force_create_reason:
+          'Replay preserves distinct original IDs, even for similar project names.',
+      },
       { projectsDir, makeId: () => project.id },
     );
   }

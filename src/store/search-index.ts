@@ -29,12 +29,21 @@ import {
   type SearchScope,
   type VerificationLevel,
 } from './memory-schema.js';
+import {
+  assertTermBudget,
+  literalPattern,
+  literalTerms,
+  matchExpression,
+  searchQuery,
+  type QueryClause,
+} from './search-query.js';
+import { lexicalEvidence, type TermMatch } from './search-relevance.js';
 
 // In-memory database sentinel, used by tests and ephemeral runs.
 export const MEMORY_DB = ':memory:';
 
-// Re-rank a candidate pool this many times the requested limit, so a strong
-// metadata boost can lift a lexically-weaker memory into the top results.
+// Broad lexical retrieval precedes evidence-based acceptance. The requested
+// limit is a ceiling, not a target to fill with weak matches.
 const CANDIDATE_MULTIPLIER = 5;
 const CANDIDATE_FLOOR = 30;
 
@@ -43,19 +52,6 @@ const CANDIDATE_FLOOR = 30;
 // decides the gate is computed in JS, so the pool has to be wide enough that a
 // true duplicate cannot be ranked out of it by a lexically noisier neighbour.
 const DEDUPE_POOL_SIZE = 25;
-
-// Additive metadata adjustments applied on top of the 0..1 lexical score. Boosts
-// are modest so lexical relevance dominates; the archived penalty is large enough
-// to keep a retired memory below its replacement whenever both are requested.
-const RANK = {
-  titleMatch: 0.12,
-  descriptionMatch: 0.1,
-  active: 0.05,
-  archived: -0.4,
-  // Asserted-but-unchecked knowledge ranks below knowledge that was observed,
-  // confirmed, or sourced (§9).
-  unverified: -0.08,
-} as const;
 
 /**
  * A scope to filter by. `SearchScope` (which carries `match`) and a memory's own
@@ -92,8 +88,8 @@ export interface IndexedMemory {
   updated_at: string;
 }
 
-// One ranked hit. `bm25` is the raw SQLite score (more negative = better);
-// `score` is the adjusted 0..1 relevance.
+// `bm25` is raw lexical retrieval rank (more negative = better). `score` is
+// bounded query evidence, not a probability or confidence calibrated across queries.
 export interface SearchHit extends IndexedMemory {
   bm25: number;
   score: number;
@@ -112,11 +108,11 @@ interface MemoryRow {
   created_at: string;
   updated_at: string;
   bm25: number;
+  body: string;
 }
 
 const SELECT_COLUMNS = `m.id, m.title, m.description, m.type, m.scope_kind, m.project_ids,
-                m.status, m.source, m.verification, m.created_at, m.updated_at,
-                bm25(memories_fts) AS bm25`;
+                m.status, m.source, m.verification, m.created_at, m.updated_at`;
 
 export class MemoryIndex {
   private readonly db: DatabaseSync;
@@ -131,6 +127,13 @@ export class MemoryIndex {
   private applySchema(): void {
     this.db.exec(CREATE_MEMORIES_TABLE);
     this.db.exec(CREATE_MEMORIES_FTS);
+    // Connection-local views and scratch tokenizer do not change the persisted
+    // index schema. SQLite remains the single authority for stemming/diacritics.
+    this.db.exec(`
+      CREATE VIRTUAL TABLE temp.search_tokens USING fts5(value, tokenize='porter unicode61');
+      CREATE VIRTUAL TABLE temp.search_stems USING fts5vocab(temp, search_tokens, instance);
+      CREATE VIRTUAL TABLE temp.search_vocab USING fts5vocab(main, memories_fts, instance);
+    `);
   }
 
   // Insert or replace a memory in both tables. Idempotent on `id`.
@@ -161,30 +164,99 @@ export class MemoryIndex {
     return row.n;
   }
 
-  /**
-   * Ranked search: pull a lexical candidate pool from FTS, apply the metadata
-   * boosts and penalties, then return the top `limit` best-scoring hits.
-   *
-   * Returns [] for an empty or termless query rather than erroring on MATCH.
-   */
+  /** Broad FTS retrieval, followed by scope-local lexical evidence and abstention. */
   search(query: string, options: SearchOptions): SearchHit[] {
-    const terms = queryTerms(query);
-    if (terms.length === 0) return [];
+    const plan = searchQuery(query);
+    if (!plan.terms.length) return [];
+    const filter = filters(options);
+    const count = this.db
+      .prepare(`SELECT COUNT(*) AS n FROM memories m WHERE ${filter.clauses.join(' AND ')}`)
+      .get(...filter.params) as { n: number };
+    if (!count.n) return [];
 
+    const stems = this.queryStems(plan.terms);
+    const clauses: QueryClause[] = plan.clauses.map((clause) => ({
+      ...clause,
+      terms: [...new Set(clause.terms.flatMap((term) => stems.get(term) ?? []))],
+    }));
+    const terms = [...new Set(clauses.flatMap((clause) => clause.terms))];
+    if (!terms.length) return [];
+    const matches = this.db
+      .prepare(
+        `SELECT DISTINCT v.term, f.id, v.col AS column
+        FROM temp.search_vocab v
+        JOIN memories_fts f ON f.rowid = v.doc
+        JOIN memories m ON m.id = f.id
+        WHERE v.term IN (${placeholders(terms.length)}) AND ${filter.clauses.join(' AND ')}`,
+      )
+      .all(...terms, ...filter.params) as unknown as TermMatch[];
+    const evidence = lexicalEvidence(clauses, matches, count.n);
     const pool = Math.max(options.limit * CANDIDATE_MULTIPLIER, CANDIDATE_FLOOR);
-    const rows = this.selectPool(orQuery(terms), filters(options), pool);
+    const rows = this.selectPool(matchExpression(plan.terms), filter, pool, true);
 
-    const termSet = new Set(terms);
-    const ranked = rows.map((row) => {
-      const hit = toHit(row);
-      const rank = rankScore(hit, termSet);
-      hit.score = clamp01(rank);
-      return { hit, rank };
-    });
+    // Rescue each literal-bearing information need independently. Paginate past
+    // prefix/path decoys: limiting before the shared boundary check loses exact hits.
+    for (const clause of plan.clauses.filter((part) => part.literals.length)) {
+      const required = [...new Set(clause.literals.flatMap(literalTerms))];
+      if (!required.length) continue;
+      const exactFilter = {
+        clauses: [
+          ...filter.clauses,
+          'f.rowid IN (SELECT rowid FROM memories_fts WHERE memories_fts MATCH ?)',
+        ],
+        params: [...filter.params, matchExpression(required, ' AND ')],
+      };
+      const patterns = clause.literals.map(literalPattern);
+      let found = 0;
+      for (let offset = 0; found < pool; offset += pool) {
+        const batch = this.selectPool(matchExpression(plan.terms), exactFilter, pool, true, offset);
+        for (const row of batch) {
+          const text = `${row.title}\n${row.description}\n${row.body}`;
+          if (patterns.every((pattern) => pattern.test(text))) {
+            rows.push(row);
+            found++;
+          }
+        }
+        if (batch.length < pool) break;
+      }
+    }
+    const ranked: SearchHit[] = [];
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      const result = evidence(row);
+      if (result.accepted) ranked.push({ ...toIndexed(row), bm25: row.bm25, score: result.score });
+    }
+    ranked.sort(
+      (a, b) =>
+        b.score - a.score ||
+        Number(a.status === 'archived') - Number(b.status === 'archived') ||
+        Number(a.verification === 'unverified') - Number(b.verification === 'unverified') ||
+        a.bm25 - b.bm25 ||
+        b.updated_at.localeCompare(a.updated_at) ||
+        a.id.localeCompare(b.id),
+    );
+    return ranked.slice(0, options.limit);
+  }
 
-    // Sort by adjusted rank; break ties by recency (ISO timestamps sort lexically).
-    ranked.sort((a, b) => b.rank - a.rank || b.hit.updated_at.localeCompare(a.hit.updated_at));
-    return ranked.slice(0, options.limit).map((entry) => entry.hit);
+  private queryStems(terms: string[]): Map<string, string[]> {
+    this.db.exec('DELETE FROM temp.search_tokens');
+    const insert = this.db.prepare('INSERT INTO temp.search_tokens (rowid, value) VALUES (?, ?)');
+    terms.forEach((term, i) => insert.run(i + 1, term));
+    const rows = this.db.prepare('SELECT term, doc FROM temp.search_stems').all() as {
+      term: string;
+      doc: number;
+    }[];
+    assertTermBudget(new Set(rows.map((row) => row.term)).size);
+    const out = new Map<string, string[]>();
+    for (const row of rows) {
+      const key = terms[row.doc - 1]!;
+      const values = out.get(key) ?? [];
+      values.push(row.term);
+      out.set(key, values);
+    }
+    return out;
   }
 
   /**
@@ -210,18 +282,25 @@ export class MemoryIndex {
     this.db.close();
   }
 
-  private selectPool(match: string, filter: SqlFilter, limit: number): MemoryRow[] {
+  private selectPool(
+    match: string,
+    filter: SqlFilter,
+    limit: number,
+    weighted = false,
+    offset = 0,
+  ): MemoryRow[] {
     const where = ['memories_fts MATCH ?', ...filter.clauses].join(' AND ');
+    const rank = weighted ? 'bm25(memories_fts, 0, 4, 2, 1)' : 'bm25(memories_fts)';
     return this.db
       .prepare(
-        `SELECT ${SELECT_COLUMNS}
+        `SELECT ${SELECT_COLUMNS}, ${weighted ? 'f.body' : "'' AS body"}, ${rank} AS bm25
          FROM memories_fts f
          JOIN memories m ON m.id = f.id
          WHERE ${where}
-         ORDER BY bm25 ASC
-         LIMIT ?;`,
+         ORDER BY bm25 ASC${weighted ? ', m.id ASC' : ''}
+         LIMIT ? OFFSET ?;`,
       )
-      .all(match, ...filter.params, limit) as unknown as MemoryRow[];
+      .all(match, ...filter.params, limit, offset) as unknown as MemoryRow[];
   }
 
   private deleteById(id: string): void {
@@ -353,48 +432,6 @@ export function toMatchQuery(query: string): string | null {
   return orQuery(terms);
 }
 
-/**
- * Adjust the lexical score with metadata boosts and penalties.
- *
- * Title and description matches are rewarded because both are short, curated
- * fields — a term hit there says more than the same hit buried in a body. Status
- * and verification move a memory relative to its peers rather than filtering it.
- */
-function rankScore(hit: SearchHit, terms: Set<string>): number {
-  let score = hit.score;
-
-  if (matchesTerms([hit.title], terms)) score += RANK.titleMatch;
-  if (matchesTerms([hit.description], terms)) score += RANK.descriptionMatch;
-
-  if (hit.status === 'active') score += RANK.active;
-  else if (hit.status === 'archived') score += RANK.archived;
-
-  if (hit.verification === 'unverified') score += RANK.unverified;
-
-  return score;
-}
-
-// True when any query term appears as a token within one of the values (so
-// "billing" matches a title containing "billing-service").
-function matchesTerms(values: string[], terms: Set<string>): boolean {
-  return values.some((value) =>
-    value
-      .toLowerCase()
-      .split(/[^\p{L}\p{N}]+/u)
-      .some((token) => token.length >= 2 && terms.has(token)),
-  );
-}
-
-function clamp01(value: number): number {
-  return Math.min(1, Math.max(0, value));
-}
-
-// Map bm25 (more negative is better) onto a monotonic 0..1 lexical relevance.
-export function normalizeBm25(bm25: number): number {
-  const relevance = Math.max(0, -bm25);
-  return relevance / (relevance + 1);
-}
-
 function toIndexed(row: MemoryRow): IndexedMemory {
   const projectIds = JSON.parse(row.project_ids) as string[];
   return {
@@ -412,8 +449,4 @@ function toIndexed(row: MemoryRow): IndexedMemory {
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
-}
-
-function toHit(row: MemoryRow): SearchHit {
-  return { ...toIndexed(row), bm25: row.bm25, score: normalizeBm25(row.bm25) };
 }

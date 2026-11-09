@@ -26,6 +26,7 @@ import { z } from 'zod';
 
 import { validate } from '../validation.js';
 import { MEMORY_ID_PATTERN, PROJECT_ID_PATTERN } from './path-safety.js';
+import { MAX_SEARCH_QUERY_LENGTH } from './search-query.js';
 
 // Exactly one type per memory (§7). `other` is deliberately last and
 // deliberately discouraged: a rising `other` rate means the taxonomy needs a new
@@ -283,7 +284,7 @@ export const searchScopeSchema = z.discriminatedUnion('kind', [
  * exists so the event log can record what the agent thought it was doing.
  */
 export const searchMemoriesInputShape = {
-  query: nonEmpty,
+  query: nonEmpty.max(MAX_SEARCH_QUERY_LENGTH),
   scope: searchScopeSchema,
   types: z.array(memoryTypeSchema).min(1).optional(),
   status: z.array(memoryStatusSchema).min(1).default(['active']),

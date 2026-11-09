@@ -340,6 +340,10 @@ describe('instrumentation', () => {
     expect(byTool.get('create_project')).toMatchObject({ project_ids: [projectId] });
     expect(byTool.get('update_project')).toMatchObject({ project_ids: [projectId] });
     expect(byTool.get('search_memories')).toMatchObject({
+      search_ranker: 'lexical-evidence-v1',
+      search_limit: 5,
+      search_statuses: ['active'],
+      result_scores: [expect.any(Number)],
       project_ids: [projectId],
       result_ids: [memoryId],
     });
@@ -360,6 +364,32 @@ describe('instrumentation', () => {
     expect(creates[1]).not.toHaveProperty('memory_id');
   });
 
+  test('logs effective limits, validated filters, and returned scores without changing results', async () => {
+    const { projectId } = await exerciseEveryTool();
+    for (const [limit, effective] of [
+      [2, 2],
+      [100, 10],
+    ]) {
+      const result = await structured('search_memories', {
+        query: 'invoice retries',
+        scope: { kind: 'projects', project_ids: [projectId] },
+        types: ['debugging_pattern'],
+        status: ['active', 'archived'],
+        limit,
+      });
+      const events = await waitForEvents(effective === 2 ? 10 : 11);
+      expect(events.at(-1)).toMatchObject({
+        search_ranker: 'lexical-evidence-v1',
+        search_limit: effective,
+        search_types: ['debugging_pattern'],
+        search_statuses: ['active', 'archived'],
+        result_scores: (result.results as { score: number }[]).map((r) => r.score),
+      });
+      expect(result).not.toHaveProperty('search_ranker');
+      expect(result).not.toHaveProperty('search_limit');
+    }
+  });
+
   test('writes ids and counts but never human-readable content', async () => {
     await exerciseEveryTool();
     const events = await waitForEvents(9);
@@ -375,6 +405,37 @@ describe('instrumentation', () => {
     ]) {
       expect(raw).not.toContain(secret);
     }
+    expect(raw).not.toContain(home);
+    const search = events.find((event) => event.tool === 'search_memories')!;
+    expect(Object.keys(search).sort()).toEqual(
+      [
+        'event_id',
+        'timestamp',
+        'session_id',
+        'server_version',
+        'policy_version',
+        'variant',
+        'client_name',
+        'client_version',
+        'log_schema_version',
+        'tool',
+        'outcome',
+        'latency_ms',
+        'search_ranker',
+        'result_scores',
+        'search_limit',
+        'search_statuses',
+        'result_count',
+        'result_ids',
+        'query_id',
+        'query_length',
+        'filters_used',
+        'match_mode',
+        'scope_kind',
+        'project_count',
+        'project_ids',
+      ].sort(),
+    );
     // The lengths and counts derived from that content are fine to keep.
     expect(events.find((event) => event.tool === 'search_memories')?.query_length).toBe(
       'invoice retries duplicate charges'.length,
