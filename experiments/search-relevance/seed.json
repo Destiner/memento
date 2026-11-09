@@ -1,0 +1,738 @@
+{
+  "version": 1,
+  "description": "Independent, fully synthetic English retrieval relevance fixture, authored before any retrieval or ranking runs. Not part of the agent usage-propensity harness and not derived from live memories or private user data. Eligibility: omitted status means active only; an explicit status array is inclusive. Global scope returns only global memories. Project scope returns only project-scoped memories; omitted match means any project intersection, while all requires the memory to include every requested project. Relevance is binary usefulness to the stated information need, not mere topical overlap; relevant lists enumerate all eligible useful memories, with no top-k truncation or ordering significance. Spelling mistakes retain their apparent intended meaning. Development and heldout queries share the fixed corpus; heldout is diagnostic, not a fresh validated ship-quality holdout. Small hand-authored cases intentionally cover both lexical and semantic needs without claiming a representative production distribution. Verification values are synthetic metadata, not evidence of real observations. Freeze this corpus and these judgments before evaluating alternatives; do not revise labels in response to ranking outcomes.",
+  "projects": [
+    { "id": "prj_labA", "name": "Copperleaf Workspace" },
+    { "id": "prj_labB", "name": "Harbor Ledger" }
+  ],
+  "memories": [
+    {
+      "id": "mem_amail",
+      "title": "Copperleaf transactional mail provider choice",
+      "description": "Use Postmark for account messages, not the newsletter service.",
+      "body": "Copperleaf sends password resets and account invitations through Postmark. The team selected its separate transactional message stream because newsletter bursts must not delay account access. This decision covers delivery transport, not address suppression or inbound mail processing.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "decision_history",
+      "verification": "user_confirmed"
+    },
+    {
+      "id": "mem_amailduplicate",
+      "title": "Invitation emails repeated after worker restarts",
+      "description": "An outbox uniqueness constraint prevents duplicate invitation delivery.",
+      "body": "The invitation worker can resume the same outbox row after a crash. Persist a delivery key consisting of invitation id and template revision under a unique database constraint before dispatch. A process-local sent flag disappeared on restart and was rejected. This applies to invitations, not password reset token generation.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "debugging_pattern",
+      "verification": "observed_once"
+    },
+    {
+      "id": "mem_acache",
+      "title": "Workspace preview cache stays in process",
+      "description": "A bounded LRU replaced a network cache for disposable previews.",
+      "body": "Copperleaf preview rendering uses a process-local LRU capped at 180 entries. Previews are cheap to regenerate and each deployment runs one rendering process. The team rejected Redis for this path because another service added operational burden without a sharing benefit. This cache is not used for authentication or invoice state.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "decision_history"
+    },
+    {
+      "id": "mem_atimezone",
+      "title": "Scheduled digest day boundary",
+      "description": "Date bucketing must follow the recipient rather than the worker host.",
+      "body": "For Copperleaf daily digests, digestBucketZone is the recipient's saved IANA zone. Compute local midnight in that zone before selecting events; truncating a UTC timestamp caused the first hour of a local day to appear in yesterday's digest. The deployment host timezone is irrelevant.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_amigration",
+      "title": "Serialize schema migrations during rollout",
+      "description": "Parallel migration runners need a database advisory lock.",
+      "body": "Copperleaf once launched two migration runners during a rolling deployment. Both observed the same pending migration and attempted its DDL. Acquire PostgreSQL advisory lock 48127 on a dedicated connection before reading migration state, and hold it until commit. A filesystem lock cannot coordinate separate containers.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_achargeretry",
+      "title": "chargeAttemptKey must survive payment retries",
+      "description": "Outbound charge retries reuse a stable idempotency key.",
+      "body": "Copperleaf sends chargeAttemptKey as the payment gateway idempotency key. Store it on the invoice attempt before the first outbound request and reuse it after timeout or worker restart. Generating a fresh key on each retry can charge the customer twice. A deliberate new payment attempt receives a new key.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_acsvsafety",
+      "title": "Spreadsheet formulas in contact CSV exports",
+      "description": "Quoting CSV fields alone does not neutralize executable cell prefixes.",
+      "body": "Copperleaf contact exports are opened in spreadsheet applications. Prefix user-provided cells beginning with =, +, -, or @ with an apostrophe, then perform normal CSV quoting. The rule was adopted after a contact display name was evaluated as a formula. It does not specify streaming or storage retention.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_areact",
+      "title": "Autosave captures an obsolete draft",
+      "description": "A long-lived editor callback read the render that installed it.",
+      "body": "Copperleaf's editor registered its save callback once, so later keystrokes updated the visible draft but the callback still sent the initial text. Read the current draft from a ref updated on each edit. Reinstalling the subscription for every keystroke lost queued saves and was rejected.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_avite",
+      "title": "VITE_PUBLIC_ORIGIN is compiled into the browser bundle",
+      "description": "Changing container runtime environment does not change the web origin.",
+      "body": "Copperleaf's Vite build replaces VITE_PUBLIC_ORIGIN when generating browser assets. Setting that variable only on the running container leaves links pointing at the build-time origin. Build a separate asset bundle per deployment origin; do not attempt to fix this by restarting the same image.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "environment_workflow_quirk"
+    },
+    {
+      "id": "mem_aplaywright",
+      "title": "Invitation browser tests share a consumed token",
+      "description": "Each parallel worker needs its own invitation fixture.",
+      "body": "Copperleaf invitation acceptance tests failed only in parallel because every Playwright worker used the same single-use invitation token. Generate a separate invitation and mailbox fixture per worker. Longer navigation timeouts did not help because the second acceptance was correctly rejected by the server.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_as3",
+      "title": "Attachment signatures bind the content type",
+      "description": "Presigned S3 uploads fail when the browser changes a signed header.",
+      "body": "Copperleaf signs Content-Type when creating S3 attachment upload URLs. The browser must send exactly the type passed to the signer; allowing it to infer a different MIME type produces SignatureDoesNotMatch. Record the chosen type with the upload form and reuse it for the PUT request.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_aproration",
+      "title": "Plan changes start at the next billing boundary",
+      "description": "Copperleaf does not calculate mid-cycle prorated credits.",
+      "body": "Copperleaf schedules plan upgrades and downgrades for the next renewal. Support wanted a predictable invoice rather than a partial-period credit calculation. The product deliberately has no mid-cycle proration formula; do not silently introduce one while changing the plan picker.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "product_rationale"
+    },
+    {
+      "id": "mem_awebhook",
+      "title": "Verify payment webhooks before JSON parsing",
+      "description": "The gateway signature covers original request bytes.",
+      "body": "Copperleaf payment callback signatures must be checked against the raw request body before JSON middleware runs. Parsing and serializing the payload changes whitespace and can invalidate a legitimate signature. Keep the signature verifier on the raw-body route; this note does not define callback deduplication.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_asearchaccents",
+      "title": "Contact lookup ignores accent marks",
+      "description": "Search keys are folded separately from display names.",
+      "body": "Copperleaf contact lookup decomposes Unicode names and removes combining accent marks from a separate search key. This lets Jose locate José without changing the displayed name. Keep the original text for rendering. This decision does not provide semantic vectors or approximate nearest-neighbor search.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "decision_history"
+    },
+    {
+      "id": "mem_asearchtenant",
+      "title": "Contact lookup must remain workspace isolated",
+      "description": "Tenant filtering belongs inside the lookup query.",
+      "body": "Copperleaf contact lookup includes workspace_id in the database predicate before applying the result limit. Fetching the best matches globally and filtering afterward leaked counts and could produce empty pages for small tenants. An accent-folded name key is not an authorization boundary.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_aredisold",
+      "title": "Retired Redis preview cache experiment",
+      "description": "An archived prototype used a ninety-second Redis TTL.",
+      "body": "In the retired Copperleaf preview-cache prototype, Redis entries expired after 90 seconds and were keyed by document revision. It was removed when previews moved to a bounded local LRU. This is historical context only, not current cache guidance.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "archived",
+      "type": "decision_history"
+    },
+    {
+      "id": "mem_aexportretention",
+      "title": "Contact export download lifetime",
+      "description": "Completed contact exports are deleted after one day.",
+      "body": "Copperleaf contact CSV exports contain personal information. Delete generated export objects after 24 hours and issue download links valid for ten minutes. Support approved regeneration instead of retaining old exports indefinitely. These limits apply to contact exports, not attachment uploads.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "product_rationale"
+    },
+    {
+      "id": "mem_aauth",
+      "title": "Session cookie disappears behind the local TLS proxy",
+      "description": "Trust the known proxy to preserve secure session cookies.",
+      "body": "Copperleaf's local integration environment terminates HTTPS at a reverse proxy. The application thought requests were plain HTTP and omitted its secure session cookie. Trust forwarded protocol headers only from the configured proxy address; disabling the Secure flag would conceal the problem and weaken deployment behavior.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": "active",
+      "type": "environment_workflow_quirk"
+    },
+    {
+      "id": "mem_bmail",
+      "title": "Ledger statement delivery uses Amazon SES",
+      "description": "Statement mail must use the verified regional SES identity.",
+      "body": "Harbor Ledger delivers monthly statement emails through Amazon SES in eu-west-1. The sending identity is verified in that region only, so using another region produces identity-not-verified errors. This is a statement delivery constraint, not guidance about inbound message handling or suppression lists.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "environment_workflow_quirk"
+    },
+    {
+      "id": "mem_bcache",
+      "title": "Shared exchange-rate cache uses Redis",
+      "description": "Ledger replicas share rates under a versioned Redis key.",
+      "body": "Harbor Ledger keeps imported exchange-rate tables in Redis because several reconciliation replicas must see the same daily snapshot. Keys include the feed revision and expire after six hours. A local LRU alone was rejected because rolling replicas could reconcile against different revisions.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "decision_history"
+    },
+    {
+      "id": "mem_bpool",
+      "title": "Report jobs exhaust database connections",
+      "description": "Allocate the PostgreSQL connection budget across worker processes.",
+      "body": "Harbor Ledger opened a pool of twenty connections in each of twelve report workers, exceeding the database's total budget of eighty. Limit each worker pool to four and reserve the remaining connections for interactive requests and maintenance. Retrying connection failures without reducing per-worker pools made the outage worse.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_bwebhook",
+      "title": "Partner settlement callbacks require raw-body verification",
+      "description": "Reformatted JSON fails the partner's HMAC check.",
+      "body": "Harbor Ledger's settlement partner signs the original HTTP body with HMAC. Verify those bytes before parsing the callback JSON. Re-encoding parsed JSON changes the signed input. The partner secret and signature header differ from Copperleaf's payment integration; do not copy that route's configuration.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_bdeploy",
+      "title": "Settlement imports run on a persistent worker VM",
+      "description": "Long-running imports outgrew the old function deployment.",
+      "body": "Harbor Ledger moved settlement imports from short-lived functions to a supervised worker on a persistent VM. A complete import can take forty minutes, exceeding the old execution limit. The worker checkpoints after each input file so a restart resumes rather than replaying the entire batch.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "decision_history"
+    },
+    {
+      "id": "mem_bdeployold",
+      "title": "Retired function deployment for settlement imports",
+      "description": "The original function importer had a four-minute execution cap.",
+      "body": "Harbor Ledger's retired function importer was configured with a four-minute timeout and one invocation per input file. Larger settlement files regularly exceeded that cap. This record is archived because a persistent worker replaced the function deployment; it does not describe the current runtime.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "archived",
+      "type": "environment_workflow_quirk"
+    },
+    {
+      "id": "mem_bcsv",
+      "title": "Stream reconciliation CSV output",
+      "description": "Backpressure avoids buffering an entire export in memory.",
+      "body": "Harbor Ledger reconciliation CSV exports can contain millions of machine-generated numeric rows. Pipe the database cursor into a streaming CSV writer and respect response backpressure. Building one large string caused the worker to exceed its memory limit. This note does not set download retention or handle user-entered spreadsheet formulas.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_btimezone",
+      "title": "Settlement reports use the bank's business date",
+      "description": "UTC arrival time is not the accounting day.",
+      "body": "Harbor Ledger assigns imported settlements to the business_date field supplied by the bank. An overnight file may arrive on a different UTC calendar day. Group reports by business_date rather than arrival timestamp; do not infer it from a recipient's timezone or a server clock.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "product_rationale"
+    },
+    {
+      "id": "mem_bcargo",
+      "title": "Cargo target directory cannot be shared by parallel builds",
+      "description": "Separate target paths remove build-lock contention in CI.",
+      "body": "Harbor Ledger's Rust parser CI jobs stalled while sharing one writable Cargo target directory on the same runner. Give each job a distinct CARGO_TARGET_DIR, then restore the shared read-only dependency cache into it. The bottleneck was a build directory lock, not dependency download latency.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "environment_workflow_quirk"
+    },
+    {
+      "id": "mem_bs3",
+      "title": "Settlement downloads must target the bucket region",
+      "description": "Regional S3 endpoints avoid rejected signed download requests.",
+      "body": "Harbor Ledger's settlement archive bucket is in eu-central-1. Presigned download URLs created with a us-east-1 client were rejected even though the object key existed. Configure the signer with the bucket's region; changing Content-Type is not a fix for this download failure.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_bsms",
+      "title": "SMS rate-limit retries honor Retry-After",
+      "description": "Delayed alert delivery should not amplify gateway throttling.",
+      "body": "Harbor Ledger sends reconciliation failure alerts through an SMS gateway. On HTTP 429, schedule the next attempt after the Retry-After interval with a small jitter rather than immediately retrying. Stop after three attempts and surface an operator alert. This policy is not an email or payment retry policy.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_brounding",
+      "title": "Round only the final reconciliation difference",
+      "description": "Rounding each line can invent a payment mismatch.",
+      "body": "Harbor Ledger compares paid amounts with invoice totals using exact decimal arithmetic. Sum line amounts at full precision and round only the final difference to the currency's minor unit. Per-line rounding created false one-cent mismatches. This note concerns reconciliation, not plan-change proration.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_bsearch",
+      "title": "Statement references keep their leading zeros",
+      "description": "Reference search tokens must remain strings.",
+      "body": "Harbor Ledger statement-reference lookup indexes the full reference as text, including leading zeros. Converting 000713 to a number before building the search token made distinct bank references collide. Preserve the original reference in storage and in lookup requests. This is exact lookup, not semantic search.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_gworktree",
+      "title": "Linked Git worktrees can have a .git file",
+      "description": "Repository discovery should ask Git instead of requiring a directory.",
+      "body": "A linked worktree stores a pointer in a .git file rather than a .git directory. Tools that test only for a directory incorrectly report that the checkout is not a repository. Use git rev-parse --show-toplevel to discover the working tree root.",
+      "scope": { "kind": "global" },
+      "status": "active",
+      "type": "environment_workflow_quirk"
+    },
+    {
+      "id": "mem_gsecrets",
+      "title": "Do not expose credentials through shell tracing",
+      "description": "Secret-bearing commands must run with tracing disabled.",
+      "body": "Shell xtrace expands variables into diagnostic output, including credentials read from protected files. Disable tracing before consuming a secret and pass it through standard input or a credential-file option. Merely storing a credential in a temporary file does not prevent a traced command from exposing its contents.",
+      "scope": { "kind": "global" },
+      "status": "active",
+      "type": "preference",
+      "verification": "user_confirmed"
+    },
+    {
+      "id": "mem_gsqlite",
+      "title": "SQLite WAL backups need a consistent snapshot",
+      "description": "Copying only the main database can omit committed writes.",
+      "body": "In SQLite WAL mode, committed changes can still reside in the write-ahead log. Copying only the main database file while writers run can produce an incomplete backup. Use the SQLite online backup API to obtain a consistent snapshot instead of manually copying individual files.",
+      "scope": { "kind": "global" },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_gunicode",
+      "title": "NFC avoids canonically equivalent filename mismatches",
+      "description": "Normalize Unicode before comparing externally supplied filenames.",
+      "body": "A filename containing a composed accented character can look identical to one containing a base character and a combining mark while comparing unequal by code point. Normalize both comparison operands to NFC. This preserves accents; stripping them is a different search policy and is not appropriate for filename identity.",
+      "scope": { "kind": "global" },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_ga11y",
+      "title": "Restore keyboard focus when closing a dialog",
+      "description": "Return focus to the invoking control rather than the document body.",
+      "body": "Remember the control that opened a modal dialog and return keyboard focus to it when the dialog closes. Otherwise keyboard users lose their place in the interaction. If the invoking control was removed, choose the next logical control in the workflow instead of focusing a hidden element.",
+      "scope": { "kind": "global" },
+      "status": "active",
+      "type": "preference"
+    },
+    {
+      "id": "mem_gpnpm",
+      "title": "pnpm symlinks change dependency ownership checks",
+      "description": "Resolve the real package path before applying an ownership allowlist.",
+      "body": "pnpm links packages from a virtual store, so a dependency's apparent path and its resolved real path can differ. A source ownership checker rejected valid dependencies because it compared the symlink path to an allowlist of real paths. Resolve paths consistently on both sides before comparison; do not disable the ownership check.",
+      "scope": { "kind": "global" },
+      "status": "active",
+      "type": "environment_workflow_quirk"
+    },
+    {
+      "id": "mem_gtimers",
+      "title": "Advance fake timers asynchronously for promise callbacks",
+      "description": "A synchronous clock advance can leave queued promise work pending.",
+      "body": "In Vitest, a timer callback that awaits a promise may not finish after a synchronous timer advance. Use advanceTimersByTimeAsync and await it before asserting on the callback's effects. Increasing the test timeout hides the scheduling mistake rather than fixing it.",
+      "scope": { "kind": "global" },
+      "status": "active",
+      "type": "debugging_pattern"
+    },
+    {
+      "id": "mem_gredaction",
+      "title": "Tracing attributes must redact authorization headers",
+      "description": "Diagnostic spans must not retain bearer credentials.",
+      "body": "An HTTP tracing wrapper must remove Authorization and Cookie header values before attaching request attributes to spans. Redact at collection time, not only in the dashboard, because exporters and local buffers otherwise retain the original values. This rule concerns telemetry payloads rather than shell command tracing.",
+      "scope": { "kind": "global" },
+      "status": "active",
+      "type": "preference"
+    },
+    {
+      "id": "mem_sharedmoney",
+      "title": "Invoice handoff preserves money as decimal strings",
+      "description": "Copperleaf and Harbor Ledger share a precision-preserving wire contract.",
+      "body": "Copperleaf emits invoice monetary amounts as decimal strings and Harbor Ledger consumes them without a JavaScript Number conversion. This shared handoff contract prevents binary floating-point precision loss before reconciliation. Both sides must retain the decimal string representation when evolving the invoice payload; changing only one producer or consumer breaks the contract.",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA", "prj_labB"] },
+      "status": "active",
+      "type": "cross_project_context",
+      "verification": "user_confirmed"
+    }
+  ],
+  "queries": [
+    {
+      "id": "q01",
+      "split": "development",
+      "category": "exact_identifier",
+      "query": "How should chargeAttemptKey behave after an outbound payment request times out?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_achargeretry"],
+      "rationale": "Only the charge retry memory specifies persistence and reuse of this key after a timeout; webhook verification and money representation do not answer the retry need."
+    },
+    {
+      "id": "q02",
+      "split": "development",
+      "category": "natural_language_multiple",
+      "query": "Which service should send Copperleaf account invitations, why was it chosen, and how do we avoid sending the same invitation again after a worker crash?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_amail", "mem_amailduplicate"],
+      "rationale": "The provider decision answers transport and rationale; the outbox memory answers crash-safe invitation deduplication. Browser token isolation does not address delivery duplication."
+    },
+    {
+      "id": "q03",
+      "split": "development",
+      "category": "keyword",
+      "query": "preview cache bounded LRU rationale",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_acache"],
+      "rationale": "The active preview cache decision provides the bound and reason for a local LRU. The historical Redis prototype is ineligible under default active-only status."
+    },
+    {
+      "id": "q04",
+      "split": "development",
+      "category": "multiple_complementary",
+      "query": "For contact CSV exports, how should we prevent spreadsheet formula execution and how long may the generated files and download links remain available?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_acsvsafety", "mem_aexportretention"],
+      "rationale": "Cell sanitization and file/link lifetimes are separate explicit requirements answered by these two memories. Other CSV implementation details would not satisfy these needs."
+    },
+    {
+      "id": "q05",
+      "split": "development",
+      "category": "body_only_identifier",
+      "query": "What does digestBucketZone control?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_atimezone"],
+      "rationale": "The exact identifier appears only in the digest memory body, which defines its recipient-local day-boundary semantics."
+    },
+    {
+      "id": "q06",
+      "split": "development",
+      "category": "stemming",
+      "query": "Why must migrating containers serialize their schema changes?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_amigration"],
+      "rationale": "The migration memory explains the concurrent runner race and database lock, despite inflection differences between migrating and migration. Cache and session notes do not explain schema-change coordination."
+    },
+    {
+      "id": "q07",
+      "split": "development",
+      "category": "typo",
+      "query": "PostgreSQL migraiton advisroy lock during rollout",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_amigration"],
+      "rationale": "The intended words are migration and advisory. The schema rollout memory is the only eligible record about that lock and its lifetime."
+    },
+    {
+      "id": "q08",
+      "split": "development",
+      "category": "low_overlap_paraphrase",
+      "query": "Typing looks right on screen, yet persisting the document submits its original contents. What workaround keeps the handler from using yesterday's state?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_areact"],
+      "rationale": "The obsolete autosave closure exactly explains visible edits versus initial text being sent and supplies the current-draft ref workaround. No other eligible memory concerns this symptom."
+    },
+    {
+      "id": "q09",
+      "split": "development",
+      "category": "unseen_vendor_shared_words_negative",
+      "query": "How do I configure Mailgun suppression-list synchronization for account email delivery?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": [],
+      "rationale": "No memory covers Mailgun or suppression-list synchronization. Choosing Postmark for account delivery is related vocabulary, not instructions for the requested vendor integration."
+    },
+    {
+      "id": "q10",
+      "split": "development",
+      "category": "nonsense_with_common_terms_negative",
+      "query": "Why does a moon-cheese capacitor invalidate the preview cache after login?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": [],
+      "rationale": "The fictional capacitor mechanism has no support in the corpus. Preview cache and session memories do not establish this cause or describe login-driven invalidation."
+    },
+    {
+      "id": "q11",
+      "split": "development",
+      "category": "near_domain_unanswerable_negative",
+      "query": "Which embedding model and vector dimension did we choose for semantic contact search?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": [],
+      "rationale": "Contact lookup memories cover accent folding and workspace filtering only. They provide neither an embedding model nor vector dimensions, and do not document a semantic search choice."
+    },
+    {
+      "id": "q12",
+      "split": "development",
+      "category": "single_term_legitimate",
+      "query": "pnpm",
+      "scope": { "kind": "global" },
+      "relevant": ["mem_gpnpm"],
+      "rationale": "A broad one-term lookup for pnpm legitimately retrieves its one global workflow pitfall; unrelated global tools are not useful."
+    },
+    {
+      "id": "q13",
+      "split": "development",
+      "category": "status_hard_negative",
+      "query": "What was the exact TTL in the retired Redis preview prototype?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": [],
+      "rationale": "Only the archived prototype specifies the ninety-second TTL and is excluded by default. The active LRU decision mentions Redis but does not supply that historical value."
+    },
+    {
+      "id": "q14",
+      "split": "development",
+      "category": "archived_explicit_positive",
+      "query": "What was the exact TTL in the retired Redis preview prototype?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "status": ["archived"],
+      "relevant": ["mem_aredisold"],
+      "rationale": "Explicit archived eligibility admits the prototype record, which states ninety seconds. Active records are excluded."
+    },
+    {
+      "id": "q15",
+      "split": "development",
+      "category": "project_scope_hard_negative",
+      "query": "How do we fix parallel Cargo builds blocked on the shared target directory?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": [],
+      "rationale": "The matching Cargo root cause exists only in Harbor Ledger, outside the requested Copperleaf scope. No eligible memory gives a Rust build remedy."
+    },
+    {
+      "id": "q16",
+      "split": "development",
+      "category": "cross_project_any_multiple",
+      "query": "Why must invoice handoff amounts remain decimal strings, and at what stage should Ledger round the paid-amount reconciliation difference?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA", "prj_labB"], "match": "any" },
+      "relevant": ["mem_sharedmoney", "mem_brounding"],
+      "rationale": "Any admits the shared precision contract and Ledger-only final-rounding rule. The plan-change note concerns renewal timing, not money encoding or reconciliation rounding."
+    },
+    {
+      "id": "q17",
+      "split": "development",
+      "category": "cross_project_all_scope_boundary",
+      "query": "Why must invoice handoff amounts remain decimal strings, and at what stage should Ledger round the paid-amount reconciliation difference?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA", "prj_labB"], "match": "all" },
+      "relevant": ["mem_sharedmoney"],
+      "rationale": "All admits only the shared memory, which usefully answers the decimal-string clause. Ledger's rounding rule would answer the second clause but is ineligible because it lacks Copperleaf scope. Partial useful answers count as relevant."
+    },
+    {
+      "id": "q18",
+      "split": "development",
+      "category": "global_scope_hard_negative",
+      "query": "Why did Copperleaf choose a process-local preview LRU instead of Redis?",
+      "scope": { "kind": "global" },
+      "relevant": [],
+      "rationale": "The answer exists in a project-scoped memory, not the global collection. Scope does not widen just because a project name appears in query text."
+    },
+    {
+      "id": "q19",
+      "split": "development",
+      "category": "natural_language",
+      "query": "Can I back up a busy SQLite WAL database by copying only its main file? What is the safe alternative?",
+      "scope": { "kind": "global" },
+      "relevant": ["mem_gsqlite"],
+      "rationale": "The SQLite memory explains omitted committed WAL writes and recommends the online backup API. No other global memory addresses database snapshots."
+    },
+    {
+      "id": "q20",
+      "split": "development",
+      "category": "multiple_related_integrations",
+      "query": "How should we verify incoming payment webhook signatures and keep outbound charge retries from charging twice?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_awebhook", "mem_achargeretry"],
+      "rationale": "Raw-body verification answers the incoming signature need, while stable idempotency keys answer outbound duplicate charges. Invoice decimal encoding does not answer either clause."
+    },
+    {
+      "id": "q21",
+      "split": "heldout",
+      "category": "exact_identifier",
+      "query": "Why did changing VITE_PUBLIC_ORIGIN on the running container leave browser links unchanged?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_avite"],
+      "rationale": "The build-time substitution memory explains this exact environment variable and why reusing the image cannot change it."
+    },
+    {
+      "id": "q22",
+      "split": "heldout",
+      "category": "vendor_positive",
+      "query": "Amazon SES statement delivery reports identity not verified; which region is required?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "relevant": ["mem_bmail"],
+      "rationale": "The statement mail memory explicitly ties the verified SES identity to eu-west-1. The S3 bucket region is for a different service and does not answer this need."
+    },
+    {
+      "id": "q23",
+      "split": "heldout",
+      "category": "natural_language_decision",
+      "query": "Why do current settlement imports run on a persistent VM, and how should they resume after restart?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "relevant": ["mem_bdeploy"],
+      "rationale": "The active deployment memory gives both the execution-limit rationale and per-file checkpoints. The retired function configuration is excluded and would not describe current restart behavior."
+    },
+    {
+      "id": "q24",
+      "split": "heldout",
+      "category": "archived_inclusive_status",
+      "query": "What exact timeout and invocation granularity did the retired settlement function importer use?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "status": ["active", "archived"],
+      "relevant": ["mem_bdeployold"],
+      "rationale": "Only the archived record supplies the four-minute setting and one invocation per file. The current worker record mentions an old limit but provides neither requested historical configuration value."
+    },
+    {
+      "id": "q25",
+      "split": "heldout",
+      "category": "single_term_legitimate",
+      "query": "NFC",
+      "scope": { "kind": "global" },
+      "relevant": ["mem_gunicode"],
+      "rationale": "The sole global NFC memory defines its filename-comparison use. Accent stripping is a distinct policy and is outside global scope anyway."
+    },
+    {
+      "id": "q26",
+      "split": "heldout",
+      "category": "keyword",
+      "query": "reconciliation CSV export memory pressure backpressure streaming",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "relevant": ["mem_bcsv"],
+      "rationale": "The CSV memory describes the large-string allocation failure and cursor-to-writer streaming remedy. Other report infrastructure memories do not address export buffering."
+    },
+    {
+      "id": "q27",
+      "split": "heldout",
+      "category": "low_overlap_paraphrase",
+      "query": "A dozen reporting processes each reserve twenty database sockets, but the server permits only eighty altogether. How should we divide that allowance?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "relevant": ["mem_bpool"],
+      "rationale": "The connection-budget memory gives the exact process-multiplication root cause and four-per-worker allocation with headroom. Streaming exports addresses heap use rather than database socket allocation."
+    },
+    {
+      "id": "q28",
+      "split": "heldout",
+      "category": "stemming",
+      "query": "Rounding reconciled payments line by line creates penny discrepancies; when should we round?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "relevant": ["mem_brounding"],
+      "rationale": "The final-difference rounding rule directly explains per-line one-cent mismatches. The shared decimal-string contract prevents wire precision loss but neither prescribes rounding stage nor explains per-line rounding, so it is not labeled."
+    },
+    {
+      "id": "q29",
+      "split": "heldout",
+      "category": "typo",
+      "query": "settlemnt presigend S3 download URL wrong regoin",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "relevant": ["mem_bs3"],
+      "rationale": "The misspellings denote settlement, presigned, and region. The archive download memory states the required bucket region; the SES sending region is not a remedy for S3 URL signing."
+    },
+    {
+      "id": "q30",
+      "split": "heldout",
+      "category": "unseen_vendor_shared_words_negative",
+      "query": "What Twilio Verify service SID and OTP expiration should our login SMS requests use?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "relevant": [],
+      "rationale": "The corpus has an SMS alert throttling policy but no Twilio Verify integration, login OTP expiration, or service SID. Shared SMS and request terminology does not answer the configured-value need."
+    },
+    {
+      "id": "q31",
+      "split": "heldout",
+      "category": "nonsense_with_common_terms_negative",
+      "query": "How should a quantum teapot rotate the database connection rainbow during report export?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "relevant": [],
+      "rationale": "No record establishes the fictional teapot or connection rainbow. The connection pool and export records share generic words but cannot supply the requested operation."
+    },
+    {
+      "id": "q32",
+      "split": "heldout",
+      "category": "near_domain_unanswerable_negative",
+      "query": "Which HNSW efSearch value did we select for nearest-neighbor statement-reference retrieval?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "relevant": [],
+      "rationale": "Statement lookup preserves textual references and leading zeros; it does not document a nearest-neighbor index or an HNSW parameter choice. Exact-lookup guidance cannot answer this configured-value question."
+    },
+    {
+      "id": "q33",
+      "split": "heldout",
+      "category": "status_hard_negative",
+      "query": "What exact timeout and invocation granularity did the retired settlement function importer use?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "relevant": [],
+      "rationale": "This repeats the historical need under default active-only eligibility. The archived record has both details; the active deployment memory lacks both exact historical settings."
+    },
+    {
+      "id": "q34",
+      "split": "heldout",
+      "category": "global_memory_excluded_from_project",
+      "query": "How do we restore keyboard focus to the invoking control after closing a modal dialog?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": [],
+      "rationale": "The direct answer exists only in a global preference. Project-scoped searches do not implicitly include global memories, and no Copperleaf memory describes modal focus."
+    },
+    {
+      "id": "q35",
+      "split": "heldout",
+      "category": "cross_project_any_multiple",
+      "query": "For both the payment and settlement integrations, which request representation must signature verification use before JSON parsing?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA", "prj_labB"], "match": "any" },
+      "relevant": ["mem_awebhook", "mem_bwebhook"],
+      "rationale": "Both independently scoped integration memories explicitly require original request bytes, so each answers part of the two-integration need. The shared money contract is not a signature-verification rule."
+    },
+    {
+      "id": "q36",
+      "split": "heldout",
+      "category": "cross_project_all_hard_negative",
+      "query": "For both the payment and settlement integrations, which request representation must signature verification use before JSON parsing?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA", "prj_labB"], "match": "all" },
+      "relevant": [],
+      "rationale": "Neither webhook memory belongs to both projects, so all excludes them. The one eligible shared contract covers monetary wire encoding and cannot answer request signature representation."
+    },
+    {
+      "id": "q37",
+      "split": "heldout",
+      "category": "multiple_complementary_global",
+      "query": "How should we keep bearer credentials out of both shell command diagnostics and exported HTTP tracing spans?",
+      "scope": { "kind": "global" },
+      "relevant": ["mem_gsecrets", "mem_gredaction"],
+      "rationale": "Disabling shell xtrace and redacting headers at span collection address the two explicitly named leakage paths. Neither memory alone covers both paths."
+    },
+    {
+      "id": "q38",
+      "split": "heldout",
+      "category": "near_domain_configuration_negative",
+      "query": "What annual percentage rate should Ledger apply when a settlement payment is overdue?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labB"] },
+      "relevant": [],
+      "rationale": "The memories cover payment reconciliation, decimal representation, and business dates, but no overdue-interest policy or annual rate. Financial vocabulary alone is not useful evidence for this value."
+    },
+    {
+      "id": "q39",
+      "split": "heldout",
+      "category": "keyword_multiple_constraints",
+      "query": "contact name lookup accent-insensitive matching and workspace isolation",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_asearchaccents", "mem_asearchtenant"],
+      "rationale": "The accent-key policy answers matching and the workspace predicate answers isolation. Both are necessary constraints of the stated lookup need; Unicode filename normalization is neither eligible nor an accent-removal policy."
+    },
+    {
+      "id": "q40",
+      "split": "heldout",
+      "category": "natural_language_root_cause",
+      "query": "Invitation acceptance browser tests pass alone but reject the second attempt when workers run in parallel. Should we increase navigation timeouts or change the fixture?",
+      "scope": { "kind": "projects", "project_ids": ["prj_labA"] },
+      "relevant": ["mem_aplaywright"],
+      "rationale": "The Playwright memory identifies shared single-use tokens and requires per-worker fixtures. Outbox email deduplication concerns dispatch after crashes, not parallel browser acceptance, so it is not useful to this remedy choice."
+    }
+  ]
+}
