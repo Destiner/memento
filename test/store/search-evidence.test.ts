@@ -198,11 +198,14 @@ describe('search evidence regression contracts', () => {
     expect(ids('freshSessionToken')).toEqual(['fresh']);
   });
 
-  test.each(['foo_bar', 'ÉCHO_FLAG'])('rescue paginates past suffix decoys for %s', (literal) => {
-    for (let i = 0; i < 40; i++) add(`decoy-${i}`, `${literal}_extra`);
-    add('exact', `Use ${literal}. ${'Background operational context. '.repeat(100)}`);
-    expect(ids(literal, { limit: 1 })).toEqual(['exact']);
-  });
+  test.each(['foo_bar', 'ÉCHO_FLAG'])(
+    'rescue filters suffix decoys before limiting %s',
+    (literal) => {
+      for (let i = 0; i < 40; i++) add(`decoy-${i}`, `${literal}_extra`);
+      add('exact', `Use ${literal}. ${'Background operational context. '.repeat(100)}`);
+      expect(ids(literal, { limit: 1 })).toEqual(['exact']);
+    },
+  );
 
   test.each([
     ['--no-cache', '--no-cache-dir'],
@@ -249,6 +252,10 @@ describe('search evidence regression contracts', () => {
       /distinct terms/,
     );
     expect(() => ids('short '.repeat(100))).not.toThrow();
+    index.clear();
+    expect(() => ids(Array.from({ length: 65 }, (_, i) => `word${i}`).join('\u034f'))).toThrow(
+      /distinct terms/,
+    );
   });
 
   test('an exact body identifier survives more than thirty stronger broad lexical candidates', () => {

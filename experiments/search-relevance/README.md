@@ -6,7 +6,7 @@ This is a **research prototype**, not a server change, shipping recommendation b
 
 ## Reproduce
 
-From the repository root, with dependencies installed and Node >=22.5:
+From the repository root, with dependencies installed and Node >=22.16:
 
 ```sh
 node --import tsx experiments/search-relevance/run.ts /tmp/memento-search-results.json

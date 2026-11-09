@@ -1,6 +1,6 @@
 # Search behavior
 
-Memento 0.5.0 uses SQLite FTS5 with Porter stemming and `unicode61` tokenization.
+Memento 0.5.1 uses SQLite FTS5 with Porter stemming and `unicode61` tokenization.
 Search is local and model-free: no embedding model, network call, fuzzy rewriting,
 or extra search dependency is required.
 
@@ -77,7 +77,9 @@ ignored.
 - Markdown remains authoritative; the SQLite index remains rebuildable.
 - No persistent index/tokenizer schema change is needed for this release.
   Tokenizer scratch tables and vocabulary views are connection-local TEMP
-  objects; reopening an existing index needs no migration.
+  objects; reopening an existing index needs no migration. A connection-local
+  SQLite function applies the shared Unicode literal matcher before candidate
+  limits, without repeated pagination.
 - Scope never widens to improve recall.
 - `create_memory` dedupe keeps its original broad OR query, unweighted BM25,
   candidate limit, and inclusion of archived neighbours. Search abstention does
@@ -99,7 +101,8 @@ in common can still be missed. Negation, unsupported assumptions and broad topic
 lists are not fully understood. Small pools offer little frequency information;
 a strong exact identifier can still have incidental context. The bounded broad
 candidate pool is not guaranteed to cover every independently useful clause.
-Exact-reference recovery can scan multiple batches when many prefix decoys exist.
+Exact-reference recovery must inspect matching candidates when many prefix decoys
+exist, but it filters them in a single SQL pass before limiting results.
 
 See the [research](../experiments/search-relevance/FINDINGS.md) and
 [implementation evaluation](../experiments/search-relevance/IMPLEMENTATION.md)

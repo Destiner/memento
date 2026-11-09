@@ -1,11 +1,23 @@
 {
-  "version": 1,
+  "version": 2,
   "description": "Fresh synthetic retrieval-only holdout, independently authored without inspecting ranker code, prior experiment results, or seed prose. All situations and project names are fictional. Relevance judgments are frozen at authorship, before any retrieval run; they include actionable partial answers and premise corrections, not mere topic overlap. Default status is active; omitted project match means any. No typo-only recall requirements. Not a usage-propensity scenario or a claim about the live memory store.",
   "projects": [
-    { "id": "prism", "name": "Prism Renderer" },
-    { "id": "parcel", "name": "Parcel Signing" },
-    { "id": "reed", "name": "Reed Audio" },
-    { "id": "forge", "name": "Forge Local Tools" }
+    {
+      "id": "prj_prism",
+      "name": "Prism Renderer"
+    },
+    {
+      "id": "prj_parcel",
+      "name": "Parcel Signing"
+    },
+    {
+      "id": "prj_reed",
+      "name": "Reed Audio"
+    },
+    {
+      "id": "prj_forge",
+      "name": "Forge Local Tools"
+    }
   ],
   "memories": [
     {
@@ -13,7 +25,10 @@
       "title": "Atlas eviction ownership",
       "description": "A GPU retirement boundary, rather than a larger cache, fixed intermittent glyph damage.",
       "body": "Prism's glyphs became scrambled only after an atlas eviction while a previous frame was still in flight. retireAtlasPage must enqueue the old texture on the frame fence retirement list; deleting it immediately is unsafe. Increasing the atlas budget merely hid the race.",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "status": "active",
       "type": "debugging_pattern"
     },
@@ -22,7 +37,10 @@
       "title": "Resize failures originate in borrowed surface frames",
       "description": "The last acquired frame must be dropped before rebuilding the swapchain.",
       "body": "The error \"Surface image is still acquired\" during window resizing means Prism retained a borrowed frame across surface reconfiguration. Drop the acquired frame first, then recreate the swapchain. Recompiling shaders does not address this error.",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "status": "active",
       "type": "debugging_pattern"
     },
@@ -31,7 +49,10 @@
       "title": "Thumbnail exports use straight alpha",
       "description": "The interchange format differs from the renderer's internal compositing format.",
       "body": "Prism composites into premultiplied linear RGBA internally. Before writing a thumbnail PNG, unpremultiply RGB when alpha is nonzero, then encode RGB to sRGB. Otherwise translucent edges appear dark in downstream image viewers. Zero-alpha pixels should have zero RGB.",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "status": "active",
       "type": "cross_project_context"
     },
@@ -40,7 +61,10 @@
       "title": "Readback rows retain the device stride",
       "description": "Mapped screenshot buffers contain padding that an image encoder must not receive.",
       "body": "Prism screenshot copies use a 256-byte aligned bytes_per_row. Strip each row's trailing padding before PNG encoding; treating the mapped allocation as tightly packed shifts later scanlines. This is independent of alpha conversion.",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "status": "active",
       "type": "debugging_pattern"
     },
@@ -49,7 +73,10 @@
       "title": "Batch boundaries preserve clipping",
       "description": "Clip identity is part of the draw merge key.",
       "body": "Batching rectangles with identical paint but different scissor rectangles let draws escape their clips. Every batch key must include the clip stack fingerprint. Reordering batches to improve texture locality is allowed only within a single clipping region.",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "status": "active",
       "type": "decision_history"
     },
@@ -58,7 +85,10 @@
       "title": "Retired tile tessellation workaround",
       "description": "Historical setting for the removed software tile backend.",
       "body": "The old Prism software rasterizer required tile_edge_limit=96 to prevent seams when tessellating large paths. That backend was deleted; the setting is preserved only to explain old release captures, not to configure the current GPU renderer.",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "status": "archived",
       "type": "environment_workflow_quirk"
     },
@@ -67,7 +97,10 @@
       "title": "Timestamp outage release policy",
       "description": "A release signature is incomplete without a trusted timestamp.",
       "body": "Parcel fails closed when its RFC3161 timestamp endpoint is unavailable. Queue the release for retry; never publish a signature without a timestamp and never fall back to the workstation clock. The release verifier depends on timestamp evidence after certificate expiration.",
-      "scope": { "kind": "projects", "project_ids": ["parcel"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel"]
+      },
       "status": "active",
       "type": "decision_history"
     },
@@ -76,7 +109,10 @@
       "title": "Signing bytes are the final archive bytes",
       "description": "Repacking an artifact invalidates the detached signature.",
       "body": "Parcel signs the digest of the final compressed archive, not the extracted file tree. Any normalization or repacking must happen before signing. Recompressing after signing changes the digest even if every extracted file is identical.",
-      "scope": { "kind": "projects", "project_ids": ["parcel"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel"]
+      },
       "status": "active",
       "type": "debugging_pattern"
     },
@@ -85,7 +121,10 @@
       "title": "Release attachment naming contract",
       "description": "The installer discovers a detached signature by basename, not by manifest lookup.",
       "body": "Parcel's installer expects the detached signature at the archive's exact basename plus .sig. Publish widget.tar.zst and widget.tar.zst.sig together. A correctly signed archive with a shortened signature filename is reported as missing verification material.",
-      "scope": { "kind": "projects", "project_ids": ["parcel"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel"]
+      },
       "status": "active",
       "type": "cross_project_context"
     },
@@ -94,7 +133,10 @@
       "title": "Notarization and archive signatures are separate",
       "description": "The Linux artifact has no Apple ticket to staple.",
       "body": "Parcel's Linux tarball uses a detached package signature only. Do not add Apple notarization or stapling to that job: those steps belong to the macOS disk image job. An absent stapled ticket on the Linux archive is expected, not a signing failure.",
-      "scope": { "kind": "projects", "project_ids": ["parcel"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel"]
+      },
       "status": "active",
       "type": "product_rationale"
     },
@@ -103,7 +145,10 @@
       "title": "Headless keychain unlock is scoped to the job",
       "description": "Interactive signing success did not establish runner access.",
       "body": "On Parcel's macOS runner, \"User interaction is not allowed\" from codesign meant the ephemeral keychain was locked in the noninteractive session. Unlock that job's keychain before codesign and delete it at job end. Broadening the login keychain's access policy was rejected.",
-      "scope": { "kind": "projects", "project_ids": ["parcel"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel"]
+      },
       "status": "active",
       "type": "environment_workflow_quirk"
     },
@@ -112,7 +157,10 @@
       "title": "Local verification avoids network dependence",
       "description": "Downloaded release digests are checked against a bundled trust root.",
       "body": "Parcel's verify-release command checks a local signature and pinned public key without contacting a hosted signing service. Network access is needed to obtain a new release, not to verify an already downloaded artifact. This says nothing about hosted service account setup or token rotation.",
-      "scope": { "kind": "projects", "project_ids": ["parcel"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel"]
+      },
       "status": "active",
       "type": "product_rationale"
     },
@@ -121,7 +169,10 @@
       "title": "End-of-stream resampling retains a delayed tail",
       "description": "A successful input drain is not the end of converter output.",
       "body": "Reed exports lost their final few milliseconds because the resampler buffered a filter tail. After submitting the last input block, call flushResampler until it returns no output. Do not pad the source duration or drop the converter as soon as its input queue is empty.",
-      "scope": { "kind": "projects", "project_ids": ["reed"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed"]
+      },
       "status": "active",
       "type": "debugging_pattern"
     },
@@ -130,7 +181,10 @@
       "title": "Loudness is measured before the limiter",
       "description": "Reed's normalization pass has an explicit analysis ordering.",
       "body": "For Reed podcast exports, measure integrated LUFS on the decoded program before applying gain or the output limiter. Use that measurement to calculate normalization gain. Measuring already-limited output and feeding it back into the gain pass causes inconsistent levels between renders.",
-      "scope": { "kind": "projects", "project_ids": ["reed"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed"]
+      },
       "status": "active",
       "type": "decision_history"
     },
@@ -139,7 +193,10 @@
       "title": "Delivery ceiling is a true-peak ceiling",
       "description": "Sample peaks alone did not protect lossy exports from overshoot.",
       "body": "Reed applies an oversampled true-peak limiter with a -1 dBTP ceiling after loudness gain and before encoding. A sample-peak clamp misses inter-sample overshoots. The ceiling protects the lossy delivery path; it does not determine the integrated loudness target.",
-      "scope": { "kind": "projects", "project_ids": ["reed"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed"]
+      },
       "status": "active",
       "type": "debugging_pattern"
     },
@@ -148,7 +205,10 @@
       "title": "Stereo narration fold-down behavior",
       "description": "An imported recording can cancel even when both source channels sound healthy.",
       "body": "The support label Phasenauslöschung refers to opposite-polarity dialogue channels cancelling in Reed's mono fold-down. For those recordings select the clean single channel rather than averaging left and right. The issue is polarity, not insufficient normalization gain.",
-      "scope": { "kind": "projects", "project_ids": ["reed"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed"]
+      },
       "status": "active",
       "type": "debugging_pattern"
     },
@@ -157,7 +217,10 @@
       "title": "Audio callbacks cannot allocate or log",
       "description": "A callback budget overrun was caused by diagnostics, not the device buffer size.",
       "body": "Reed's underruns under diagnostic mode came from formatting log strings in the realtime callback. Increment preallocated counters there and drain them on the control thread. Keep logging, heap allocation, and mutex acquisition off the audio callback; increasing buffer size only masked the fault.",
-      "scope": { "kind": "projects", "project_ids": ["reed"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed"]
+      },
       "status": "active",
       "type": "debugging_pattern"
     },
@@ -166,7 +229,10 @@
       "title": "Decode cache stores planar floating-point samples",
       "description": "Cache format was chosen for the mixing graph rather than distribution.",
       "body": "Reed's local decode cache stores planar float32 PCM so effects can operate without repeated deinterleaving. It is neither a delivery codec nor a license entitlement record. Evict cache entries by source digest when the imported file changes.",
-      "scope": { "kind": "projects", "project_ids": ["reed"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed"]
+      },
       "status": "active",
       "type": "decision_history"
     },
@@ -175,7 +241,10 @@
       "title": "Native worker entrypoint requires Node",
       "description": "The package manager's runtime cannot host the worker's native binding.",
       "body": "Forge uses Bun to install dependencies but launches its local metadata worker with Node. Launching that worker under Bun fails when loading the native binding. FORGE_NODE selects the Node executable for the worker; changing the package installation tool does not fix worker startup.",
-      "scope": { "kind": "projects", "project_ids": ["forge"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_forge"]
+      },
       "status": "active",
       "type": "environment_workflow_quirk"
     },
@@ -184,7 +253,10 @@
       "title": "Compiler cache follows resolved SDK identity",
       "description": "A mutable SDK alias is not a safe cache partition.",
       "body": "Forge's local compiler cache must include the resolved SDK directory and compiler version in its key. Keying only on the stable current-sdk symlink reused objects after SDK upgrades. Resolve the symlink before hashing; clearing the cache is a recovery step, not the durable fix.",
-      "scope": { "kind": "projects", "project_ids": ["forge"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_forge"]
+      },
       "status": "active",
       "type": "debugging_pattern"
     },
@@ -193,7 +265,10 @@
       "title": "Toolchain switches require a new daemon",
       "description": "The long-lived local process snapshots compiler discovery at startup.",
       "body": "Forge's build daemon captures its SDK path and compiler environment when it starts. After switching the selected toolchain, stop and restart the daemon before building. Fixing the compiler cache key does not update a running daemon's captured environment.",
-      "scope": { "kind": "projects", "project_ids": ["forge"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_forge"]
+      },
       "status": "active",
       "type": "environment_workflow_quirk"
     },
@@ -202,7 +277,10 @@
       "title": "Development socket location must be short",
       "description": "Nested checkout paths can exceed the operating system's Unix socket path limit.",
       "body": "Forge failed to bind its local worker socket in deeply nested checkouts. Set FORGE_SOCKET_DIR to a short user-owned temporary directory, preserving per-checkout socket names. Shortening the socket path fixes this; increasing TCP port retries cannot, because this transport is a Unix domain socket.",
-      "scope": { "kind": "projects", "project_ids": ["forge"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_forge"]
+      },
       "status": "active",
       "type": "debugging_pattern"
     },
@@ -211,7 +289,10 @@
       "title": "Shader generator handshake binds both sides",
       "description": "The local build producer and rendering consumer share an explicit protocol marker.",
       "body": "Forge emits shader bundle headers for Prism. Both sides must agree on SHADER_ABI_REV; stale generated headers otherwise pass compilation but assign incorrect resource slots at runtime. Regenerate the bundle and restart Prism after changing that marker. This agreement is shared by the renderer and local build tooling, not the audio pipeline.",
-      "scope": { "kind": "projects", "project_ids": ["prism", "forge"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism", "prj_forge"]
+      },
       "status": "active",
       "type": "cross_project_context"
     },
@@ -220,7 +301,10 @@
       "title": "Release staging cannot use hard links",
       "description": "The build output and signing input must not share a mutable inode.",
       "body": "Forge stages Parcel signing inputs as independent copies, never hard links. Parcel's metadata stamping modifies the staged archive before signing; a hard link mutated the cached build artifact too. Preserve that copy boundary even on a filesystem where hard links make staging faster.",
-      "scope": { "kind": "projects", "project_ids": ["parcel", "forge"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel", "prj_forge"]
+      },
       "status": "active",
       "type": "cross_project_context"
     },
@@ -229,7 +313,9 @@
       "title": "Shell examples should not depend on the login shell",
       "description": "Portable documentation matters more than terse interactive shortcuts.",
       "body": "Prefer POSIX sh syntax for shared command examples. Avoid fish-only list syntax and zsh glob qualifiers. If an example requires Bash arrays, label it as Bash rather than presenting it as shell-independent.",
-      "scope": { "kind": "global" },
+      "scope": {
+        "kind": "global"
+      },
       "status": "active",
       "type": "preference"
     },
@@ -238,7 +324,9 @@
       "title": "Secrets in examples come from a file descriptor",
       "description": "Demonstrations must not teach credentials in process arguments.",
       "body": "For command-line examples involving credentials, prefer a tool's stdin or credential-file facility. Do not interpolate a token into argv or enable shell tracing around the invocation. Use placeholder file paths in documentation, never a real credential.",
-      "scope": { "kind": "global" },
+      "scope": {
+        "kind": "global"
+      },
       "status": "active",
       "type": "preference"
     },
@@ -247,7 +335,9 @@
       "title": "International filename fixtures retain their spelling",
       "description": "Filesystem tests should exercise normalization differences instead of hiding them.",
       "body": "Keep café.wav as a filename fixture, including its diacritic. Test composed and decomposed Unicode forms separately on supported filesystems; do not rename both to cafe.wav to make a failing comparison disappear. Compare normalized names only at interfaces that explicitly promise that behavior.",
-      "scope": { "kind": "global" },
+      "scope": {
+        "kind": "global"
+      },
       "status": "active",
       "type": "preference"
     },
@@ -256,7 +346,9 @@
       "title": "Offline package inventory is an audit attachment",
       "description": "A dependency inventory is useful evidence but not a vulnerability decision.",
       "body": "Attach a local package inventory to security review handoffs so reviewers can identify shipped dependencies. This inventory is generated offline. It does not contain vulnerability database credentials, automated severity exceptions, or an organization-wide security approval policy.",
-      "scope": { "kind": "global" },
+      "scope": {
+        "kind": "global"
+      },
       "status": "active",
       "type": "preference"
     }
@@ -267,7 +359,10 @@
       "split": "heldout",
       "category": "body-only-camelcase",
       "query": "retireAtlasPage glyph corruption after eviction",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "relevant": ["mem_h01"],
       "rationale": "The body identifies the exact function and the retirement lifetime fix. Other renderer notes do not explain eviction corruption."
     },
@@ -276,7 +371,10 @@
       "split": "heldout",
       "category": "paraphrase",
       "query": "Why do letters scramble when old texture pages are freed?",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "relevant": ["mem_h01"],
       "rationale": "An independently phrased version of the atlas lifetime problem; delayed GPU ownership materially answers the question."
     },
@@ -285,7 +383,10 @@
       "split": "heldout",
       "category": "quoted-error",
       "query": "resize \"Surface image is still acquired\"",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "relevant": ["mem_h02"],
       "rationale": "The exact error and required release-before-reconfigure ordering are recorded together."
     },
@@ -294,7 +395,11 @@
       "split": "heldout",
       "category": "complementary-answers",
       "query": "PNG export dark translucent edges and shifted scanlines",
-      "scope": { "kind": "projects", "project_ids": ["prism", "forge"], "match": "any" },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism", "prj_forge"],
+        "match": "any"
+      },
       "relevant": ["mem_h03", "mem_h04"],
       "rationale": "Alpha conversion fixes the edges; padded row removal fixes the shifted lines. Each is a material partial answer to a distinct symptom."
     },
@@ -303,7 +408,10 @@
       "split": "heldout",
       "category": "stemming",
       "query": "batched rectangle clipping escapes scissor region",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "relevant": ["mem_h05"],
       "rationale": "The merge-key decision addresses batching and clipping despite differing word inflections."
     },
@@ -312,7 +420,10 @@
       "split": "heldout",
       "category": "archived-specific",
       "query": "old software tile_edge_limit tessellation seams setting",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "status": ["archived"],
       "relevant": ["mem_h06"],
       "rationale": "The archived workaround supplies the historical setting and warns that it is not current GPU guidance."
@@ -322,7 +433,10 @@
       "split": "heldout",
       "category": "policy-question",
       "query": "Can we ship if the RFC3161 timestamp server is down?",
-      "scope": { "kind": "projects", "project_ids": ["parcel"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel"]
+      },
       "types": ["decision_history", "product_rationale"],
       "relevant": ["mem_h07"],
       "rationale": "The explicit fail-closed release decision answers the outage question; offline verification of existing downloads does not."
@@ -332,7 +446,10 @@
       "split": "heldout",
       "category": "complementary-answers",
       "query": "release archive repacked signature invalid or sidecar missing",
-      "scope": { "kind": "projects", "project_ids": ["parcel"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel"]
+      },
       "relevant": ["mem_h08", "mem_h09"],
       "rationale": "Final-byte signing explains invalidity after repacking, while the exact attachment naming contract explains missing signature discovery."
     },
@@ -341,7 +458,10 @@
       "split": "heldout",
       "category": "premise-correction",
       "query": "How do I staple the Apple ticket onto our Linux tarball?",
-      "scope": { "kind": "projects", "project_ids": ["parcel"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel"]
+      },
       "relevant": ["mem_h10"],
       "rationale": "The useful answer corrects the premise: this artifact has no Apple notarization ticket. Generic package signing facts do not answer the stapling question."
     },
@@ -350,7 +470,10 @@
       "split": "heldout",
       "category": "quoted-error",
       "query": "codesign \"User interaction is not allowed\" on runner",
-      "scope": { "kind": "projects", "project_ids": ["parcel"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel"]
+      },
       "relevant": ["mem_h11"],
       "rationale": "The stored headless keychain cause and scoped unlock fix directly match this error."
     },
@@ -359,7 +482,10 @@
       "split": "heldout",
       "category": "body-only-camelcase",
       "query": "flushResampler missing final milliseconds of audio export",
-      "scope": { "kind": "projects", "project_ids": ["reed"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed"]
+      },
       "relevant": ["mem_h13"],
       "rationale": "The exact converter operation and delayed-tail drain protocol explain the truncated export."
     },
@@ -368,7 +494,10 @@
       "split": "heldout",
       "category": "complementary-answers",
       "query": "podcast LUFS analysis order and inter-sample peak ceiling",
-      "scope": { "kind": "projects", "project_ids": ["reed"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed"]
+      },
       "relevant": ["mem_h14", "mem_h15"],
       "rationale": "One memory gives the analysis ordering and the other supplies the separate true-peak ceiling and limiter location."
     },
@@ -377,7 +506,10 @@
       "split": "heldout",
       "category": "non-english-exact",
       "query": "Phasenauslöschung beim Mono-Export der Dialogaufnahme",
-      "scope": { "kind": "projects", "project_ids": ["reed"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed"]
+      },
       "relevant": ["mem_h16"],
       "rationale": "The exact German support term is present only in the body and links the symptom to polarity cancellation and channel selection."
     },
@@ -386,7 +518,11 @@
       "split": "heldout",
       "category": "natural-keywords",
       "query": "diagnostic logging audio callback underruns buffer increase",
-      "scope": { "kind": "projects", "project_ids": ["reed", "forge", "prism"], "match": "any" },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed", "prj_forge", "prj_prism"],
+        "match": "any"
+      },
       "relevant": ["mem_h17"],
       "rationale": "The diagnostic callback cause and counter-based fix are actionable; unrelated buffer and cache memories are not."
     },
@@ -395,7 +531,10 @@
       "split": "heldout",
       "category": "exact-underscore-identifier",
       "query": "FORGE_NODE native metadata worker fails under Bun",
-      "scope": { "kind": "projects", "project_ids": ["forge"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_forge"]
+      },
       "relevant": ["mem_h19"],
       "rationale": "The runtime distinction and exact executable selector resolve the startup failure."
     },
@@ -404,7 +543,10 @@
       "split": "heldout",
       "category": "complementary-answers",
       "query": "SDK switch stale compiler objects and daemon environment",
-      "scope": { "kind": "projects", "project_ids": ["forge"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_forge"]
+      },
       "relevant": ["mem_h20", "mem_h21"],
       "rationale": "Cache identity and the daemon's startup snapshot are independent stale-toolchain mechanisms; fixing either alone leaves the other."
     },
@@ -413,7 +555,10 @@
       "split": "heldout",
       "category": "premise-correction",
       "query": "deep checkout socket bind failure should I retry TCP ports?",
-      "scope": { "kind": "projects", "project_ids": ["forge"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_forge"]
+      },
       "relevant": ["mem_h22"],
       "rationale": "The Unix socket path limit corrects the TCP premise and provides a concrete shorter-directory workaround."
     },
@@ -422,7 +567,11 @@
       "split": "heldout",
       "category": "scope-all-shared",
       "query": "SHADER_ABI_REV generated headers resource slot mismatch",
-      "scope": { "kind": "projects", "project_ids": ["prism", "forge"], "match": "all" },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism", "prj_forge"],
+        "match": "all"
+      },
       "relevant": ["mem_h23"],
       "rationale": "The shared producer-consumer contract applies to both selected projects and directly explains the slot mismatch."
     },
@@ -431,7 +580,11 @@
       "split": "heldout",
       "category": "scope-any-shared",
       "query": "signing metadata stamping mutates cached build artifact",
-      "scope": { "kind": "projects", "project_ids": ["parcel", "forge", "reed"], "match": "any" },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel", "prj_forge", "prj_reed"],
+        "match": "any"
+      },
       "relevant": ["mem_h24"],
       "rationale": "The shared staging memory identifies hard-linked inode mutation and the independent-copy requirement. Final-byte signing alone does not explain corruption of the cached source artifact."
     },
@@ -440,7 +593,9 @@
       "split": "heldout",
       "category": "global-complementary-preferences",
       "query": "portable shell docs examples passing credentials safely",
-      "scope": { "kind": "global" },
+      "scope": {
+        "kind": "global"
+      },
       "types": ["preference"],
       "relevant": ["mem_h25", "mem_h26"],
       "rationale": "Shell portability and safe secret transport each supply a material part of the requested documentation guidance."
@@ -450,7 +605,9 @@
       "split": "heldout",
       "category": "diacritics",
       "query": "cafe.wav Unicode normalization filename fixture policy",
-      "scope": { "kind": "global" },
+      "scope": {
+        "kind": "global"
+      },
       "relevant": ["mem_h27"],
       "rationale": "The diacritic-bearing fixture policy directly addresses normalization testing and explicitly rejects replacing both spellings with an unaccented name."
     },
@@ -459,7 +616,10 @@
       "split": "heldout",
       "category": "no-answer-near-topic",
       "query": "ray tracing acceleration structure compaction threshold",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "relevant": [],
       "rationale": "Renderer memories cover GPU resource lifetime, batching, and exports, but none specify ray tracing structures or compaction thresholds."
     },
@@ -468,7 +628,11 @@
       "split": "heldout",
       "category": "no-answer-unsupported-service",
       "query": "SignPath signing service API token rotation procedure",
-      "scope": { "kind": "projects", "project_ids": ["parcel", "forge"], "match": "any" },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel", "prj_forge"],
+        "match": "any"
+      },
       "relevant": [],
       "rationale": "Generic signature, network, and keychain overlap does not provide SignPath account or token-rotation knowledge. Local verification guidance does not preclude a separate signing service and cannot answer its administration procedure."
     },
@@ -477,7 +641,10 @@
       "split": "heldout",
       "category": "no-answer-near-topic",
       "query": "AAC encoder patent license entitlement for distribution",
-      "scope": { "kind": "projects", "project_ids": ["reed"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed"]
+      },
       "relevant": [],
       "rationale": "Audio encoding and cache format overlap provides no patent licensing entitlement or distribution terms."
     },
@@ -486,7 +653,10 @@
       "split": "heldout",
       "category": "no-answer-near-topic",
       "query": "remote compiler cache OAuth refresh token expiry",
-      "scope": { "kind": "projects", "project_ids": ["forge"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_forge"]
+      },
       "relevant": [],
       "rationale": "The local compiler cache key and daemon environment contain no remote authentication or token expiry guidance."
     },
@@ -495,7 +665,10 @@
       "split": "heldout",
       "category": "no-answer-scope-exclusion",
       "query": "retireAtlasPage glyph corruption after eviction",
-      "scope": { "kind": "projects", "project_ids": ["reed"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_reed"]
+      },
       "relevant": [],
       "rationale": "An exact renderer answer exists but is outside the selected audio project; no in-scope memory materially addresses the operation."
     },
@@ -504,7 +677,11 @@
       "split": "heldout",
       "category": "no-answer-scope-all",
       "query": "SHADER_ABI_REV generated headers resource slot mismatch",
-      "scope": { "kind": "projects", "project_ids": ["prism", "reed"], "match": "all" },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism", "prj_reed"],
+        "match": "all"
+      },
       "relevant": [],
       "rationale": "The matching shader agreement belongs to Prism and Forge, not to both Prism and Reed, so it fails the all-project scope requirement."
     },
@@ -513,7 +690,10 @@
       "split": "heldout",
       "category": "no-answer-type-filter",
       "query": "release RFC3161 timestamp endpoint outage retry policy",
-      "scope": { "kind": "projects", "project_ids": ["parcel"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_parcel"]
+      },
       "types": ["preference"],
       "relevant": [],
       "rationale": "The otherwise useful outage policy is decision_history, not an eligible preference; no selected preference answers the query."
@@ -523,7 +703,10 @@
       "split": "heldout",
       "category": "no-answer-status-filter",
       "query": "old software tile_edge_limit tessellation seams setting",
-      "scope": { "kind": "projects", "project_ids": ["prism"] },
+      "scope": {
+        "kind": "projects",
+        "project_ids": ["prj_prism"]
+      },
       "status": ["active"],
       "relevant": [],
       "rationale": "Only an archived record documents this removed backend setting; active renderer guidance does not supply a materially useful answer to the historical setting request."
@@ -533,7 +716,9 @@
       "split": "heldout",
       "category": "no-answer-near-topic",
       "query": "security review critical CVE exception approval duration",
-      "scope": { "kind": "global" },
+      "scope": {
+        "kind": "global"
+      },
       "relevant": [],
       "rationale": "The package inventory attachment preference is nearby security vocabulary but establishes no CVE exception authority or approval duration."
     }

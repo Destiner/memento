@@ -32,7 +32,6 @@ import {
 import {
   assertTermBudget,
   literalPattern,
-  literalTerms,
   matchExpression,
   searchQuery,
   type QueryClause,
@@ -116,12 +115,22 @@ const SELECT_COLUMNS = `m.id, m.title, m.description, m.type, m.scope_kind, m.pr
 
 export class MemoryIndex {
   private readonly db: DatabaseSync;
+  private readonly literalPatterns = new Map<string, RegExp>();
 
   constructor(location: string = MEMORY_DB) {
     this.db = new DatabaseSync(location);
     this.db.exec('PRAGMA journal_mode = WAL;');
     this.db.exec('PRAGMA foreign_keys = ON;');
     this.applySchema();
+    this.db.function('memento_literal_match', { deterministic: true }, (text, literal) => {
+      if (typeof text !== 'string' || typeof literal !== 'string') return 0;
+      let pattern = this.literalPatterns.get(literal);
+      if (!pattern) {
+        pattern = literalPattern(literal);
+        this.literalPatterns.set(literal, pattern);
+      }
+      return pattern.test(text) ? 1 : 0;
+    });
   }
 
   private applySchema(): void {
@@ -166,15 +175,17 @@ export class MemoryIndex {
 
   /** Broad FTS retrieval, followed by scope-local lexical evidence and abstention. */
   search(query: string, options: SearchOptions): SearchHit[] {
+    this.literalPatterns.clear();
     const plan = searchQuery(query);
     if (!plan.terms.length) return [];
+    // Validate actual SQLite expansion even when the requested scope is empty.
+    const stems = this.queryStems(plan.terms);
     const filter = filters(options);
     const count = this.db
       .prepare(`SELECT COUNT(*) AS n FROM memories m WHERE ${filter.clauses.join(' AND ')}`)
       .get(...filter.params) as { n: number };
     if (!count.n) return [];
 
-    const stems = this.queryStems(plan.terms);
     const clauses: QueryClause[] = plan.clauses.map((clause) => ({
       ...clause,
       terms: [...new Set(clause.terms.flatMap((term) => stems.get(term) ?? []))],
@@ -194,31 +205,20 @@ export class MemoryIndex {
     const pool = Math.max(options.limit * CANDIDATE_MULTIPLIER, CANDIDATE_FLOOR);
     const rows = this.selectPool(matchExpression(plan.terms), filter, pool, true);
 
-    // Rescue each literal-bearing information need independently. Paginate past
-    // prefix/path decoys: limiting before the shared boundary check loses exact hits.
+    // Check Unicode-aware literal boundaries before LIMIT. Repeated OFFSET scans
+    // over prefix decoys made recovery quadratic in corpus size.
     for (const clause of plan.clauses.filter((part) => part.literals.length)) {
-      const required = [...new Set(clause.literals.flatMap(literalTerms))];
-      if (!required.length) continue;
       const exactFilter = {
         clauses: [
           ...filter.clauses,
-          'f.rowid IN (SELECT rowid FROM memories_fts WHERE memories_fts MATCH ?)',
+          ...clause.literals.map(
+            () =>
+              'memento_literal_match(f.title || char(10) || f.description || char(10) || f.body, ?) = 1',
+          ),
         ],
-        params: [...filter.params, matchExpression(required, ' AND ')],
+        params: [...filter.params, ...clause.literals],
       };
-      const patterns = clause.literals.map(literalPattern);
-      let found = 0;
-      for (let offset = 0; found < pool; offset += pool) {
-        const batch = this.selectPool(matchExpression(plan.terms), exactFilter, pool, true, offset);
-        for (const row of batch) {
-          const text = `${row.title}\n${row.description}\n${row.body}`;
-          if (patterns.every((pattern) => pattern.test(text))) {
-            rows.push(row);
-            found++;
-          }
-        }
-        if (batch.length < pool) break;
-      }
+      rows.push(...this.selectPool(matchExpression(plan.terms), exactFilter, pool, true));
     }
     const ranked: SearchHit[] = [];
     const seen = new Set<string>();
@@ -287,7 +287,6 @@ export class MemoryIndex {
     filter: SqlFilter,
     limit: number,
     weighted = false,
-    offset = 0,
   ): MemoryRow[] {
     const where = ['memories_fts MATCH ?', ...filter.clauses].join(' AND ');
     const rank = weighted ? 'bm25(memories_fts, 0, 4, 2, 1)' : 'bm25(memories_fts)';
@@ -298,9 +297,9 @@ export class MemoryIndex {
          JOIN memories m ON m.id = f.id
          WHERE ${where}
          ORDER BY bm25 ASC${weighted ? ', m.id ASC' : ''}
-         LIMIT ? OFFSET ?;`,
+         LIMIT ?;`,
       )
-      .all(match, ...filter.params, limit, offset) as unknown as MemoryRow[];
+      .all(match, ...filter.params, limit) as unknown as MemoryRow[];
   }
 
   private deleteById(id: string): void {

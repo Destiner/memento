@@ -49,13 +49,26 @@ Development iteration:
    Kind-aware boundaries and a synthetic executable/member-access regression
    restored 15 useful / 6 irrelevant returns without lowering the acceptance gate.
 
-The final development candidate has 26 focused evidence tests in addition to the
-existing search/filter/integration suite. Query-size validation is explicit;
-actual SQLite token expansion is bounded; dedupe remains broad; exact rescue
-paginates past rejected prefix matches instead of imposing a pre-validation limit.
-The feature is frozen in its implementation commit **before executing either new
-holdout**. Later corrections, if needed, must be described rather than silently
-retuning and reusing a spent holdout.
+The first candidate was frozen at `007930f` (0.5.0), with 26 focused evidence tests,
+before either new holdout executed. The first synthetic holdout invocation stopped
+at schema validation: its project IDs lacked the required `prj_` prefix. Version 2
+of that fixture mechanically prefixes those four IDs and their references; no
+memory/query text or relevance judgments changed, and no rankings had executed.
+The chained private holdout command also had not run.
+
+Pre-holdout scale validation then exposed a blocker in exact rescue: repeated
+pagination over prefix decoys took 138–142 seconds at 5,000 records. The 0.5.1
+candidate replaces that with a connection-local deterministic SQLite function
+applying the **same** Unicode boundary predicate before LIMIT, in one SQL pass.
+The same crowded cases now take roughly 40–54 ms, retaining their expected exact
+hit/abstention results. Thresholds and labels were not changed. This is a measured
+performance correction, not tuning against the holdouts.
+
+Final review also corrected pre-trim raw-query length validation and actual-token
+budget validation for empty scopes. Runtime checks found the old advertised Node
+22.5 floor could not even create the existing FTS5 index; the documented/runtime
+engine floor is now the tested Node 22.16 release. The production index schema is
+unchanged. The corrected candidate is committed before evaluating either holdout.
 
 Pre-evaluation decision checks:
 

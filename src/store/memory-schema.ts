@@ -284,7 +284,7 @@ export const searchScopeSchema = z.discriminatedUnion('kind', [
  * exists so the event log can record what the agent thought it was doing.
  */
 export const searchMemoriesInputShape = {
-  query: nonEmpty.max(MAX_SEARCH_QUERY_LENGTH),
+  query: z.string().max(MAX_SEARCH_QUERY_LENGTH).trim().min(1),
   scope: searchScopeSchema,
   types: z.array(memoryTypeSchema).min(1).optional(),
   status: z.array(memoryStatusSchema).min(1).default(['active']),

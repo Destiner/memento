@@ -117,6 +117,12 @@ describe('searchMemories', () => {
     expect(result.results.map((r) => r.id)).toEqual(['mem_CACHE']);
   });
 
+  test('rejects oversized raw queries before trimming whitespace', async () => {
+    await expect(
+      searchMemories({ query: `${' '.repeat(4096)}cache`, scope: PROJECTS }, opts()),
+    ).rejects.toMatchObject({ code: 'validation_error' });
+  });
+
   test('rejects a project id no project answers to', async () => {
     await expect(
       searchMemories(

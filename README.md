@@ -29,7 +29,7 @@ ranking, exact references, scope boundaries, and what result scores mean.
 
 ## Requirements
 
-- Node.js 22.5 or newer
+- Node.js 22.16 or newer (earlier Node SQLite builds lack FTS5)
 - [Bun](https://bun.sh/) for installing dependencies and running development
   commands
 
