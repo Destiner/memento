@@ -5,11 +5,6 @@ where memory should have been searched or preserved, compares those opportunitie
 with what the agent actually did, and turns human-reviewed judgements into an
 evaluation dataset.
 
-It exists to measure the part ordinary tool telemetry cannot see: work where a
-memory operation was useful but never happened. Tool-call volume can show what an
-agent did; it cannot supply the missing denominator of eligible searches and
-eligible learnings.
-
 The pipeline is an offline evaluation system. It is not a public MCP feature, an
 automatic transcript importer, or an autonomous memory writer.
 
@@ -68,11 +63,7 @@ Claude Code / Codex JSONL histories
 ## Supported clients and evaluators
 
 The history adapters understand both Claude Code and Codex persistent JSONL,
-including unwrapped Codex rollout records. They normalize the clients into a
-shared chronological representation while retaining client, model, client
-version, timestamps, and parent-agent relationships. If one source session
-switches models, its model is recorded honestly as `mixed` instead of attributing
-the whole session to the first model observed.
+including unwrapped Codex rollout records. Sessions that switch models are recorded as `mixed`.
 
 Both clients can also be used as the evaluator:
 
@@ -89,13 +80,10 @@ the instruction hierarchy. Both adapters receive prompts on standard input rathe
 than command-line arguments, and every response is parsed against the same strict
 schema before persistence.
 
-Codex 0.145 does not expose a strict-config switch for its read-only `view_image`
+The Codex evaluator configuration does not disable the read-only `view_image`
 capability. The evaluator supplies no images, redacts local absolute paths, starts
 in an empty directory, and explicitly forbids all tool calls, but this remains a
 residual isolation limitation for operators assessing highly sensitive histories.
-The Codex adapter also converts the canonical Zod schema to the provider's strict
-subset (`anyOf`, every property required, optional values nullable), then removes
-only those synthetic nulls before validating the canonical output.
 
 The evaluator is selected per run. Its provider, actual local CLI version,
 requested model string, prompt-suite version, output-schema version, and policy
@@ -143,8 +131,9 @@ clients regardless of which evaluator judges them. `--source-policy-version`
 may annotate otherwise-unknown historical sessions only when the deployment
 window is trustworthy; leaving it unset preserves `unknown`.
 
-`--max-tasks` is one global cap over the earliest tasks across all selected
-sources, not a per-source limit. Each selected task makes one checkpoint-selection
+`--max-tasks` is one global cap, not a per-source limit. Tasks are taken in
+session order, then task order within each session; they are not globally sorted
+by task timestamp. Each selected task makes one checkpoint-selection
 request, one capture request, and one to six search-checkpoint requests, so a task
 costs 3–8 remote evaluator calls. The default remains one task.
 
@@ -181,7 +170,6 @@ An edit file is a complete replacement proposal in the same strict schema as the
 original. An edit also requires the reviewed label and an explicit match to an
 actual operation ID, or `none` to detach the evaluator's match. The operation must
 belong to the same task, have the right kind, and remain one-to-one across the run.
-This makes the revised proposal, label, metrics, and export agree.
 
 Decisions are append-only and normally final. An approved write returns to the
 default queue when promotion reports `duplicate_candidates`, `ambiguous`, or
@@ -208,16 +196,9 @@ Memento operations. They discard hidden thinking/reasoning, encrypted content,
 system and developer prompt bodies, Claude meta/system user records, world-state
 records, attachments, binary payloads, and unrelated client bookkeeping.
 
-Subagents are not treated as unrelated sessions. Claude Code sidechains and Codex
-child-agent histories are attached to their parent task and merged chronologically.
-Client bookkeeping and Claude meta/system records do not become task boundaries,
-and Codex fork replays are removed conservatively. A single operation represented
-in multiple client events is deduplicated by its call id. When Codex supplies
-provisional and later authoritative MCP records for one call, the authoritative
-server identity and richer result win.
-
-The adapters recognize the eight Memento tool names and retain the original name
-alongside the canonical operation.
+Claude Code sidechains and Codex child-agent histories are attached to their
+parent task, not evaluated as unrelated sessions. Replayed events and duplicate
+representations of the same tool call are deduplicated.
 
 Malformed or unknown JSONL records are counted as warnings. A non-empty file from
 which no recognizable conversation can be recovered fails as an unsupported
@@ -250,8 +231,7 @@ rejected without appending a review event.
 
 Pattern-based redaction reduces risk but cannot prove that arbitrary source code
 or customer context is non-sensitive. Review the explicit source paths before
-enabling remote evaluation and keep each run narrow. A future local evaluator can
-implement the same evaluator interface without changing the pipeline.
+enabling remote evaluation and keep each run narrow.
 
 ## Tasks and checkpoints
 
@@ -261,16 +241,9 @@ checkpoint and may select a small number of later meaningful checkpoints, such a
 after a new failure signal or a material discovery.
 
 Checkpoint selection may use the completed task, but each search evaluator request
-is reconstructed independently from the prefix ending at that checkpoint. Tests
-assert that two sessions with identical prefixes produce identical search requests
-even when their suffixes differ.
-
-Long tasks are compacted deterministically: the first and last events are kept,
-semantically useful and evenly distributed events are sampled, and text/tool JSON
-is recursively bounded until the request fits both event and character limits.
-Only real source event IDs are retained, so checkpoint validation still applies.
-Compaction is visible through typed truncation markers and trades detail for the
-ability to evaluate the rest of a large corpus.
+uses only the prefix ending at that checkpoint. Long tasks are compacted to fit
+request limits. Typed truncation markers identify omitted context; consider that
+loss of detail when reviewing proposals.
 
 Search proposals contain a query, optional intent/type filters, rationale, and an
 explicit scope. Capture proposals contain a complete create/update candidate in
@@ -330,10 +303,7 @@ Only reviewed items contribute to activation and capture metrics. Review events 
 never overwritten; current state is derived from their ordered revisions. An
 edit records a complete proposal, corrected label, and an explicit actual-operation
 match or detachment. The store validates task membership, operation kind, and
-one-to-one use before accepting a match. An approved write may receive a follow-up
-edit or duplicate decision after promotion reports `duplicate_candidates` or
-`ambiguous`; a failed promotion also permits repair or rejection.
-
+one-to-one use before accepting a match.
 Home-aware approval and edit commands snapshot the complete durable state of an
 update target as a SHA-256 digest. The snapshot is append-only review evidence,
 not evaluator output. Promotion refuses a legacy approval without a snapshot and
@@ -364,14 +334,9 @@ Promotion is a separate explicit operation that:
 
 An append-only review edit is also the authority for a registered multi-project
 scope that is broader than ingestion could establish. Updates replace the
-reviewed body, project-ID set, and evidence set rather than merge stale arrays
-from the existing memory. The normal store serializes creates, updates, archives,
-and index rebuilds with one crash-recoverable SQLite write lock. Inside that lock,
-an update verifies the reviewed full-record digest against the exact record read
-for the write and retains the exact-body `old_text` guard. The promotion claim
-checks the current review sequence, state, and proposal in the same evaluation
-database transaction, so neither a concurrent store mutation nor a concurrent
-review decision can race a stale promotion.
+reviewed body, project-ID set, and evidence set rather than merging them with the
+existing memory. Promotion checks the reviewed full-record digest and current
+review state to prevent stale writes.
 
 Search proposals have no promotion path. Raw transcript paths are never copied into
 durable provenance. A duplicate-candidate result leaves the proposal unpromoted so
@@ -382,10 +347,7 @@ the comparison id.
 A process crash can leave an attempt in `started` when it is impossible to know
 whether the durable write completed. The pipeline deliberately does not retry
 that state automatically because doing so could double-write; the operator must
-inspect the durable store and the recorded proposal. Reconcile the audit record
-explicitly after that check:
-
-The same rule covers create or update cleanup/index failures after Markdown was
+inspect the durable store and the recorded proposal. The same rule covers create or update cleanup/index failures after Markdown was
 written. The normal memory operation first rebuilds the derived index from
 authoritative Markdown where possible. If repair fails—or an update cannot remove
 its old filename—it reports the durable memory ID and deliberately leaves
@@ -438,17 +400,7 @@ Reports preserve that distinction and never infer a version from calendar time.
 
 ## Metrics and regression export
 
-Reviewed data supplies the dimensions needed for metrics that ordinary telemetry
-cannot provide:
-
-- eligible-session search activation;
-- eligible-learning capture;
-- timely, late, missed, and incorrect-scope rates;
-- unnecessary-operation rate;
-- evaluator proposal acceptance and rejection;
-- differences by source client/model, evaluator/model, policy, and pipeline version.
-
-The built-in report currently renders reviewed-only activation and capture rates,
+The built-in report renders reviewed-only activation and capture rates,
 label/decision totals, task-failure count, and promotion outcomes. The SQLite
 records and regression export retain the source/evaluator dimensions for deeper
 stratification.

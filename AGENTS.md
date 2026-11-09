@@ -36,6 +36,7 @@ Local, file-owned memory layer for coding agents, exposed as an MCP server.
 
 ## Patterns
 
+- Keep docs focused on current behavior and operating constraints, not historical reports or completed plans. Retain evaluation data only when it serves ongoing tests.
 - Markdown files are the authoritative store; the SQLite index is derived and must be rebuildable from `memories/*.md`.
 - The store is human-editable: nothing may assume filenames follow the `<id>-slug.md` convention (`get_memory` falls back to front-matter ids — a renamed file must keep working).
 - The server CANNOT run under `bun run` (`node:sqlite` is not implemented in Bun); it runs under Node (`node dist/main.js`). Tests pass under `bun run test` only because vitest itself runs on Node.
@@ -46,6 +47,6 @@ Local, file-owned memory layer for coding agents, exposed as an MCP server.
 - Results are append-only in `test-harness/results/results.jsonl`; invalidated runs move to `quarantine-*.jsonl`, never deleted. Scores are always recomputed from the log.
 - Comparisons are only valid within one (harness, model, cc_version, memento_version, env) tuple. Bump the package version for any measurement-relevant server change.
 - Any new or edited scenario bumps its `version` and MUST pass a baseline-no-memento calibration (utility ≈ 0) before use.
-- The `holdout-*` scenario groups were spent 2026-07-31; new ship decisions need freshly authored holdouts.
+- Existing `holdout-*` scenario groups are regression data, not untouched holdouts; new ship decisions need freshly authored holdouts.
 - Never trust a zero-tool-call result: force one call through the exact production path and verify in the memento event log, not the transcript. Headless `codex exec` needs `--dangerously-bypass-approvals-and-sandbox` or every MCP call silently cancels.
 - Anti-regexes in scenario checks match usage patterns (`@sendgrid/mail`), never bare words.

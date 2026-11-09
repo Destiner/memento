@@ -1,81 +1,67 @@
 # Memento test harness
 
-Measures how context-engineering interventions ("knobs") change a coding
-agent's propensity to use Memento — and whether that use is *appropriate*.
-See `../docs/harness-spec.md` for the full experiment design; this README is the
-operational quick reference.
+Measures appropriate memory retrieval and capture in isolated, single-shot coding
+agent sessions. The [maintainer reference](../docs/harness-spec.md) covers scenario
+design, scoring, isolation, comparison boundaries, and limitations.
 
-## Layout (§7.1)
+## Layout
 
-- `manifests/` — run manifests (yaml), one per run; committed.
-- `configs/` — one dir per config: installable artifacts + `meta.yaml`.
-- `scenarios/` — scenario dirs (§4.5), grouped `read|no-read|write|no-write`.
-- `fixtures/` — fixture repos as plain dirs; the runner git-inits copies.
-- `overlays/` — optional dirs a scenario copies over its fixture to stage the
-  per-rep baseline (green up an app, plant a discovery artifact) without forking it.
-- `corpus/` — seeded V2 memory `.md` files (distractor sets + `facts/`).
-- `stubs/` — dummy MCP server for the crowded env (§7.3).
-- `runner/` — runner + scorers (bun scripts).
-- `results/` — `results.jsonl` + `transcripts/` (gitignored except `.gitkeep`).
+- `manifests/`: committed YAML batches of configs × scenarios × repetitions.
+- `configs/`: installable interventions and `meta.yaml` declarations.
+- `scenarios/`: task definitions, corpus references, and checks.
+- `fixtures/`, `overlays/`: base repositories and scenario-specific staging files.
+- `corpus/`: distractors and seeded facts in memory Markdown format.
+- `stubs/`: fixed no-op MCP profiles for `env: crowded`.
+- `runner/`: validation, client adapters, isolation, scheduling, scoring, reporting.
+- `results/`: append-only `results.jsonl` and transcript/diff artifacts.
 
-## Running
+## Local checks (no paid sessions)
+
+From the repository root:
+
+```sh
+bun run typecheck:harness
+bun run test:harness
+```
+
+## Running a batch (paid)
+
+**This launches real agent sessions and consumes money/quota. Obtain explicit
+approval before running.** Authenticate the selected client first; Codex requires
+file-based authentication from `codex login`.
+
+Review the manifest's model, configs, scenario versions, repetitions, concurrency,
+retry count, and required `max_spend_usd`. Spend accounting can overshoot while
+in-flight sessions finish; Codex uses an estimated per-session charge rather than
+reported dollar cost. See [§7.4](../docs/harness-spec.md#74-timeouts-retries-and-spend).
 
 ```sh
 bun run harness -- test-harness/manifests/<name>.yaml
 ```
 
-Render the results after a run (§8.2) — scores are recomputed from the log every
-time, so a different λ re-scores all history without rerunning anything:
+Preflight verifies a real call against the bundled server before paid reps.
+Before interpreting zero-call results, also force a call through the exact
+client/model/config path and verify the **server event log**, not the transcript
+([§7.2](../docs/harness-spec.md#72-hermetic-lifecycle-and-event-verification)).
+Use only trusted fixtures and config artifacts: headless client execution
+bypasses permission protections.
+
+## Reporting (no new sessions)
 
 ```sh
-bun run harness:report                         # results/results.jsonl
-bun run harness:report -- --lambda-write 1.5   # re-score with a different weight
+bun run harness:report
+bun run harness:report -- --lambda-write 1.5
 bun run harness:report -- --results <path> --baseline baseline-0 --no-color
 ```
 
-It prints, per (harness, model, client, server, policy, env) group, the config × (read_score, write_score)
-table with guardrail-violating rows dimmed, plus the §5.4 diagnostics; cells with
->30% invalid reps (§7.4) and scenarios spanning versions (§9) are flagged.
+Reports recompute read/write scores, guardrails, and diagnostics from the saved
+log. They group by client, model, client/server/policy versions, and environment.
+Cells with more than 30% invalid attempts are excluded; mixed scenario versions
+are warned about, not made comparable. Missing baseline data is not a guardrail
+pass. See [§5](../docs/harness-spec.md#5-metrics-and-scoring) and
+[§9](../docs/harness-spec.md#9-versioning-and-comparison-boundaries).
 
-The runner shares the repo's toolchain (no separate package). Typecheck it with:
-
-```sh
-bun run typecheck:harness
-```
-
-## Status
-
-The runner executes the hermetic per-rep lifecycle (§7.2) under the spend cap
-and flake policy (§7.4), scores each rep, and appends a record to
-`results/results.jsonl`; the report (`bun run harness:report`) recomputes scores
-and guardrails from that log. See §9–§10 for comparison boundaries and baselines.
-
-The crowded env (§7.3) is now available: a single stub MCP server (`stubs/server.ts`)
-is instantiated once per profile in `stubs/profiles.ts` (issue tracker, error
-monitor, feature flags, product analytics), each under its own server name, adding
-~20 no-op tools that reproduce deferred-tool discoverability pressure. The profile
-set is fixed and version-controlled (`CROWDED_PROFILES`); a manifest opts in with
-`env: crowded`. Stubs are pure distractors — deliberately not source-control or
-filesystem tools the agent might legitimately call and then hit a no-op.
-
-Scoring (§5) reads three sources while the sandbox is still on disk:
-Memento's event log (`$MEMENTO_HOME/logs/`) for the authoritative list of tool
-calls the report derives FP rates from; the git diff of the session's changes for
-the should-retrieve utility check (regex over added lines only); and the fixture
-oracle (`task_success`) as the guardrail. should-capture reps are scored against
-the five-criterion capture rubric (§5.2) over the memories the session created or
-edited. Read and write scores are recomputed from the log, never stored (§8.2).
-Preflight also forces `resolve_project` through the bundled stdio server and
-verifies the call in that server's event log before any paid rep can launch.
-
-Scenarios: three `read/*` should-retrieve (email provider, reset-link domain,
-security contact — each seeds an unguessable fact into the corpus and checks it
-lands in the diff); three `no-read/*` should-not-retrieve probes (rename, guard,
-typo); three `no-write/*` should-not-capture probes (lowercase, add-test,
-extract-helper); and three `write/*` should-capture (migrate --single-tx, Postmark
-sandbox stream, seed idempotency — each plants a discovery artifact whose failure
-message states a cross-project constraint the agent must find, then capture). The
-no-read/no-write scenarios stage a green saas-app via the `saas-app-mailer`
-overlay; the write scenarios use `saas-app-ops`, which greens the app and plants
-the discovery scripts. Thematic diversity within saas-app is limited by design;
-toy-repo and fixture bias remain limitations (§11).
+Preserve results: move invalidated runs into `quarantine-*.jsonl`, never delete
+them. New or changed scenarios require a version bump and no-Memento calibration;
+new shipping decisions require fresh holdouts. Existing `holdout-*` groups are
+spent. See [§4](../docs/harness-spec.md#4-scenarios) before authoring experiments.

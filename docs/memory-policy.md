@@ -203,15 +203,3 @@ the §3 do-not-store rules. When §2-§10 changes, edit this document first, bum
 `policy_version`, then mirror it in `POLICY_VERSION` and update the clauses in
 `blocks.ts`; `test/policy.test.ts` parses this file and fails while the two
 disagree. A surface may compress the rules, never contradict or extend them.
-
-## Appendix: History
-
-- `2.2.0` (2026-08-23) — added `papercut` and encourages capturing durable
-  inconveniences that an agent encountered and worked around.
-- `2.1.0` (2026-08-01) — added §8.1 (resolving projects) so the derived surfaces
-  can state the prerequisite without inventing policy, and §12 now points at
-  `src/policy/`. No change to what is stored or when.
-- `2.0.0` (2026-07-31) — initial freeze for V2. Six types plus `other`; two
-  scopes; provenance replaces `confidence`/`source_kind`. `third_party_service`
-  and `testing_strategy` were considered and rejected as overfitting; §7.1
-  routes them instead.

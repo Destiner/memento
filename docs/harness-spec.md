@@ -1,460 +1,323 @@
-# Memento Usage-Propensity Test Harness — Specification
+# Memento usage-propensity harness: maintainer reference
 
-Status: V2 harness implemented.
-Owner: Timur
-
-This document specifies a test harness that measures how context-engineering
-interventions ("knobs") change a coding agent's propensity to use the Memento
-MCP server — and whether that use is *appropriate*, not merely frequent.
-
-It builds on `docs/memory-policy.md` for the behavior boundary; this spec
-covers the experiment design and harness.
-
----
+The harness measures whether a coding agent retrieves and captures memory when
+appropriate, rather than maximizing tool calls. [Memory policy](memory-policy.md)
+defines the behavior boundary; this document defines measurement and maintenance.
+For commands and directory navigation, see [the harness README](../test-harness/README.md).
 
 ## 1. Purpose and scope
 
-**Question under test:** which interventions raise the chance that a coding
-agent uses Memento when it should, and leaves it alone when it shouldn't —
-measured separately for retrieval (read) and capture (write)?
+Each rep is a paid, single-shot headless Claude Code or Codex session in an
+isolated fixture. A manifest selects the client, model, environment, configs,
+scenarios, repetition count, and spend cap. Do not launch sessions without
+explicit approval for the cost. Local harness tests do not require paid runs.
 
-**Scope:**
-
-- Harness: Claude Code (`claude -p`) or Codex (`codex exec`), single-shot
-  headless sessions, selected per manifest (`harness:` key; adapter seam in
-  `runner/harness.ts`). Cross-harness numbers compare *ecosystems*
-  (harness+model change together), never harnesses in isolation (§11).
-- Model: per manifest (`claude-opus-4-8` default; codex manifests set their
-  own, e.g. `gpt-5.6-sol`).
-- Harness version: detected at run time, recorded per rep (as `cc_version`,
-  name kept for log compatibility); comparisons are version-bound (§9).
-
----
+The implementation lives in `test-harness/runner/`. Schemas in `manifest.ts`,
+`config.ts`, and `scenario.ts` are authoritative for accepted configuration.
 
 ## 2. Terminology
 
-- **Knob** — one intervention with 2–3 variants (off / weak / strong).
-- **Config** — a concrete, installable combination of knob variants.
-- **Scenario** — fixture repo + task prompt + seeded memory corpus +
-  ground-truth label + checks.
-- **Rep** — one headless coding-agent session for a (config, scenario) cell.
-- **Run** — one manifest execution: a named batch of (config × scenario × rep)
-  with a spend cap.
+- **Knob:** an intervention being evaluated (server guidance, instructions, hooks).
+- **Config:** an installable combination of interventions, including baselines.
+- **Scenario:** fixture, task, corpus, class, and scoring checks.
+- **Rep:** one session for a config/scenario cell.
+- **Run:** one manifest's config × scenario × rep batch.
 
----
+## 3. Configs and controlled dimensions
 
-## 3. Knob catalog
+### 3.1 Server variants
 
-### 3.1 Product-shipped knobs (zero user setup; portable across harnesses)
+`configs/<name>/meta.yaml` declares `name`, `knob`, `variant`, `side`
+(`read|write|both`), `portability` (`portable|partial|non-portable`), and
+`memento_variant`. A null Memento variant means no server is registered.
+Server variants are defined in `src/variants/`; do not duplicate that registry
+in experiment documentation.
 
-These ship inside the Memento server and are the preferred winners: per the
-decision rule (§6), they need only a marginal real improvement to ship.
+### 3.2 Installed artifacts
 
-| Knob | Variants | Side |
-| --- | --- | --- |
-| Tool descriptions | plain (neutral/terse) / trigger-list (shipped guidance) | read+write |
-| Tool surface shape | the frozen V2 eight-tool surface; future alternatives require a new server version | read |
-| MCP server `instructions` field | empty / usage-protocol text (hoisted into system prompt by the client) | read+write |
-| Tool-result nudges | plain results / appended prompts (empty search → "consider `create_memory` after the task"; create success → reinforce search habit) | read+write |
+Optional `install` fields select an instruction fragment (`claude_md`) or the
+canonical generated instructions (`agent_instructions: memento`), plus settings,
+hooks, or a skill directory. Fragment and generated instructions are mutually
+exclusive. Artifact paths are relative to the config directory.
 
-The `MEMENTO_VARIANT` switch lives in `src/variants/` (registry + env var).
-Variants: `plain`
-(baseline-0 floor), `shipped` (pre-experiment descriptions, kept verbatim),
-`server-instructions`, `result-nudges`, and `shipped-v2` — the current
-real-world DEFAULT_VARIANT combining all screening-cleared auto knobs
-(descriptions + instructions + nudges).
+Codex plans reject hooks, skills, and settings fragments before any paid session.
+Instruction fragments are installed using the adapter's instructions filename
+(AGENTS.md for Codex).
 
-Note the descriptions knob is an **ablation**: the shipped text already
-embeds the trigger-list guidance (commit `8db547f`), so measured from the
-`plain` floor, today's wording is the knob's strong variant. The `shipped`
-variant preserves the pre-experiment behavior; it is *not* the harness's
-baseline-0.
+### 3.3 Controlled dimensions
 
-### 3.2 User-installed knobs (Claude Code-specific unless noted)
-
-| Knob | Variants | Side | Portable? |
-| --- | --- | --- | --- |
-| CLAUDE.md addition | none / vague ("use memento") / conditional trigger list; global vs project placement | read+write | partly (AGENTS.md) |
-| Skill (memento usage) | absent / present | read+write | no |
-| User-prompt nag | none / "use memory" appended to task | read | yes (trivially) |
-| SessionStart hook | nothing / memory index (titles) / compact digest | read | no |
-| UserPromptSubmit hook | nothing / reminder text / auto-run `search_memories` + inject results | read | no |
-| Stop / PostToolUse hook | nothing / capture reminder / hard gate ("did a durable insight emerge?") | write | no |
-
-Notes:
-
-- The user-prompt nag is a **ceiling baseline** (max compliance when told
-  explicitly), not a candidate product mechanism.
-- The UserPromptSubmit auto-search variant is the determinism end of the
-  persuasion↔determinism axis: the model never decides. Its FP and token
-  guardrail numbers are the interesting part.
-- **Permission friction** (memento tools pre-allowed vs prompted) is a real
-  knob but not honestly testable headless (non-interactive mode auto-denies
-  rather than prompting). Harness configs pre-allow memento tools.
-
-### 3.3 Controlled dimensions (not knobs; fixed or explicitly varied)
-
-- **Environment:** `clean` (memento is the only MCP server) vs `crowded`
-  (memento + a fixed, version-controlled set of dummy MCP servers — see
-  §7.3 — to reproduce deferred-tool/discoverability pressure).
-- **Corpus state:** fully specified per scenario (§4.2).
-- **Model / CC version:** pinned per run, recorded in every record.
-
----
+Keep client/model, client version, environment (`clean|crowded`, §7.3), and corpus
+controlled rather than treating them as undeclared interventions.
 
 ## 4. Scenarios
 
 ### 4.1 Classes
 
-Each scenario is labeled with exactly one class.
+- **should-retrieve:** an arbitrary, material seeded fact is needed for the task.
+- **should-not-retrieve:** a self-contained task; any Memento call is a false positive.
+- **should-capture:** completing the task exposes a durable planted insight.
+- **should-not-capture:** routine work; any create/update attempt is a false positive.
 
-1. **should-retrieve** — the corpus contains one memory holding an
-   *unguessable, material* fact; the task cannot be done correctly without
-   it. Examples:
-   - "Add email sending for password resets" + memory "We use Postmark, not
-     SendGrid — SendGrid deprecated after deliverability issues."
-     Check: output/diff uses Postmark.
-   - "Add caching to the API" + memory "Decided against Redis; single-node
-     deploy, use in-process LRU." Check: no Redis in diff.
-   - "Fix this flaky test" + memory documenting the known root cause.
-2. **should-not-retrieve** — trivial, self-contained edits (fix a typo,
-   rename a variable, add a null check). Any memento call is a false
-   positive.
-3. **should-capture** — the task forces the agent to *discover* a durable,
-   cross-project insight planted in the fixture (e.g. a sandbox API errors
-   with "rate limit: 10 req/min" and finishing requires working around it).
-   Pass = a created/updated memory that records the insight (§5.2 rubric).
-4. **should-not-capture** — routine tasks that complete cleanly with no
-   insight worth keeping. Any create/update is a false positive.
-
-Seeded facts must be: arbitrary (unguessable from training or the repo),
-checkable by string/regex in the output or diff, and material to the task.
-Baseline calibration checks unguessability empirically (§10).
+Facts must be unguessable from the repository or training, material, and
+checkable. Every new or edited scenario must bump its `version` and pass a
+`baseline-no-memento` calibration with utility approximately zero before use.
+This is an operator requirement, not an automatic calibration gate.
 
 ### 4.2 Corpus
 
-Every scenario runs against a seeded corpus of ~10–15 memories: the relevant
-one (should-retrieve only) plus plausible **distractors** — retrieval has to
-find the right memory among noise, or we're testing propensity but not the
-product. Corpus files follow the memory record format and are seeded into a
-temp `MEMENTO_HOME` per rep.
+`corpus` names a directory of memory Markdown files; `seeded_memory` adds the
+relevant fact for retrieval scenarios. Use plausible distractors so retrieval
+must find the right fact, not merely notice that a server exists. The runner
+seeds a fresh Memento home and project registry for every rep.
 
 ### 4.3 Fixture repos
 
-Small repos under `fixtures/`; the runner copies and git-inits per rep. Each
-fixture ships its own **oracle** for task success: a test suite or checklist
-command that the scorer runs after the session. A scenario may additionally
-specify an **overlay** — a small dir copied on top of the base fixture after
-the per-rep copy — used to plant discovery artifacts (e.g. a rate-limited
-stub API for should-capture) without forking the whole fixture.
+Fixtures are plain directories under `test-harness/fixtures/`. The runner copies
+the fixture, applies an optional `overlay`, then git-initializes and commits the
+baseline. Overlays replace files or add discovery artifacts without duplicating
+a whole fixture; they must not contain a repository's `.git` state.
 
-### 4.4 Holdout set (Goodhart guard)
+`checks.task_success` is an optional shell command run in the post-session
+fixture. Supply an oracle that tests the requested behavior without prescribing
+the seeded answer. Utility is scored before the oracle can modify files.
 
-Holdouts protect against tuning to the scenarios used during iteration. The
-`holdout-*` groups have been spent and are now ordinary scenarios; future ship
-decisions need fresh holdouts untouched by knob iteration.
+### 4.4 Holdouts
 
-### 4.5 Scenario definition format
+Fresh shipping decisions require freshly authored holdouts untouched by config
+iteration. Existing `holdout-*` groups are spent and may be used only as ordinary
+scenarios, not as independent evidence for a new shipping decision.
 
-One directory per scenario:
+### 4.5 Scenario format
+
+One `scenario.yaml` per `scenarios/<group>/<name>/`; its `id` must match the path.
+Paths below are relative to `test-harness/`. This example illustrates the format;
+use the checked-in scenario's current version when running it.
 
 ```yaml
-# scenarios/read/email-provider/scenario.yaml
 id: read/email-provider
-version: 1                 # bump on any change; comparisons only within a version
+version: 1
 class: should-retrieve
 fixture: fixtures/saas-app
-task: "Add email sending for password resets."
-corpus: corpus/standard-15   # distractor set
-seeded_memory: corpus/facts/email-provider.md   # omitted for non-retrieve classes
+task: Add email sending for password resets.
+corpus: corpus/standard-15
+seeded_memory: corpus/facts/email-provider.md
 checks:
-  utility_regex: "(?i)postmark"
-  utility_anti_regex: "(?i)sendgrid"   # optional: fact violated
-  task_success: "bun test"             # run inside the post-session fixture
-capture_rubric: null                   # should-capture scenarios define one (§5.2)
+  utility_regex: '(?i)postmark'
+  utility_anti_regex: '(?i)@sendgrid/mail|api\.sendgrid\.com'
+  task_success: bun run check
+capture_rubric: null
 ```
 
-An optional `overlay:` field (a path under `overlays/`, §4.3) names a directory
-copied over the fixture after checkout to stage this scenario's baseline —
-completing an app so a should-not-\* edit stays green, or planting a discovery
-artifact for should-capture. It is omitted above because `read/email-provider`
-needs the fixture exactly as shipped (email deliberately unimplemented).
-
-Changing a scenario in any way bumps `version`; scores are never compared
-across scenario versions.
-
----
+Optional `overlay: overlays/<name>` stages the baseline (§4.3). Retrieval
+scenarios require `seeded_memory` and `utility_regex`; capture scenarios require
+a `capture_rubric` (§5.2). Anti-regexes must match actual usage patterns, not bare
+provider names that might appear in explanatory comments.
 
 ## 5. Metrics and scoring
 
-All metrics are computed per (config, scenario class) over N reps, from three
-sources: Memento's own V2 event log (`src/logging/events.ts`), the coding-agent
-transcript, and the fixture diff/output.
+`score.ts` records facts while the sandbox exists; `report.ts` recomputes rates
+from the JSONL log. Server event logs, not transcript claims, are authoritative
+for Memento calls. Utility checks match **added diff lines**, not the final
+answer; a passing regex alone does not prove retrieval occurred.
 
 ### 5.1 Primary scores
 
-```
-read_score  = utility_rate        − 0.33 × read_fp_rate
-write_score = good_capture_rate   − 1.00 × capture_fp_rate
-```
-
-- **utility_rate** — fraction of should-retrieve reps where the seeded-fact
-  check passes in the final output/diff. This subsumes retrieval recall and
-  read-through: the fact can't appear unless the model searched, read, and
-  applied it.
-- **read_fp_rate** — fraction of should-not-retrieve reps with ≥1 memento
-  tool call.
-- **good_capture_rate** — fraction of should-capture reps where a memory was
-  created/updated *and* passes the binary quality rubric (§5.2). A
-  created-but-junk memory counts as a miss.
-- **capture_fp_rate** — fraction of should-not-capture reps with any
-  create/update call.
-
-λ constants: **λ_read = 0.33** (a spurious search is transient token flow),
-**λ_write = 1.0** (a junk memory is persistent stock that taxes future
-retrievals — a cost invisible to single-session reps, which the weight
-imports). λ_write is provisional, not an empirically calibrated cost of
-pollution.
-
-Properties worth preserving: a config that never touches memory scores
-exactly 0 on both; positive = beats ignoring memory; nag-into-spam can go
-negative. Read and write scores are **never merged** into one number.
-
-### 5.2 Capture quality rubric (binary; all must pass)
-
-1. Stored via `create_memory`/`update_memory`, with the event's `memory_id`
-   matching the captured file. A `duplicate_candidates` outcome wrote nothing.
-2. Records the planted insight (string check against the scenario's fact).
-3. Durable phrasing, not a task log (per `docs/memory-policy.md` §3).
-4. Correct V2 scope per the repo-vs-memory boundary (`docs/memory-policy.md` §8).
-5. Body usable: non-empty. V2 deliberately imposes no heading template.
-
-Judge: checklist script first (string checks + front-matter validation);
-LLM judge only if checklists prove too brittle, and then with the judge
-prompt version-controlled.
-
-### 5.3 Guardrails (disqualify, don't weight)
-
-A config violating either is out regardless of scores:
-
-- **Task success:** `task_success_rate(config) ≥ task_success_rate(config-0) − 5pp`
-  (the 5-point allowance absorbs sampling noise at small N).
-- **Token overhead:** total input+output tokens ≤ **+15%** vs config-0,
-  measured **only on the true-negative classes** (should-not-retrieve /
-  should-not-capture), where any extra spend is pure waste. (Revised
-  2026-07-31: the original all-class form counted memory work — searching,
-  reading, writing bodies — as overhead and disqualified every effective
-  knob on short sessions.)
-
-### 5.4 Diagnostics (logged, never used for decisions)
-
-Retrieval recall (search before first substantive action — first mutating
-tool call or final answer), search-to-`get_memory` rate joined by result ids,
-memento calls per session, empty-search rate, capture attempts, latency, turn
-count, invalid-rep rate.
-These explain *why* a score moved; they are all recomputed from the results
-log (§8), so adding one later back-fills history.
-
----
-
-## 6. Decision rules
-
-- **Effect is real** when, in paired per-scenario comparison against
-  config-0 (same scenarios, same scenario versions), the delta is positive
-  in **≥75% of scenarios** and the mean delta is positive. No eyeballing.
-- **Ship threshold is asymmetric:**
-  - *Auto knobs* (product-shipped, §3.1 — no user action beyond installing
-    the MCP): ship on any real positive delta, however marginal.
-  - *User-action knobs* (§3.2): require a substantially larger delta —
-    exact number deliberately deferred until preliminary results exist.
-- **Ties** between close configs are broken Pareto-style on the raw
-  (utility, FP) pair; prefer the dominating config, and among ties prefer
-  portable knobs (V2 Codex).
-- **Experiment endpoint:** a "recommended install" — best server defaults
-  baked into Memento, plus at most 2–3 user-installed knobs documented in
-  the README.
-
----
-
-## 7. Harness architecture
-
-### 7.1 Layout
-
-```
-test-harness/
-  manifests/          # run manifests (yaml), one per run — version-controlled
-  configs/            # one dir per config: installable artifacts + meta.yaml
-  scenarios/          # scenario dirs per §4.5, grouped read|no-read|write|no-write
-  fixtures/           # fixture repos (as plain dirs; runner git-inits copies)
-  overlays/           # optional dirs copied over a fixture to stage a rep (§4.3)
-  corpus/             # seeded V2 memory .md files (distractor sets + facts)
-  stubs/              # dummy MCP server for the crowded env (§7.3)
-  runner/             # runner + scorers (bun scripts)
-  results/            # results.jsonl + transcripts/ (gitignored except .gitkeep)
+```text
+read_score  = utility_rate      − 0.33 × read_fp_rate
+write_score = good_capture_rate − 1.00 × capture_fp_rate
 ```
 
-Config `meta.yaml` declares: knob id, variant, side (read/write/both),
-portability tag, required `MEMENTO_VARIANT` value, and which artifact files
-to install (CLAUDE.md fragment, settings.json fragment, hook scripts, skill
-dir).
+- `utility_rate`: should-retrieve reps passing the positive regex and not
+  matching the optional anti-regex.
+- `read_fp_rate`: should-not-retrieve reps with any logged Memento call.
+- `good_capture_rate`: should-capture reps passing all capture criteria.
+- `capture_fp_rate`: should-not-capture reps with any create/update attempt.
 
-### 7.2 Per-rep lifecycle (hermetic — this is load-bearing)
+Read and write scores remain separate. Report flags can change the weights
+without rerunning sessions; the write penalty is a policy weight, not an
+empirically calibrated cost of corpus pollution. Missing classes yield missing
+rates; do not interpret a partial-class report as a complete evaluation.
 
-Harness-specific mechanics live behind a `HarnessAdapter` (`runner/harness.ts`):
-invocation shape, result parsing, config-home layout, MCP registration, and
-the instructions filename. claude-code: `CLAUDE_CONFIG_DIR`, `--mcp-config`
-JSON, CLAUDE.md, hooks+settings. codex: `CODEX_HOME` (auth.json copied in —
-file-based, unlike Claude Code's Keychain), `[mcp_servers]` in config.toml,
-AGENTS.md, no hooks/settings (plan-time gate). Codex reports token usage but
-no dollar cost, so each rep charges the §7.4 fallback — a codex spend cap is
-effectively a rep-count cap. Scoring, scenarios, corpus, and the scheduler
-are adapter-agnostic.
+### 5.2 Capture quality rubric
 
-Every rep runs in a fully isolated environment. The operator's own
-`~/.claude/CLAUDE.md`, plugins, skills, and MCP servers must not leak in;
-getting this wrong invalidates results silently.
+A rep passes only when one new or changed memory satisfies all five criteria:
 
-1. Create three unrelated temp roots: `MEMENTO_HOME` (seed a V2 project registry
-   plus corpus), fixture copy (git init + commit), and a fresh client config home.
-2. Install the config's artifacts into the temp config home / fixture
-   (CLAUDE.md, settings with hooks, skill files). Write the MCP server list
-   explicitly: memento (with the config's `MEMENTO_VARIANT`) plus, in the
-   crowded arm, the stub servers. Pre-allow memento tools in settings.
-3. Run the selected adapter's headless command (model pinned) in the fixture
-   copy, with a per-rep timeout. Capture the transcript stream.
-4. Score: parse Memento's event log + transcript + diff; run the fixture
-   oracle; evaluate checks/rubric.
-5. Append one JSONL record (§8); save the transcript; delete temp dirs.
+1. A successful create/update event identifies that memory's front-matter id.
+   A duplicate-candidate response alone is not a stored memory.
+2. Title, description, or body matches `insight_regex`, without matching the
+   optional `insight_anti_regex`.
+3. Title and description avoid the scorer's task-log markers and optional
+   `task_log_anti_regex`.
+4. Scope kind matches `expected_scope` if supplied; otherwise it is present.
+5. The body is non-empty; no heading template is required.
 
-Reps are independent; the manifest sets `concurrency` (default 2) —
-mind API rate limits and that spend-cap accounting (§7.4) stays accurate
-under parallelism.
-
-### 7.3 Crowded environment
-
-A single stub MCP server in `stubs/` exposing N no-op tools with plausible
-names/descriptions, instantiated 3–5 times under different server names via
-config. Fixed and version-controlled — never "whatever is on the machine."
-This reproduces the deferred-tool discoverability pressure of real setups.
-
-### 7.4 Operational policy
-
-- Per-rep timeout: **10 minutes**. Timed-out or crashed reps are marked
-  `invalid`, excluded from scoring (not counted as task failure), retried
-  **once** automatically.
-- A (config, scenario) cell with >30% invalid reps is flagged for manual
-  inspection instead of being scored.
-- The runner reads per-session cost from Claude Code's JSON output,
-  accumulates it, and **halts the run at `max_spend_usd`**, finishing the
-  in-flight reps only. Sessions without reported cost charge a fallback estimate.
-
----
-
-## 8. Run manifest and persistence
-
-### 8.1 Manifest
+Example rubric for a planted reusable operational constraint:
 
 ```yaml
-# manifests/screening-1.yaml
-name: screening-1
-model: claude-opus-4-8        # hardcoded default; matrix dimension in V2
-env: clean                    # clean | crowded
+capture_rubric:
+  insight_regex: '(?i)single.transaction|--single-tx'
+  expected_scope: [projects]
+```
+
+These are deterministic heuristics in `capture.ts`, not a semantic quality judge.
+Review borderline cases against the memory policy; do not claim the rubric
+fully validates durability or the repository-versus-memory boundary.
+
+### 5.3 Guardrails
+
+The report compares shared scenarios against the selected baseline (default
+`baseline-0`):
+
+- Task success must be at least baseline minus 5 percentage points.
+- Mean input+output tokens must be no more than 15% above baseline, checked
+  separately on each true-negative class. Positive classes are excluded because
+  useful memory work itself costs tokens.
+
+Missing baseline or usable data produces `n/a`, not evidence of passing.
+Guardrail failures disqualify a config rather than adjusting its score.
+
+### 5.4 Diagnostics
+
+The report includes invalid rate, calls and searches per session, empty-search
+rate, search-to-get rate, capture attempts, duration, turns, and cost. These help
+explain scores but are not substitutes for task utility and capture quality.
+
+## 6. Interpreting comparisons
+
+Compare configs on the same scenarios and scenario versions, within the boundaries
+in §9. The decision rule requires a positive paired delta against `baseline-0`
+in at least 75% of scenarios and a positive mean delta. Inspect false positives
+and guardrails as well as aggregate scores. The report does not automate this
+rule or establish statistical significance.
+
+Product-shipped interventions need a real positive delta; user-installed
+interventions must justify their additional setup cost. Prefer the dominating
+utility/false-positive pair and portable, low-friction interventions when benefits
+are otherwise comparable. Reserve fresh holdouts for confirmation.
+
+## 7. Runner architecture and safety
+
+### 7.1 Source map
+
+- `manifest.ts`, `config.ts`, `scenario.ts`, `plan.ts`: validation and cell planning.
+- `harness.ts`: client invocation, authentication setup, and transcript parsing.
+- `sandbox.ts`, `mcp.ts`, `settings.ts`: isolated installation and MCP wiring.
+- `preflight.ts`: bundle and verify the server before paid reps.
+- `session.ts`, `run.ts`: process supervision, scheduling, retries, spend accounting.
+- `score.ts`, `utility.ts`, `capture.ts`, `event-log.ts`: per-rep facts.
+- `record.ts`, `report.ts`, `report-cli.ts`: persistence and reporting.
+
+### 7.2 Hermetic lifecycle and event verification
+
+Each rep gets three unrelated temporary roots: memory storage, fixture worktree,
+and client configuration. Keep them unrelated: an agent must not discover hidden
+seed files through a sibling directory of an environment-exposed config home.
+The operator's instructions, plugins, skills, MCP registrations, and git settings
+must not contaminate the fixture.
+
+The runner installs the config artifacts, seeds the corpus and registry, writes
+an explicit MCP configuration, and invokes the selected client with a pinned
+model. Claude Code uses `CLAUDE_CONFIG_DIR`; Codex uses `CODEX_HOME` with copied
+file-based authentication. Codex requires an existing `codex login`.
+After the session, the runner collects events, diff, capture results, oracle
+results, and transcript usage; it saves artifacts, appends a record, and cleans
+up temporary directories.
+
+Preflight bundles the current server, checks initialization for each requested
+variant, forces `resolve_project` through the same bundled stdio server, and
+requires its event-log entry before paid reps start. This does **not** prove a
+client permits MCP calls. Before trusting a zero-call result, force a call through
+the exact client/model/config production path and verify the server event log.
+Headless Codex needs `--dangerously-bypass-approvals-and-sandbox` (included by the
+adapter); without it MCP calls can silently cancel. Run only trusted fixtures
+and artifacts: client execution deliberately bypasses permission protections.
+
+### 7.3 Environments
+
+`clean` registers only Memento when enabled by the config. `crowded` additionally
+registers the fixed dummy-server profiles in `stubs/profiles.ts`, served by
+`stubs/server.ts`. These no-op tools provide controlled discoverability pressure;
+do not replace them with the operator's live integrations.
+
+### 7.4 Timeouts, retries, and spend
+
+Defaults are concurrency 2, timeout 600 seconds, and one retry for invalid reps;
+the manifest can override them. Timed-out, failed, or unparseable sessions are
+invalid, not task failures. Every attempt is logged and charged. Cells with more
+than 30% invalid attempts are flagged and excluded from report scoring.
+
+`max_spend_usd` is required. The scheduler stops launching work or retries once
+accounted spend reaches the cap; in-flight work finishes, so this is not a hard
+billing ceiling. Sessions without reported cost charge a $2 fallback estimate.
+Codex reports tokens but no dollar cost, so its cap is effectively an estimated
+rep budget. Leave headroom for concurrency, retries, and estimation error.
+
+## 8. Manifests and persistence
+
+### 8.1 Manifest format
+
+```yaml
+# test-harness/manifests/example.yaml
+name: example
+harness: claude-code            # claude-code | codex
+model: claude-opus-4-8
+env: clean                     # clean | crowded
 reps: 3
 concurrency: 2
-max_spend_usd: 60
-configs: [baseline-0, baseline-no-memento, tool-desc-trigger, server-instructions, sessionstart-index]
-scenarios: [read/*, no-read/*]   # globs over scenario ids
+max_spend_usd: 30
+timeout_s: 600
+retries: 1
+configs: [baseline-no-memento, baseline-0, shipped-v2]
+scenarios: [read/*, no-read/*, write/*, no-write/*]
 ```
 
-Invocation: `bun run harness -- manifests/screening-1.yaml`. Manifests are
-committed; a run is reproducible from its manifest + repo state.
+`name` must match the manifest filename. Scenario selectors are exact ids or
+whole-segment wildcards (`read/*`, not `read/em*`). Unknown configs and unmatched
+selectors fail planning. Commit manifests so runs can be interpreted with their
+repository state; do not assume an old manifest is appropriate for a new ship
+comparison.
 
-### 8.2 Results log
+### 8.2 Results and artifacts
 
-Every rep appends one record to `results/results.jsonl`:
+Every attempt appends to `test-harness/results/results.jsonl`. Records include
+run/config identity and config hash, scenario id/version/class, client/model/
+server/policy versions, environment, status (`ok|invalid|halted`), raw scoring
+facts and usage, and transcript/diff paths. See `record.ts` for the exact schema.
 
-```json
-{
-  "run": "screening-1",
-  "timestamp": "...",
-  "config": "tool-desc-trigger",
-  "config_hash": "sha256:...",
-  "scenario": "read/email-provider",
-  "scenario_version": 1,
-  "scenario_class": "should-retrieve",
-  "rep": 2,
-  "model": "claude-opus-4-8",
-  "harness": "claude-code",
-  "cc_version": "1.6.9",
-  "memento_version": "...",
-  "policy_version": "2.1.0",
-  "env": "clean",
-  "status": "ok",              
-  "raw": {
-    "memento_calls": [...],     
-    "utility_pass": true,
-    "task_success": true,
-    "capture": null,
-    "tokens_in": 0, "tokens_out": 0,
-    "cost_usd": 0.42, "duration_s": 141, "turns": 9
-  },
-  "transcript_path": "results/transcripts/screening-1/...",
-  "diff_path": "results/transcripts/screening-1/..."
-}
-```
+Results are append-only. Move invalidated runs to `quarantine-*.jsonl`, never
+delete them. Keep transcripts and diffs for audit. Recompute aggregate scores
+from the log rather than maintaining a separate authoritative score table.
+New diagnostics can only be backfilled if their required raw facts were saved.
 
-`status` ∈ ok | invalid | halted. `config_hash` is a hash of the config
-dir's artifacts, so silent config drift is detectable.
+## 9. Versioning and comparison boundaries
 
-**Scores are always recomputed from this log, never stored as the only
-copy** — when λ changes or a diagnostic is added, all history re-scores for
-free. A small report script renders the config × (read_score, write_score)
-table with guardrail violations flagged, plus diagnostics per config.
-Results are append-only; invalidated runs move to `quarantine-*.jsonl`, not
-deleted.
+Compare only within one `(harness, model, cc_version, memento_version,
+policy_version, env)` tuple and matching scenario versions. `cc_version` is the
+client version for either adapter; the field name is retained for compatibility.
+Bump the package version for measurement-relevant server changes and the scenario
+version for every scenario change. Inspect config hashes for artifact drift.
 
----
-
-## 9. Versioning and comparisons
-
-Comparisons are valid only within the same (harness, model, cc_version,
-memento_version, policy_version, env, scenario_version) tuple. Bump the
-scenario version for any scenario change, and the package version for any
-measurement-relevant server change. Do not compare scores across versions.
-Config hashes make artifact drift visible. Scores and diagnostics can be
-recomputed from the append-only log when metrics change.
-
----
+The report groups by the environment/version tuple but only **warns** about
+mixed scenario versions; that warning is not permission to compare them. Different
+client/model pairs measure different ecosystems, not an isolated client effect.
 
 ## 10. Baselines
 
-- `baseline-no-memento` — Memento not registered. Anchors task-success and
-  token guardrails; calibrates unguessability.
-- `baseline-0` — Memento installed with the neutral variant
-  (`MEMENTO_VARIANT=plain`: terse descriptions, no `instructions` field, no
-  nudges), zero user-installed knobs. The 0-line every knob is paired
-  against. **This is deliberately not today's shipped default:** `8db547f`
-  already embedded trigger-list guidance in the descriptions, so shipped
-  behavior is itself a knob variant under test, not the baseline. If
-  baseline-0 carried an undeclared intervention, every knob's delta —
-  not just the descriptions knob's — would be measured on top of it.
+- `baseline-no-memento`: no server registered; calibrates seeded-fact
+  unguessability and measures task/token behavior without memory.
+- `baseline-0`: server installed with `MEMENTO_VARIANT=plain`, without user-side
+  artifacts; neutral reference for interventions, not the shipped default.
 
-Baselines from a different comparison tuple are not comparable (§9).
+The report's guardrail baseline defaults to `baseline-0`; select another with
+`--baseline` explicitly. Baselines from another comparison tuple are not valid
+substitutes.
 
----
+## 11. Limitations
 
-## 11. Known blind spots
-
-Stated so results are not mistaken for more than they are:
-
-- **Single-shot sessions underestimate capture** — real capture often
-  follows a "works, thanks" turn. The harness uses single-shot sessions.
-- **Fresh-session propensity only** — no longitudinal dynamics (staleness,
-  reuse over weeks, corpus growth).
-- **Permission friction untestable headless** — deferred knob.
-- **Toy-repo and fixture bias** — retrieval propensity may differ in larger
-  repositories and on longer tasks.
-- **Harness and model are confounded** — a Codex arm changes both at once, so
-  cross-harness tables answer "does memento work in that ecosystem," never
-  "which harness uses memory better." Knob rankings must be established
-  within one (harness, model) pair.
+- Single-shot sessions miss capture that follows a later confirmation turn.
+- Fresh sessions do not measure staleness, corpus growth, or long-term reuse.
+- Small fixtures and regex/rubric heuristics limit generalization and semantic
+  quality claims; successful utility checks can be guessed or gamed.
+- Non-interactive permission bypass cannot measure real approval friction.
+- Cross-client/model comparisons are confounded; establish config rankings
+  within each client/model pair.

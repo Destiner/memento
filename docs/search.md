@@ -1,12 +1,12 @@
 # Search behavior
 
-Memento 0.5.1 uses SQLite FTS5 with Porter stemming and `unicode61` tokenization.
+Memento uses SQLite FTS5 with Porter stemming and `unicode61` tokenization.
 Search is local and model-free: no embedding model, network call, fuzzy rewriting,
 or extra search dependency is required.
 
 ## Finding and accepting results
 
-`search_memories` still requires explicit scope. Global and project scopes never
+`search_memories` requires explicit scope. Global and project scopes never
 implicitly include one another; project `any`/`all`, type filters, and the default
 active-only status are applied before retrieval and evidence statistics.
 
@@ -62,9 +62,8 @@ unrelated queries. An exact-reference match has an evidence floor of 0.85 before
 clause blending. The same score can belong to multiple results.
 
 Term-frequency evidence is scope/type/status-local. BM25 candidate selection and
-BM25 tie-breaking still use SQLite's whole-table statistics, so unrelated corpus
-changes can affect candidate inclusion or tied ordering. Scores are not derived
-from the old saturating BM25-plus-metadata formula.
+BM25 tie-breaking use SQLite's whole-table statistics, so unrelated corpus
+changes can affect candidate inclusion or tied ordering.
 
 Queries are limited to **4,096 characters and 64 distinct terms**, including
 actual SQLite tokenizer expansion. Oversized queries fail validation explicitly;
@@ -72,27 +71,25 @@ they are not silently truncated. Function-word-only prose returns no results;
 explicit literals retain their words even when those words would normally be
 ignored.
 
-## What is unchanged
+## Store and deduplication boundaries
 
-- Markdown remains authoritative; the SQLite index remains rebuildable.
-- No persistent index/tokenizer schema change is needed for this release.
-  Tokenizer scratch tables and vocabulary views are connection-local TEMP
-  objects; reopening an existing index needs no migration. A connection-local
-  SQLite function applies the shared Unicode literal matcher before candidate
-  limits, without repeated pagination.
+- Markdown is authoritative; the SQLite index must be rebuildable from it.
+- Tokenizer scratch tables and vocabulary views are connection-local TEMP
+  objects. A connection-local SQLite function applies the shared Unicode literal
+  matcher before candidate limits.
 - Scope never widens to improve recall.
-- `create_memory` dedupe keeps its original broad OR query, unweighted BM25,
-  candidate limit, and inclusion of archived neighbours. Search abstention does
-  not tighten the write-time duplicate gate.
+- `create_memory` dedupe uses a separate broad OR query, unweighted BM25, and
+  includes archived neighbours. Search acceptance rules must not narrow the
+  write-time duplicate candidate pool.
 - Search returns summaries, not memory bodies.
 
 ## Diagnostics and privacy
 
-When existing local logging is enabled, search events additionally record the
-ranker version, ordered returned scores, effective limit, and validated type/status
-filters. These are optional additions to log schema 2; old events remain readable.
-Query text, terms, exact literals, memory titles and bodies are never logged. The
-scores help diagnose changes but still do not establish relevance judgments.
+When local logging is enabled, search events record the ranker version, ordered
+returned scores, effective limit, and validated type/status filters. Readers must
+accept events without these optional fields. Query text, terms, exact literals,
+memory titles and bodies are never logged. Scores help diagnose changes but do
+not establish relevance judgments.
 
 ## Known limits
 
@@ -104,7 +101,7 @@ candidate pool is not guaranteed to cover every independently useful clause.
 Exact-reference recovery must inspect matching candidates when many prefix decoys
 exist, but it filters them in a single SQL pass before limiting results.
 
-See the [research](../experiments/search-relevance/FINDINGS.md) and
-[implementation evaluation](../experiments/search-relevance/IMPLEMENTATION.md)
-for the measured tradeoffs. Neither synthetic precision nor a read-through rate
-is a guarantee of production relevance.
+See the [search evaluation tools](../experiments/search-relevance/README.md) for
+regression checks, explicit-fixture comparisons, and isolated MCP verification.
+Neither synthetic precision nor a read-through rate guarantees production
+relevance.
