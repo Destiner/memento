@@ -17,6 +17,8 @@ the harness rules in AGENTS.md).
 ## 1. The boundary
 
 Memento holds context that helps coding work but that no single repository owns.
+Each authenticated account owns an isolated remote store. All memory and project
+operations, including global scope, stay within that account.
 The repository owns its own formal truth: build steps, architecture it controls,
 API contracts, deployment, implementation detail, operating procedure.
 

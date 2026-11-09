@@ -1,15 +1,7 @@
-// Configuration loading and home-directory resolution.
-//
-// The memory home defaults to ~/.memento and can be overridden with the
-// MEMENTO_HOME environment variable. A config.json in the home directory
-// overrides individual defaults. Loading is read-only: nothing is created here —
-// directory scaffolding belongs to the store and report tooling. Full schema
-// validation lives in the validation helper (a later task); this module only
-// applies light guards to keep the merged config internally consistent.
+// Account-store configuration. Paths must always be supplied by the server or tests.
 
 import { readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 import { DEFAULT_VARIANT } from './variants/index.js';
 
@@ -42,8 +34,6 @@ export interface ResolvedConfig {
   variant: string;
 }
 
-export const DEFAULT_HOME_DIR = '.memento';
-
 // Bound retention arithmetic to a practical range well within Date precision.
 export const MAX_MEMORY_RETENTION_DAYS = 365000;
 
@@ -56,15 +46,6 @@ export const DEFAULT_CONFIG: MementoConfig = {
   memory_archive_after_days: 90,
   memory_delete_after_days: 90,
 };
-
-/** Resolve the memory home directory, honouring MEMENTO_HOME. */
-export function resolveHome(env: NodeJS.ProcessEnv = process.env): string {
-  const override = env.MEMENTO_HOME?.trim();
-  if (override) {
-    return resolve(expandTilde(override));
-  }
-  return join(homedir(), DEFAULT_HOME_DIR);
-}
 
 /**
  * Resolve the active variant name, honouring MEMENTO_VARIANT (default when unset).
@@ -106,20 +87,11 @@ export function resolvePaths(home: string): MementoPaths {
  * Load the effective config for a home directory. Missing config.json yields
  * pure defaults; a present file overrides individual fields. Read-only.
  */
-export function loadConfig(home: string = resolveHome()): ResolvedConfig {
+export function loadConfig(home: string): ResolvedConfig {
+  if (!home?.trim()) throw new Error('An explicit account store path is required.');
   const paths = resolvePaths(home);
   const config = mergeConfig(DEFAULT_CONFIG, readConfigFile(paths.config));
   return { paths, config, variant: resolveVariantName() };
-}
-
-function expandTilde(input: string): string {
-  if (input === '~') {
-    return homedir();
-  }
-  if (input.startsWith('~/')) {
-    return join(homedir(), input.slice(2));
-  }
-  return input;
 }
 
 function readConfigFile(path: string): Partial<MementoConfig> {

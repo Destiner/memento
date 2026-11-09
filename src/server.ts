@@ -14,7 +14,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
-import { loadConfig, type ResolvedConfig } from './config.js';
+import type { ResolvedConfig } from './config.js';
 import { toErrorShape } from './errors.js';
 import { createLogger, type EventLogger } from './logging/logger.js';
 import type { ToolEventFields } from './logging/events.js';
@@ -23,7 +23,7 @@ import { generateSessionId } from './store/id.js';
 import { archiveMemory } from './store/memory-archive.js';
 import { createMemory } from './store/memory-create.js';
 import { getMemory } from './store/memory-get.js';
-import { decayMemories } from './store/memory-decay.js';
+import { openStore, StoreContext } from './store/context.js';
 import {
   archiveMemoryInputShape,
   createMemoryInputShape,
@@ -34,7 +34,6 @@ import {
 import { searchMemories, searchStatuses } from './store/memory-search.js';
 import { SEARCH_RANKER_VERSION } from './store/search-relevance.js';
 import { updateMemory } from './store/memory-update.js';
-import { openIndex } from './store/index-open.js';
 import { createProject } from './store/project-create.js';
 import { resolveProject } from './store/project-resolve.js';
 import {
@@ -55,11 +54,13 @@ import {
 } from './tool-outputs.js';
 import { resolveVariant } from './variants/index.js';
 
+export { openStore, StoreContext } from './store/context.js';
+
 export const SERVER_NAME = 'memento';
 // Kept in step with package.json by a test: the harness pools runs by the package
 // version while the event log records this one, so a drift between them silently
 // mixes pre- and post-change reps in one comparison.
-export const SERVER_VERSION = '0.6.1';
+export const SERVER_VERSION = '0.7.0';
 
 interface ToolCallResult {
   content: { type: 'text'; text: string }[];
@@ -135,8 +136,21 @@ function scopeFields(scope: { kind: string; project_ids?: readonly string[] }): 
   };
 }
 
-export async function createServer(resolved: ResolvedConfig = loadConfig()): Promise<McpServer> {
-  const variant = resolveVariant(resolved.variant);
+export async function createServer(
+  source: ResolvedConfig | StoreContext,
+  beforeDispatch?: () => Promise<void>,
+): Promise<McpServer> {
+  const owned = !(source instanceof StoreContext);
+  const variant = resolveVariant(
+    source instanceof StoreContext ? source.resolved.variant : source.variant,
+  );
+  const store = source instanceof StoreContext ? source : await openStore(source);
+  const { resolved, index } = store;
+  const enqueue = <T>(operation: () => T | Promise<T>) =>
+    store.enqueue(async () => {
+      await beforeDispatch?.();
+      return operation();
+    });
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     variant.instructions ? { instructions: variant.instructions } : undefined,
@@ -154,52 +168,19 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
     client: () => server.server.getClientVersion(),
   });
 
-  // Open the derived index once at startup, rebuilding from markdown if it is
-  // missing or its schema is out of date. Writes keep it in sync from here.
-  const { index } = await openIndex({
-    indexDir: resolved.paths.index,
-    memoriesDir: resolved.paths.memories,
-  });
-
   const memoriesDir = resolved.paths.memories;
   const projectsDir = resolved.paths.projects;
 
-  const maintain = async () => {
-    const result = await decayMemories({ memoriesDir, index, config: resolved.config });
-    if (result.skipped.length) {
-      console.error(`Memento retention skipped ${result.skipped.length} invalid or unsafe files.`);
-    }
-  };
-
-  // Serialize local calls with maintenance; the store lock also protects other processes.
-  let pending = Promise.resolve();
-  let closed = false;
-  let indexClosed = false;
-  const enqueue = <T>(operation: () => Promise<T>): Promise<T> => {
-    if (closed) return Promise.reject(new Error('The memory server is closed.'));
-    const task = pending.then(operation);
-    pending = task.then(
-      () => undefined,
-      () => undefined,
-    );
-    return task;
-  };
-  const stop = async () => {
-    closed = true;
-    await pending;
-    if (!indexClosed) {
-      indexClosed = true;
-      index.close();
-    }
-  };
-  server.server.onclose = () => {
-    void stop();
-  };
-  const close = server.close.bind(server);
-  server.close = async () => {
-    await stop();
-    await close();
-  };
+  if (owned) {
+    server.server.onclose = () => {
+      void store.close();
+    };
+    const close = server.close.bind(server);
+    server.close = async () => {
+      await store.close();
+      await close();
+    };
+  }
 
   server.registerTool(
     'resolve_project',
@@ -212,7 +193,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       runTool(
         'resolve_project',
         logger,
-        () => resolveProject(args, { projectsDir }),
+        () => enqueue(() => resolveProject(args, { projectsDir })),
         (result) => ({
           result_outcome: result.outcome,
           matched_on: result.outcome === 'not_found' ? undefined : result.matched_on,
@@ -237,12 +218,18 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       runTool(
         'create_project',
         logger,
-        async () => {
-          const result = await createProject(args, { projectsDir });
-          return result.outcome === 'created'
-            ? { outcome: result.outcome, id: result.id, path: result.path, project: result.record }
-            : result;
-        },
+        () =>
+          enqueue(async () => {
+            const result = await createProject(args, { projectsDir });
+            return result.outcome === 'created'
+              ? {
+                  outcome: result.outcome,
+                  id: result.id,
+                  path: result.path,
+                  project: result.record,
+                }
+              : result;
+          }),
         (result) => ({
           result_outcome: result.outcome,
           project_ids: 'id' in result ? [result.id] : undefined,
@@ -264,15 +251,16 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       runTool(
         'update_project',
         logger,
-        async () => {
-          const result = await updateProject(args, { projectsDir });
-          return {
-            id: result.id,
-            path: result.path,
-            updated: result.updated,
-            project: result.record,
-          };
-        },
+        () =>
+          enqueue(async () => {
+            const result = await updateProject(args, { projectsDir });
+            return {
+              id: result.id,
+              path: result.path,
+              updated: result.updated,
+              project: result.record,
+            };
+          }),
         (result) => ({ project_ids: [result.id] }),
       ),
   );
@@ -290,7 +278,7 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
         logger,
         () =>
           enqueue(async () => {
-            await maintain();
+            await store.maintain();
             return searchMemories(args, {
               index,
               projectsDir,

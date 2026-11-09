@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
@@ -8,26 +8,11 @@ import {
   DEFAULT_CONFIG,
   MAX_MEMORY_RETENTION_DAYS,
   loadConfig,
-  resolveHome,
   resolveVariantName,
 } from '../src/config.js';
 
-describe('resolveHome', () => {
-  test('defaults to ~/.memento when unset', () => {
-    expect(resolveHome({})).toBe(join(homedir(), '.memento'));
-  });
-
-  test('honours an absolute MEMENTO_HOME override', () => {
-    expect(resolveHome({ MEMENTO_HOME: '/custom/path' })).toBe('/custom/path');
-  });
-
-  test('expands a leading ~ in the override', () => {
-    expect(resolveHome({ MEMENTO_HOME: '~/mem' })).toBe(join(homedir(), 'mem'));
-  });
-
-  test('resolves a relative override to an absolute path', () => {
-    expect(resolveHome({ MEMENTO_HOME: 'rel/mem' })).toBe(resolve('rel/mem'));
-  });
+test('account configuration requires an explicit path', () => {
+  expect(() => loadConfig('')).toThrow(/explicit account store path/);
 });
 
 describe('resolveVariantName', () => {

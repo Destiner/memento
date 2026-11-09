@@ -1,6 +1,6 @@
 {
   "name": "memento",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Coding-agent memory layer",
   "type": "module",
   "private": true,
@@ -22,6 +22,9 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc",
+    "start": "node dist/main.js",
+    "format:check": "prettier --check .",
+    "check": "bun run lint && bun run format:check && bun run typecheck && bun run typecheck:harness && bun run typecheck:retrospective && bun run test && bun run test:harness && bun run test:retrospective && bun run build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
