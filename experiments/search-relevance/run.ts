@@ -1,19 +1,13 @@
 // Offline diagnostic only: no server, model, network, live store, or harness runs.
 import assert from 'node:assert/strict';
+import { assertPrivateOutput, writePrivateOutput } from './output.js';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 
-import { serializeFrontmatter } from '../../src/store/frontmatter.js';
-import { orderMemoryMetadata } from '../../src/store/memory-fields.js';
-import { searchMemories } from '../../src/store/memory-search.js';
-import type { MemoryRecord, SearchScope } from '../../src/store/memory-schema.js';
-import { createProject } from '../../src/store/project-create.js';
-import { rebuildIndex } from '../../src/store/rebuild.js';
-import { MemoryIndex, queryTerms } from '../../src/store/search-index.js';
+import type { MemoryRecord, SearchScope } from './legacy-types.js';
+import { MemoryIndex, queryTerms } from './legacy-index.js';
 
 interface Document {
   id: string;
@@ -113,9 +107,11 @@ function dice(a: Set<string>, b: Set<string>): number {
   return (2 * [...a].filter((x) => b.has(x)).length) / (a.size + b.size);
 }
 
+const outputPath = process.argv[2];
+assert(outputPath && process.argv.length === 3, 'Usage: run.ts <new-output.json outside repo>');
+await assertPrivateOutput(outputPath);
 const seedBytes = await readFile(new URL('./seed.json', import.meta.url), 'utf8');
 const seed = JSON.parse(seedBytes) as Seed;
-const home = await mkdtemp(join(tmpdir(), 'memento-search-study-'));
 const index = new MemoryIndex();
 const db = new DatabaseSync(':memory:');
 const methods = [
@@ -131,25 +127,12 @@ const methods = [
 type Method = (typeof methods)[number];
 
 try {
-  const memoriesDir = join(home, 'memories');
-  const projectsDir = join(home, 'projects');
-  await mkdir(memoriesDir);
-  for (const project of seed.projects) {
-    await createProject(
-      { name: project.name, description: 'Synthetic search study.' },
-      { projectsDir, makeId: () => project.id },
-    );
-  }
   assert.equal(new Set(seed.memories.map((d) => d.id)).size, seed.memories.length);
-  for (const doc of seed.memories) {
-    await writeFile(
-      join(memoriesDir, `${doc.id}.md`),
-      serializeFrontmatter(orderMemoryMetadata(record(doc)), doc.body),
-    );
-  }
-  const rebuilt = await rebuildIndex(index, memoriesDir);
-  assert.deepEqual(rebuilt.skipped, []);
-  assert.equal(rebuilt.indexed, seed.memories.length);
+  // Historical rebuild read filenames in lexical order; preserve tie ordering.
+  for (const doc of [...seed.memories].sort((a, b) =>
+    `${a.id}.md` < `${b.id}.md` ? -1 : `${a.id}.md` > `${b.id}.md` ? 1 : 0,
+  ))
+    index.upsert(record(doc), doc.body);
 
   db.exec(`CREATE VIRTUAL TABLE docs USING fts5(id UNINDEXED, title, description, body,
     tokenize='porter unicode61');
@@ -267,14 +250,6 @@ try {
         `Invalid label ${q.id}: ${id}`,
       );
     }
-    const production = await searchMemories(
-      { query: q.query, scope: q.scope, status: q.status, limit: LIMIT },
-      { index, projectsDir, defaultLimit: LIMIT, maxLimit: 10 },
-    );
-    assert.deepEqual(
-      production.results.map((d) => d.id),
-      search(q, 'current').map((d) => d.id),
-    );
     for (const method of methods) {
       const hits = search(q, method);
       assert(
@@ -395,6 +370,8 @@ try {
   }
   const output = {
     experimentVersion: 1,
+    legacyVersion: '0.4.0',
+    legacySourceCommit: 'c0cd93a',
     seedVersion: seed.version,
     seedSha256: createHash('sha256').update(seedBytes).digest('hex'),
     sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
@@ -411,10 +388,8 @@ try {
     rows,
   };
   const json = `${JSON.stringify(output, null, 2)}\n`;
-  if (process.argv[2]) await writeFile(process.argv[2], json);
-  else process.stdout.write(json);
+  await writePrivateOutput(outputPath, json);
 } finally {
   index.close();
   db.close();
-  await rm(home, { recursive: true, force: true });
 }

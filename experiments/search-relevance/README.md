@@ -13,9 +13,50 @@ node --import tsx experiments/search-relevance/run.ts /tmp/memento-search-result
 bunx tsc -p experiments/search-relevance/tsconfig.json
 ```
 
-The script writes the synthetic seed as canonical memory markdown and registers synthetic projects under a new OS temporary directory. It rebuilds an **in-memory** production index from those files, validates all baseline results through `searchMemories`, evaluates prototypes using a separate **in-memory** FTS5 table, and deletes its temporary directory in `finally`. Only the explicitly supplied output path persists. No MCP server or agent session is launched. The existing propensity harness, result logs, scenarios, and production source remain untouched.
+`run.ts` replays only the original `seed.json`. Its historical `current` arm now uses the **frozen 0.4.0** implementation in `legacy-index.ts`, `legacy-schema.ts`, and `legacy-types.ts`, copied from `c0cd93a`. It inserts records in the historical markdown rebuild's filename order, preserving ties. The snapshot has no production imports, including no mutable schema, tokenizer, query, or project-ID helpers. Do not sync it with production. Prototypes still use a separate **in-memory** FTS5 table. All indexes close in `finally`. Output must be a new path outside the repository, created exclusively with mode `0600`; no stdout result dump or overwrite is allowed. No MCP server or agent session is launched. The existing propensity harness, result logs, scenarios, and production source remain untouched.
 
-`results.json` is the retained initial run. Reproduce to another path rather than overwriting this evidence. The output records source commit, seed hash, runtime versions, per-query hits, aggregates, and timing. Source commit identifies the baseline; experiment files are uncommitted at initial execution.
+The production `searchMemories` wrapper equivalence assertion was an **initial historical check**, not a guarantee that future production matches the snapshot. It is intentionally removed from this frozen replay rather than casting the snapshot to the production index type. Use `compare.ts` below to evaluate actual current production.
+
+`results.json` is the retained initial run. Reproduce to another path rather than overwriting this evidence. The output records source commit, seed hash, runtime versions, per-query hits, aggregates, and timing. In the initial evidence, source commit identifies the baseline; experiment files were uncommitted at initial execution. New replays also identify the frozen baseline separately with `legacyVersion` and `legacySourceCommit`. SQLite/runtime versions remain recorded: freezing TypeScript and DDL cannot freeze SQLite's native implementation across runtime upgrades. The regression test makes any resulting legacy drift visible.
+
+## Explicit-fixture production comparison
+
+```sh
+node --import tsx experiments/search-relevance/compare.ts \
+  experiments/search-relevance/seed.json /tmp/memento-search-comparison.json
+# Optional cold, single-pass diagnostic timings (NOT production performance):
+# append --timing; use a new output filename for every execution.
+bunx vitest run --config experiments/search-relevance/vitest.config.ts
+bunx tsc -p experiments/search-relevance/tsconfig.json
+bunx eslint experiments/search-relevance/*.ts
+bunx prettier --check experiments/search-relevance/*.ts experiments/search-relevance/tsconfig.json
+```
+
+There is **no default input or live-store path**. `compare.ts` evaluates exactly the explicitly supplied full corpus; it never discovers fixtures or reads adjacent files. **Do not supply `holdout.json` or any future/private fixture until explicitly authorized.** The tests read only the original `seed.json` and `results.json`; the root Vitest config does not discover these experiment tests.
+
+The current arm writes canonical Markdown and a synthetic project registry under a fresh private OS temporary directory, uses production `rebuildIndex` with an in-memory `MemoryIndex`, and calls the actual production `searchMemories` operation for every query. Its returned IDs and rounded scores are asserted equal to a raw production index call; rows preserve raw scores/BM25 plus the operation's `returnedScore`. The legacy arm inserts the same validated documents into its own in-memory frozen index. All databases and temporary directories are cleaned in `finally`, including failures. No production API changes, unsafe index casts, new dependencies, or model calls are needed.
+
+### Input and provenance
+
+Use the original seed shape: `version`, `projects: [{id, name}]`, `memories: [{id, title, description, body, scope, type, status?, verification?}]`, and `queries: [{id, query, scope, relevant, types?, status?, split?, category?, rationale?}]`. Document status and query status default to active; omitted query split becomes `unspecified`; project query match defaults to `any`. A query's `types` and inclusive `status` filters apply to labels and both arms. Unknown document/query fields, duplicate IDs/labels/project references, missing registry references, malformed production records/queries, and ineligible labels/hits fail validation. Queries may have arbitrarily many relevant labels, including more than five. Every query requests **up to five**, with no padding or fallback fill.
+
+Output preserves `seedVersion`, exact input-byte `seedSha256`, and all top-level metadata other than the document/query/project arrays in `seedMetadata` (including any original full-corpus/replay metadata, without recomputing or replacing its hashes/version). Normalized corpus/query hashes are separately named and are not replacements for the original byte hash. Each split retains the same full-corpus identity, input hash/version, and its own normalized query-set hash; splits never rebuild a smaller index. `summary` distinguishes `kind: all` from named splits, even if a split is itself called `all`.
+
+Rows contain query **IDs, not query text or rationale**, binary labels, eligible-pool size, ordered raw hits, and every missed label. Outputs remain sensitive: use a private directory outside the repo. Output creation refuses existing files, symlinks, and repository paths (including symlinked parent directories), and sets `0600`. Do not commit comparison outputs.
+
+### Comparison metrics
+
+Each arm and split reports machine-readable counts and:
+
+- `microRecallAt5`: total relevant returned pairs / all relevant labels.
+- `cappedAttainableRecallAt5`: total relevant returned pairs / sum of `min(5, relevant labels per query)`. This measures attainment of the top-five ceiling, **not** full-label recall; nDCG also caps its ideal ranking at five.
+- `ndcgAt5`: mean binary nDCG over answerable queries, including zero for misses.
+- `returnedPrecision`: relevant returned pairs / actual returned slots, over all queries, without padded slots.
+- `noAnswerFalsePositiveRate`: no-answer queries returning anything / all no-answer queries, including empty eligible pools.
+- `nonemptyPoolNoAnswerFalsePositiveRate`: the same rate restricted to no-answer queries whose metadata-eligible pool is nonempty. This pool is based on scope/types/status, not lexical matches.
+- Missed-positive-query and missed-relevant-pair counts, alongside per-query misses and raw hits.
+
+Undefined ratios are JSON `null`, never NaN or an invented perfect score. Optional timings deliberately warn that legacy is ranking-only while current includes registry validation, with no warmup and one pass. This is a tiny-corpus execution diagnostic, **not a latency comparison, scalability benchmark, or production-performance claim**.
 
 ## Fixed experiment design (written before first execution)
 
@@ -27,7 +68,7 @@ All methods return **up to five**, with the same scope/status eligibility. All s
 
 | Arm | Fixed recipe |
 | --- | --- |
-| `current` | Unmodified `MemoryIndex.search`; cross-checked against the production `searchMemories` operation. |
+| `current` | Historical name: frozen 0.4.0 `MemoryIndex.search`; cross-checked against the production `searchMemories` operation at the initial run only. |
 | `weighted` | Deduplicate query terms; remove the fixed English function-word list in `run.ts`; retain Porter/unicode61; FTS5 BM25 weights title 4, description 2, body 1; no metadata additions or relevance gate. |
 | `coverage_040/060/080` | `weighted`, then require 40%, 60%, or 80% of weighted query-term evidence before top-five truncation. All three thresholds are a prespecified sensitivity sweep, not tuned winners. |
 | `fuzzy_060` | `coverage_060`, with conservative spelling correction: an out-of-vocabulary word of at least five characters may become its unique one-edit neighbour in eligible documents. One edit includes adjacent transposition. Known words and ambiguous corrections are untouched. |
