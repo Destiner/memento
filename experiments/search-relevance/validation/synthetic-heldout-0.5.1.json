@@ -1,0 +1,1365 @@
+{
+  "evaluationVersion": 1,
+  "legacyVersion": "0.4.0",
+  "legacySourceCommit": "c0cd93a",
+  "sourceCommit": "ef5458109221fb7a781f2d5622323e302aba9d8e",
+  "nodeVersion": "v24.22.1",
+  "sqliteVersion": {
+    "version": "3.54.1"
+  },
+  "generatedAt": "2026-11-09T12:57:55.415Z",
+  "seedVersion": 2,
+  "seedSha256": "07b0b5d4d1aa068810f63f6ba68d2286a569e632e636085c95626d0edc7b6aef",
+  "seedMetadata": {
+    "version": 2,
+    "description": "Fresh synthetic retrieval-only holdout, independently authored without inspecting ranker code, prior experiment results, or seed prose. All situations and project names are fictional. Relevance judgments are frozen at authorship, before any retrieval run; they include actionable partial answers and premise corrections, not mere topic overlap. Default status is active; omitted project match means any. No typo-only recall requirements. Not a usage-propensity scenario or a claim about the live memory store."
+  },
+  "corpusSize": 28,
+  "queryCount": 30,
+  "normalizedCorpusSha256": "68a148cb8009889b62bd612dd97cb4753c029602847e4146ea57db414afec9fd",
+  "normalizedQuerySetSha256": "f635ab71738adc89af10cc7394cbe7d921b2a94f2b5effca28d9befedcb2f21c",
+  "evaluationCorpus": "full supplied corpus; no subsampling or split-specific indexing",
+  "splits": [
+    {
+      "split": "heldout",
+      "seedVersion": 2,
+      "seedSha256": "07b0b5d4d1aa068810f63f6ba68d2286a569e632e636085c95626d0edc7b6aef",
+      "corpusSize": 28,
+      "normalizedCorpusSha256": "68a148cb8009889b62bd612dd97cb4753c029602847e4146ea57db414afec9fd",
+      "queries": 30,
+      "normalizedQuerySetSha256": "f635ab71738adc89af10cc7394cbe7d921b2a94f2b5effca28d9befedcb2f21c"
+    }
+  ],
+  "limit": 5,
+  "summary": [
+    {
+      "kind": "all",
+      "method": "legacy",
+      "queries": 30,
+      "positives": 21,
+      "noAnswerQueries": 9,
+      "nonemptyPoolNoAnswerQueries": 7,
+      "returned": 95,
+      "truePositives": 26,
+      "irrelevant": 69,
+      "relevant": 26,
+      "attainableRelevantAt5": 26,
+      "returnedPrecision": 0.2736842105263158,
+      "microRecallAt5": 1,
+      "cappedAttainableRecallAt5": 1,
+      "ndcgAt5": 1,
+      "noAnswerFalsePositiveQueries": 6,
+      "noAnswerFalsePositiveRate": 0.6666666666666666,
+      "nonemptyPoolNoAnswerFalsePositiveQueries": 6,
+      "nonemptyPoolNoAnswerFalsePositiveRate": 0.8571428571428571,
+      "missedPositiveQueries": 0,
+      "missedRelevantPairs": 0
+    },
+    {
+      "kind": "all",
+      "method": "current",
+      "queries": 30,
+      "positives": 21,
+      "noAnswerQueries": 9,
+      "nonemptyPoolNoAnswerQueries": 7,
+      "returned": 28,
+      "truePositives": 26,
+      "irrelevant": 2,
+      "relevant": 26,
+      "attainableRelevantAt5": 26,
+      "returnedPrecision": 0.9285714285714286,
+      "microRecallAt5": 1,
+      "cappedAttainableRecallAt5": 1,
+      "ndcgAt5": 1,
+      "noAnswerFalsePositiveQueries": 2,
+      "noAnswerFalsePositiveRate": 0.2222222222222222,
+      "nonemptyPoolNoAnswerFalsePositiveQueries": 2,
+      "nonemptyPoolNoAnswerFalsePositiveRate": 0.2857142857142857,
+      "missedPositiveQueries": 0,
+      "missedRelevantPairs": 0
+    },
+    {
+      "kind": "split",
+      "split": "heldout",
+      "method": "legacy",
+      "queries": 30,
+      "positives": 21,
+      "noAnswerQueries": 9,
+      "nonemptyPoolNoAnswerQueries": 7,
+      "returned": 95,
+      "truePositives": 26,
+      "irrelevant": 69,
+      "relevant": 26,
+      "attainableRelevantAt5": 26,
+      "returnedPrecision": 0.2736842105263158,
+      "microRecallAt5": 1,
+      "cappedAttainableRecallAt5": 1,
+      "ndcgAt5": 1,
+      "noAnswerFalsePositiveQueries": 6,
+      "noAnswerFalsePositiveRate": 0.6666666666666666,
+      "nonemptyPoolNoAnswerFalsePositiveQueries": 6,
+      "nonemptyPoolNoAnswerFalsePositiveRate": 0.8571428571428571,
+      "missedPositiveQueries": 0,
+      "missedRelevantPairs": 0
+    },
+    {
+      "kind": "split",
+      "split": "heldout",
+      "method": "current",
+      "queries": 30,
+      "positives": 21,
+      "noAnswerQueries": 9,
+      "nonemptyPoolNoAnswerQueries": 7,
+      "returned": 28,
+      "truePositives": 26,
+      "irrelevant": 2,
+      "relevant": 26,
+      "attainableRelevantAt5": 26,
+      "returnedPrecision": 0.9285714285714286,
+      "microRecallAt5": 1,
+      "cappedAttainableRecallAt5": 1,
+      "ndcgAt5": 1,
+      "noAnswerFalsePositiveQueries": 2,
+      "noAnswerFalsePositiveRate": 0.2222222222222222,
+      "nonemptyPoolNoAnswerFalsePositiveQueries": 2,
+      "nonemptyPoolNoAnswerFalsePositiveRate": 0.2857142857142857,
+      "missedPositiveQueries": 0,
+      "missedRelevantPairs": 0
+    }
+  ],
+  "rows": [
+    {
+      "queryId": "holdout01",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h01"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h01",
+          "score": 1,
+          "bm25": -10.944207472299194
+        },
+        {
+          "id": "mem_h23",
+          "score": 0.4955047924715652,
+          "bm25": -0.8034420972857903
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout01",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h01"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h01",
+          "score": 0.8500000000000001,
+          "bm25": -11.59799867057943,
+          "returnedScore": 0.85
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout02",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h01"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h01",
+          "score": 0.9330656111951398,
+          "bm25": -7.551804223039958
+        },
+        {
+          "id": "mem_h05",
+          "score": 0.763836941120387,
+          "bm25": -2.494511150094652
+        },
+        {
+          "id": "mem_h03",
+          "score": 0.5674877538299975,
+          "bm25": -1.072486259027863
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout02",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h01"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h01",
+          "score": 0.31365661656122934,
+          "bm25": -7.551804223039958,
+          "returnedScore": 0.31
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout03",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h02"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h02",
+          "score": 1,
+          "bm25": -17.57955125898283
+        },
+        {
+          "id": "mem_h04",
+          "score": 0.7848095081674508,
+          "bm25": -1.7382969227428022
+        },
+        {
+          "id": "mem_h01",
+          "score": 0.7502872917158578,
+          "bm25": -2.336528523348271
+        },
+        {
+          "id": "mem_h03",
+          "score": 0.6831231586972694,
+          "bm25": -1.7257103404214165
+        },
+        {
+          "id": "mem_h05",
+          "score": 0.15000142758541896,
+          "bm25": -0.0000014275874569512416
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout03",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h02"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h02",
+          "score": 0.8811481742015047,
+          "bm25": -19.787239358679745,
+          "returnedScore": 0.88
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout04",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h03", "mem_h04"],
+      "eligibleCount": 11,
+      "hits": [
+        {
+          "id": "mem_h03",
+          "score": 0.9756967583899813,
+          "bm25": -12.458363031434205
+        },
+        {
+          "id": "mem_h04",
+          "score": 0.9434946239953484,
+          "bm25": -8.389197404986634
+        },
+        {
+          "id": "mem_h23",
+          "score": 0.15000149638788116,
+          "bm25": -0.0000014963901203293223
+        },
+        {
+          "id": "mem_h24",
+          "score": 0.15000096923361633,
+          "bm25": -9.69234555746985e-7
+        },
+        {
+          "id": "mem_h21",
+          "score": 0.050001385398256576,
+          "bm25": -0.0000013854001759014953
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout04",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h03", "mem_h04"],
+      "eligibleCount": 11,
+      "hits": [
+        {
+          "id": "mem_h03",
+          "score": 0.5676450606031489,
+          "bm25": -13.622474191525322,
+          "returnedScore": 0.57
+        },
+        {
+          "id": "mem_h04",
+          "score": 0.31234814544755735,
+          "bm25": -8.389197404986634,
+          "returnedScore": 0.31
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout05",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h05"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h05",
+          "score": 1,
+          "bm25": -23.66991422495144
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout05",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h05"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h05",
+          "score": 0.8333333333333335,
+          "bm25": -24.627387145036494,
+          "returnedScore": 0.83
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout06",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h06"],
+      "eligibleCount": 1,
+      "hits": [
+        {
+          "id": "mem_h06",
+          "score": 0.7844214646273214,
+          "bm25": -27.106834346191672
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout06",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h06"],
+      "eligibleCount": 1,
+      "hits": [
+        {
+          "id": "mem_h06",
+          "score": 0.8500000000000002,
+          "bm25": -30.051688992428733,
+          "returnedScore": 0.85
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout07",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h07"],
+      "eligibleCount": 3,
+      "hits": [
+        {
+          "id": "mem_h07",
+          "score": 1,
+          "bm25": -8.226029029883115
+        },
+        {
+          "id": "mem_h10",
+          "score": 0.15000256541908635,
+          "bm25": -0.000002565425667722658
+        },
+        {
+          "id": "mem_h12",
+          "score": 0.05000097595939447,
+          "bm25": -9.759603469640645e-7
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout07",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h07"],
+      "eligibleCount": 3,
+      "hits": [
+        {
+          "id": "mem_h07",
+          "score": 0.2809822387133987,
+          "bm25": -8.691543613989623,
+          "returnedScore": 0.28
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout08",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h08", "mem_h09"],
+      "eligibleCount": 7,
+      "hits": [
+        {
+          "id": "mem_h08",
+          "score": 1,
+          "bm25": -12.18514490381172
+        },
+        {
+          "id": "mem_h09",
+          "score": 1,
+          "bm25": -8.49813411442481
+        },
+        {
+          "id": "mem_h07",
+          "score": 1,
+          "bm25": -4.53377886385316
+        },
+        {
+          "id": "mem_h10",
+          "score": 1,
+          "bm25": -5.1945802124191385
+        },
+        {
+          "id": "mem_h12",
+          "score": 0.9691543445446846,
+          "bm25": -4.5295771274255845
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout08",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h08", "mem_h09"],
+      "eligibleCount": 7,
+      "hits": [
+        {
+          "id": "mem_h08",
+          "score": 0.47865620519496715,
+          "bm25": -14.051068591894012,
+          "returnedScore": 0.48
+        },
+        {
+          "id": "mem_h09",
+          "score": 0.38166291032390165,
+          "bm25": -9.67273871054036,
+          "returnedScore": 0.38
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout09",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h10"],
+      "eligibleCount": 7,
+      "hits": [
+        {
+          "id": "mem_h10",
+          "score": 1,
+          "bm25": -21.69495519190674
+        },
+        {
+          "id": "mem_h08",
+          "score": 0.27000186797026354,
+          "bm25": -0.0000018679737528658392
+        },
+        {
+          "id": "mem_h11",
+          "score": 0.17000167985214237,
+          "bm25": -0.000001679854964274288
+        },
+        {
+          "id": "mem_h09",
+          "score": 0.15000158046572956,
+          "bm25": -0.0000015804682274247493
+        },
+        {
+          "id": "mem_h24",
+          "score": 0.15000154572572796,
+          "bm25": -0.0000015457281172314538
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout09",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h10"],
+      "eligibleCount": 7,
+      "hits": [
+        {
+          "id": "mem_h10",
+          "score": 0.6915222432319855,
+          "bm25": -21.856234993135025,
+          "returnedScore": 0.69
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout10",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h11"],
+      "eligibleCount": 7,
+      "hits": [
+        {
+          "id": "mem_h11",
+          "score": 1,
+          "bm25": -16.16433645987035
+        },
+        {
+          "id": "mem_h07",
+          "score": 0.45257537665485564,
+          "bm25": -0.43384670762494143
+        },
+        {
+          "id": "mem_h24",
+          "score": 0.4392365373695924,
+          "bm25": -0.4069378247148216
+        },
+        {
+          "id": "mem_h10",
+          "score": 0.3450174203512228,
+          "bm25": -0.41847476642359116
+        },
+        {
+          "id": "mem_h09",
+          "score": 0.15000202207550042,
+          "bm25": -0.000002022079589216945
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout10",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h11"],
+      "eligibleCount": 7,
+      "hits": [
+        {
+          "id": "mem_h11",
+          "score": 0.8500000000000001,
+          "bm25": -16.797741747958007,
+          "returnedScore": 0.85
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout11",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h13"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h13",
+          "score": 1,
+          "bm25": -11.37473101327782
+        },
+        {
+          "id": "mem_h17",
+          "score": 0.9297148392902684,
+          "bm25": -3.1617218351990375
+        },
+        {
+          "id": "mem_h15",
+          "score": 0.8516701771005726,
+          "bm25": -4.042106050319511
+        },
+        {
+          "id": "mem_h14",
+          "score": 0.6797770584933424,
+          "bm25": -1.7010751844021454
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout11",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h13"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h13",
+          "score": 0.8500000000000001,
+          "bm25": -9.439049960221727,
+          "returnedScore": 0.85
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout12",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h14", "mem_h15"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h15",
+          "score": 1,
+          "bm25": -16.433831505073186
+        },
+        {
+          "id": "mem_h14",
+          "score": 1,
+          "bm25": -11.679371781973444
+        },
+        {
+          "id": "mem_h18",
+          "score": 0.754746263838977,
+          "bm25": -2.3869173443909553
+        },
+        {
+          "id": "mem_h17",
+          "score": 0.050001339226228916,
+          "bm25": -0.0000013392280224451624
+        },
+        {
+          "id": "mem_h16",
+          "score": 0.050001011038772414,
+          "bm25": -0.0000010110397946084725
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout12",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h14", "mem_h15"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h15",
+          "score": 0.4460366360659776,
+          "bm25": -18.158846178409153,
+          "returnedScore": 0.45
+        },
+        {
+          "id": "mem_h14",
+          "score": 0.42199411295275324,
+          "bm25": -13.859669909061235,
+          "returnedScore": 0.42
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout13",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h16"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h16",
+          "score": 0.9046863328309664,
+          "bm25": -5.881665155671608
+        },
+        {
+          "id": "mem_h14",
+          "score": 0.6797770584933424,
+          "bm25": -1.7010751844021454
+        },
+        {
+          "id": "mem_h15",
+          "score": 0.6781173041709059,
+          "bm25": -1.6890199818804397
+        },
+        {
+          "id": "mem_h13",
+          "score": 0.6683396356843818,
+          "bm25": -1.6201306017017763
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout13",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h16"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h16",
+          "score": 0.22674451030124354,
+          "bm25": -5.881665155671608,
+          "returnedScore": 0.23
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout14",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h17"],
+      "eligibleCount": 17,
+      "hits": [
+        {
+          "id": "mem_h17",
+          "score": 1,
+          "bm25": -23.75086411230739
+        },
+        {
+          "id": "mem_h23",
+          "score": 0.7330012965636096,
+          "bm25": -2.154587035087548
+        },
+        {
+          "id": "mem_h04",
+          "score": 0.720741591111282,
+          "bm25": -2.0371282038782423
+        },
+        {
+          "id": "mem_h01",
+          "score": 0.7127833265385373,
+          "bm25": -1.9654524188712168
+        },
+        {
+          "id": "mem_h13",
+          "score": 0.7050116952013219,
+          "bm25": -1.8986489863288591
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout14",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h17"],
+      "eligibleCount": 17,
+      "hits": [
+        {
+          "id": "mem_h17",
+          "score": 0.9030805839846754,
+          "bm25": -27.16477211851634,
+          "returnedScore": 0.9
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout15",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h19"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h19",
+          "score": 1,
+          "bm25": -25.554077928449225
+        },
+        {
+          "id": "mem_h22",
+          "score": 0.8953151082544111,
+          "bm25": -5.464755469750109
+        },
+        {
+          "id": "mem_h24",
+          "score": 0.8273687574383513,
+          "bm25": -3.4917325551156186
+        },
+        {
+          "id": "mem_h21",
+          "score": 0.6066238733382687,
+          "bm25": -1.2554213902521152
+        },
+        {
+          "id": "mem_h20",
+          "score": 0.5961788597046104,
+          "bm25": -1.2035112761585007
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout15",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h19"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h19",
+          "score": 0.8521160881663925,
+          "bm25": -27.34264703734085,
+          "returnedScore": 0.85
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout16",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h20", "mem_h21"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h21",
+          "score": 1,
+          "bm25": -18.530376382551854
+        },
+        {
+          "id": "mem_h20",
+          "score": 1,
+          "bm25": -10.030879016555097
+        },
+        {
+          "id": "mem_h23",
+          "score": 0.9670841653439521,
+          "bm25": -4.466995254294877
+        },
+        {
+          "id": "mem_h24",
+          "score": 0.15000096923361633,
+          "bm25": -9.69234555746985e-7
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout16",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h20", "mem_h21"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h21",
+          "score": 0.6123912506068716,
+          "bm25": -20.452514585623458,
+          "returnedScore": 0.61
+        },
+        {
+          "id": "mem_h20",
+          "score": 0.34739146579464947,
+          "bm25": -10.976776768563914,
+          "returnedScore": 0.35
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout17",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h22"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h22",
+          "score": 1,
+          "bm25": -19.39429958247393
+        },
+        {
+          "id": "mem_h19",
+          "score": 0.7786415303223388,
+          "bm25": -2.6851622917385654
+        },
+        {
+          "id": "mem_h23",
+          "score": 0.6944326568308321,
+          "bm25": -1.812406761225625
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout17",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h22"],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h22",
+          "score": 0.5620377840714068,
+          "bm25": -20.095265412987562,
+          "returnedScore": 0.56
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout18",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h23"],
+      "eligibleCount": 1,
+      "hits": [
+        {
+          "id": "mem_h23",
+          "score": 1,
+          "bm25": -20.94933294401703
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout18",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h23"],
+      "eligibleCount": 1,
+      "hits": [
+        {
+          "id": "mem_h23",
+          "score": 0.8500000000000001,
+          "bm25": -22.627080277020262,
+          "returnedScore": 0.85
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout19",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h24"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_h24",
+          "score": 1,
+          "bm25": -15.568388484817724
+        },
+        {
+          "id": "mem_h08",
+          "score": 1,
+          "bm25": -3.96082595601694
+        },
+        {
+          "id": "mem_h10",
+          "score": 0.8953298263763482,
+          "bm25": -2.926647497707316
+        },
+        {
+          "id": "mem_h23",
+          "score": 0.8692596224551964,
+          "bm25": -2.5620098852378614
+        },
+        {
+          "id": "mem_h21",
+          "score": 0.8584134305771625,
+          "bm25": -4.219572556743102
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout19",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h24"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_h24",
+          "score": 0.7867966545097954,
+          "bm25": -16.119920979982247,
+          "returnedScore": 0.79
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout20",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h25", "mem_h26"],
+      "eligibleCount": 4,
+      "hits": [
+        {
+          "id": "mem_h25",
+          "score": 1,
+          "bm25": -10.65542066297687
+        },
+        {
+          "id": "mem_h26",
+          "score": 1,
+          "bm25": -9.717117942088711
+        },
+        {
+          "id": "mem_h28",
+          "score": 0.7562452634474517,
+          "bm25": -2.404200428343101
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout20",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h25", "mem_h26"],
+      "eligibleCount": 4,
+      "hits": [
+        {
+          "id": "mem_h25",
+          "score": 0.3324428006698602,
+          "bm25": -13.151293553018451,
+          "returnedScore": 0.33
+        },
+        {
+          "id": "mem_h26",
+          "score": 0.2804276173470923,
+          "bm25": -10.835363080381523,
+          "returnedScore": 0.28
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout21",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_h27"],
+      "eligibleCount": 4,
+      "hits": [
+        {
+          "id": "mem_h27",
+          "score": 1,
+          "bm25": -20.22416345000192
+        },
+        {
+          "id": "mem_h28",
+          "score": 0.719134685611499,
+          "bm25": -2.022377857431749
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout21",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_h27"],
+      "eligibleCount": 4,
+      "hits": [
+        {
+          "id": "mem_h27",
+          "score": 0.8500000000000001,
+          "bm25": -22.692601619425385,
+          "returnedScore": 0.85
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout22",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 6,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "holdout22",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 6,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "holdout23",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 12,
+      "hits": [
+        {
+          "id": "mem_h12",
+          "score": 0.9614075939675131,
+          "bm25": -10.287649187824282
+        },
+        {
+          "id": "mem_h08",
+          "score": 0.8532173880927256,
+          "bm25": -2.1567389194098525
+        },
+        {
+          "id": "mem_h24",
+          "score": 0.807458101639933,
+          "bm25": -1.9193509021452264
+        },
+        {
+          "id": "mem_h11",
+          "score": 0.6996167011940099,
+          "bm25": -1.2203309995088565
+        },
+        {
+          "id": "mem_h09",
+          "score": 0.6066238733382687,
+          "bm25": -1.2554213902521152
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout23",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 12,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "holdout24",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h18",
+          "score": 1,
+          "bm25": -9.549559367012188
+        },
+        {
+          "id": "mem_h15",
+          "score": 0.71435983570813,
+          "bm25": -1.9793812135379834
+        },
+        {
+          "id": "mem_h16",
+          "score": 0.4709818685100018,
+          "bm25": -0.7270616335047769
+        },
+        {
+          "id": "mem_h14",
+          "score": 0.46923684142091404,
+          "bm25": -0.7218723075455278
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout24",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h18",
+          "score": 0.36279121648198964,
+          "bm25": -9.91140759742023,
+          "returnedScore": 0.36
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout25",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h20",
+          "score": 1,
+          "bm25": -5.494775901395271
+        },
+        {
+          "id": "mem_h21",
+          "score": 0.9716502735349338,
+          "bm25": -4.606961220632277
+        },
+        {
+          "id": "mem_h23",
+          "score": 0.6944326568308321,
+          "bm25": -1.812406761225625
+        },
+        {
+          "id": "mem_h24",
+          "score": 0.6346439790199178,
+          "bm25": -1.4075731408452445
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout25",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 6,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "holdout26",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h18",
+          "score": 0.754746263838977,
+          "bm25": -2.3869173443909553
+        },
+        {
+          "id": "mem_h15",
+          "score": 0.5173660712156611,
+          "bm25": -0.8774620728393281
+        },
+        {
+          "id": "mem_h13",
+          "score": 0.5070155538000053,
+          "bm25": -0.8416733794096104
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout26",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 6,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "holdout27",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 0,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "holdout27",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 0,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "holdout28",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 0,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "holdout28",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 0,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "holdout29",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 6,
+      "hits": [
+        {
+          "id": "mem_h03",
+          "score": 0.7562452634474517,
+          "bm25": -2.404200428343101
+        },
+        {
+          "id": "mem_h01",
+          "score": 0.7502872028137173,
+          "bm25": -2.3365275336523674
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout29",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 6,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "holdout30",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 4,
+      "hits": [
+        {
+          "id": "mem_h28",
+          "score": 0.9834381864864347,
+          "bm25": -14.023629123268973
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "holdout30",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 4,
+      "hits": [
+        {
+          "id": "mem_h28",
+          "score": 0.3710511410704781,
+          "bm25": -14.023629123268973,
+          "returnedScore": 0.37
+        }
+      ],
+      "misses": []
+    }
+  ]
+}

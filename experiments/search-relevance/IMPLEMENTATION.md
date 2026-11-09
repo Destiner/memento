@@ -107,5 +107,92 @@ opaque IDs, so historical duplicate names cannot trigger accidental deduplicatio
 retrieval eligibility uses the original IDs unchanged.
 
 The initial experiment files and outputs remain as historical evidence. New
-shipping evaluations will be recorded below, with source/seed hashes and only
+shipping evaluations are recorded below, with source/seed hashes and only
 aggregate metrics from private data.
+
+## Frozen 0.5.1 evaluation
+
+Production candidate: **`ef5458109221fb7a781f2d5622323e302aba9d8e`**, evaluated only
+once on each fresh holdout before inspecting its results. No threshold or label
+changes followed. Both holdouts are now spent; the public one is retained as a
+regression fixture, not evidence of untouched generalization for future changes.
+
+| Dataset | Useful returns, old → new | Unrelated returns, old → new | Returned precision | No-answer queries returning hits |
+| --- | ---: | ---: | ---: | ---: |
+| Original synthetic development (40 queries) | 32 → 33 | 137 → 9 | 18.9% → 78.6% | 13/13 → 3/13 |
+| Fresh synthetic holdout (30 queries) | 26 → 26 | 69 → 2 | 27.4% → 92.9% | 6/9 → 2/9 |
+| Private development (24 queries) | 14 → 15 | 14 → 6 | 50.0% → 71.4% | 3/16 → 2/16 |
+| Private heldout (12 queries) | 9 → 8 | 11 → 8 | 45.0% → 50.0% | 0/8 → 0/8 |
+
+**The private heldout is a modest precision/recall tradeoff, not a clean win.**
+One useful pair was lost; no answerable query became a complete miss. Its nDCG@5
+rose from 0.477 to 0.500, but full recall fell from 9/23 to 8/23 and capped
+attainable recall fell from 9/20 to 8/20. All eight no-answer heldout queries have
+empty eligible pools, so their zero false-positive rate provides no evidence
+about abstention in populated scopes. There are only four answerable queries.
+This meets the prespecified one-pair guardrail, but does not warrant claiming
+production-wide recall improvement.
+
+Across the private development and heldout samples together, useful returns stayed
+**23**, unrelated returns fell **25 → 14**, returned precision rose **47.9% → 62.2%**,
+and nDCG rose **0.740 → 0.773**. Combined full recall is 23/64 (35.9%), while capped
+recall is 23/40 (57.5%), unchanged. These combined numbers include development data
+and must not be presented as heldout performance. The fresh synthetic holdout
+retained all 26 labeled relevant pairs and all 21 answerable queries.
+
+Decision: retain the simpler FTS5/evidence ranker, with the documented semantic
+limits and real-replay tradeoff. Do not add fuzzy rewriting or a model based on
+these data. No scope widening, registry remapping, live-memory mutation, or corpus
+cleanup was performed to improve the numbers.
+
+Evidence:
+
+- [`validation/development-0.5.1.json`](validation/development-0.5.1.json)
+- [`validation/synthetic-heldout-0.5.1.json`](validation/synthetic-heldout-0.5.1.json)
+- [`validation/private-aggregates-0.5.1.json`](validation/private-aggregates-0.5.1.json) — aggregates only; deliberately no private IDs or text.
+
+## Scale, production-path verification, and checks
+
+[`scale.ts`](scale.ts) compares synchronous ranking on deterministic 1,000/5,000
+record corpora, including repeated stronger-BM25 identifier-prefix decoys and a
+missing-exact-target case. One warmup and three measured samples per query/ranker;
+“p95” is the maximum of three samples, not a defensible production tail estimate.
+The original slow run is retained, not discarded.
+
+| Case | 0.5.0 current p50 | 0.5.1 observed range / maximum |
+| --- | ---: | ---: |
+| 1,000 crowded exact / no-target | ~2.4 seconds | maximum ~13 ms |
+| 5,000 crowded exact / no-target | ~138–140 seconds | maximum ~54 ms |
+| 5,000 mixed queries | — | medians below 1 ms; one sample ~17 ms |
+
+Legacy takes roughly 3–4 ms in the 5,000 crowded cases but misses the exact target
+or returns five prefix decoys. The new worst-case overhead buys correct rescue and
+abstention. This is a small-memory-store diagnostic, not proof of large-scale
+latency. Setup/indexing costs and query samples are separate in
+[`validation/scale-0.5.0.json`](validation/scale-0.5.0.json) and
+[`validation/scale-0.5.1.json`](validation/scale-0.5.1.json).
+
+[`smoke.ts`](smoke.ts) starts the actual **`node dist/main.js`** executable via MCP
+stdio with a new disposable `MEMENTO_HOME`. It creates two synthetic memories,
+executes positive and unrelated searches, and checks **four successful events in
+the isolated Memento event log**, including server/ranker versions, ordered scores,
+limits/filters and absence of content. The home is removed afterward. This passed
+on **Node 24.22.1 and Node 22.16.0**, including actual search execution, not merely
+SQLite construction. See [`validation/mcp-node24-0.5.1.json`](validation/mcp-node24-0.5.1.json)
+and [`validation/mcp-node22-0.5.1.json`](validation/mcp-node22-0.5.1.json).
+
+```sh
+bun run build
+node --import tsx experiments/search-relevance/smoke.ts /tmp/memento-smoke-new.json
+node --import tsx experiments/search-relevance/scale.ts /tmp/memento-scale-new.json
+```
+
+All repository static checks/build, experiment checks, core tests, harness tests
+(no paid agent runs), and retrospective tests passed. The public seeds now also
+have explicit precision/recall/no-answer regression budgets in
+`test/integration/search-quality.test.ts`. Existing 0.4.0 baseline outputs remain
+reproducible via the frozen ranker; old log schema-2 events remain readable.
+
+Deployment: the checkout's `dist/` is built. Existing long-lived MCP processes need
+a restart/reconnection to load 0.5.1. There is no persistent index migration or
+model download. The user's running MCP connection was not forcibly terminated.

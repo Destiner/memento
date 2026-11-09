@@ -1,0 +1,2075 @@
+{
+  "evaluationVersion": 1,
+  "legacyVersion": "0.4.0",
+  "legacySourceCommit": "c0cd93a",
+  "sourceCommit": "ef5458109221fb7a781f2d5622323e302aba9d8e",
+  "nodeVersion": "v24.22.1",
+  "sqliteVersion": {
+    "version": "3.54.1"
+  },
+  "generatedAt": "2026-11-09T12:59:48.925Z",
+  "seedVersion": 1,
+  "seedSha256": "18500a45fd847f93cf2c809c10ce67aaf9bfab12fb1776f4bc6e86d98d3c31f5",
+  "seedMetadata": {
+    "version": 1,
+    "description": "Independent, fully synthetic English retrieval relevance fixture, authored before any retrieval or ranking runs. Not part of the agent usage-propensity harness and not derived from live memories or private user data. Eligibility: omitted status means active only; an explicit status array is inclusive. Global scope returns only global memories. Project scope returns only project-scoped memories; omitted match means any project intersection, while all requires the memory to include every requested project. Relevance is binary usefulness to the stated information need, not mere topical overlap; relevant lists enumerate all eligible useful memories, with no top-k truncation or ordering significance. Spelling mistakes retain their apparent intended meaning. Development and heldout queries share the fixed corpus; heldout is diagnostic, not a fresh validated ship-quality holdout. Small hand-authored cases intentionally cover both lexical and semantic needs without claiming a representative production distribution. Verification values are synthetic metadata, not evidence of real observations. Freeze this corpus and these judgments before evaluating alternatives; do not revise labels in response to ranking outcomes."
+  },
+  "corpusSize": 40,
+  "queryCount": 40,
+  "normalizedCorpusSha256": "25cb3bdb5b1f96c6872ee3febf1ab8070d127f562d5d60b6127ce36323c0dcd6",
+  "normalizedQuerySetSha256": "0421eeb916fd96a4d0ec1ab5df2aca588646dc6acbb5bb571aa34955822439e7",
+  "evaluationCorpus": "full supplied corpus; no subsampling or split-specific indexing",
+  "splits": [
+    {
+      "split": "development",
+      "seedVersion": 1,
+      "seedSha256": "18500a45fd847f93cf2c809c10ce67aaf9bfab12fb1776f4bc6e86d98d3c31f5",
+      "corpusSize": 40,
+      "normalizedCorpusSha256": "25cb3bdb5b1f96c6872ee3febf1ab8070d127f562d5d60b6127ce36323c0dcd6",
+      "queries": 20,
+      "normalizedQuerySetSha256": "b9e7c49601ea245a02eb38fa4416591f347aa02598af90a0018a31b71274cd2a"
+    },
+    {
+      "split": "heldout",
+      "seedVersion": 1,
+      "seedSha256": "18500a45fd847f93cf2c809c10ce67aaf9bfab12fb1776f4bc6e86d98d3c31f5",
+      "corpusSize": 40,
+      "normalizedCorpusSha256": "25cb3bdb5b1f96c6872ee3febf1ab8070d127f562d5d60b6127ce36323c0dcd6",
+      "queries": 20,
+      "normalizedQuerySetSha256": "9b5f9350f5e57c3aa880549842ab807ff5a103412c1d6a95df2d1403279cb97f"
+    }
+  ],
+  "limit": 5,
+  "summary": [
+    {
+      "kind": "all",
+      "method": "legacy",
+      "queries": 40,
+      "positives": 27,
+      "noAnswerQueries": 13,
+      "nonemptyPoolNoAnswerQueries": 13,
+      "returned": 169,
+      "truePositives": 32,
+      "irrelevant": 137,
+      "relevant": 34,
+      "attainableRelevantAt5": 34,
+      "returnedPrecision": 0.1893491124260355,
+      "microRecallAt5": 0.9411764705882353,
+      "cappedAttainableRecallAt5": 0.9411764705882353,
+      "ndcgAt5": 0.9259259259259259,
+      "noAnswerFalsePositiveQueries": 13,
+      "noAnswerFalsePositiveRate": 1,
+      "nonemptyPoolNoAnswerFalsePositiveQueries": 13,
+      "nonemptyPoolNoAnswerFalsePositiveRate": 1,
+      "missedPositiveQueries": 2,
+      "missedRelevantPairs": 2
+    },
+    {
+      "kind": "all",
+      "method": "current",
+      "queries": 40,
+      "positives": 27,
+      "noAnswerQueries": 13,
+      "nonemptyPoolNoAnswerQueries": 13,
+      "returned": 42,
+      "truePositives": 33,
+      "irrelevant": 9,
+      "relevant": 34,
+      "attainableRelevantAt5": 34,
+      "returnedPrecision": 0.7857142857142857,
+      "microRecallAt5": 0.9705882352941176,
+      "cappedAttainableRecallAt5": 0.9705882352941176,
+      "ndcgAt5": 0.9629629629629629,
+      "noAnswerFalsePositiveQueries": 3,
+      "noAnswerFalsePositiveRate": 0.23076923076923078,
+      "nonemptyPoolNoAnswerFalsePositiveQueries": 3,
+      "nonemptyPoolNoAnswerFalsePositiveRate": 0.23076923076923078,
+      "missedPositiveQueries": 1,
+      "missedRelevantPairs": 1
+    },
+    {
+      "kind": "split",
+      "split": "development",
+      "method": "legacy",
+      "queries": 20,
+      "positives": 14,
+      "noAnswerQueries": 6,
+      "nonemptyPoolNoAnswerQueries": 6,
+      "returned": 80,
+      "truePositives": 17,
+      "irrelevant": 63,
+      "relevant": 18,
+      "attainableRelevantAt5": 18,
+      "returnedPrecision": 0.2125,
+      "microRecallAt5": 0.9444444444444444,
+      "cappedAttainableRecallAt5": 0.9444444444444444,
+      "ndcgAt5": 0.9285714285714286,
+      "noAnswerFalsePositiveQueries": 6,
+      "noAnswerFalsePositiveRate": 1,
+      "nonemptyPoolNoAnswerFalsePositiveQueries": 6,
+      "nonemptyPoolNoAnswerFalsePositiveRate": 1,
+      "missedPositiveQueries": 1,
+      "missedRelevantPairs": 1
+    },
+    {
+      "kind": "split",
+      "split": "development",
+      "method": "current",
+      "queries": 20,
+      "positives": 14,
+      "noAnswerQueries": 6,
+      "nonemptyPoolNoAnswerQueries": 6,
+      "returned": 25,
+      "truePositives": 17,
+      "irrelevant": 8,
+      "relevant": 18,
+      "attainableRelevantAt5": 18,
+      "returnedPrecision": 0.68,
+      "microRecallAt5": 0.9444444444444444,
+      "cappedAttainableRecallAt5": 0.9444444444444444,
+      "ndcgAt5": 0.9285714285714286,
+      "noAnswerFalsePositiveQueries": 2,
+      "noAnswerFalsePositiveRate": 0.3333333333333333,
+      "nonemptyPoolNoAnswerFalsePositiveQueries": 2,
+      "nonemptyPoolNoAnswerFalsePositiveRate": 0.3333333333333333,
+      "missedPositiveQueries": 1,
+      "missedRelevantPairs": 1
+    },
+    {
+      "kind": "split",
+      "split": "heldout",
+      "method": "legacy",
+      "queries": 20,
+      "positives": 13,
+      "noAnswerQueries": 7,
+      "nonemptyPoolNoAnswerQueries": 7,
+      "returned": 89,
+      "truePositives": 15,
+      "irrelevant": 74,
+      "relevant": 16,
+      "attainableRelevantAt5": 16,
+      "returnedPrecision": 0.16853932584269662,
+      "microRecallAt5": 0.9375,
+      "cappedAttainableRecallAt5": 0.9375,
+      "ndcgAt5": 0.9230769230769231,
+      "noAnswerFalsePositiveQueries": 7,
+      "noAnswerFalsePositiveRate": 1,
+      "nonemptyPoolNoAnswerFalsePositiveQueries": 7,
+      "nonemptyPoolNoAnswerFalsePositiveRate": 1,
+      "missedPositiveQueries": 1,
+      "missedRelevantPairs": 1
+    },
+    {
+      "kind": "split",
+      "split": "heldout",
+      "method": "current",
+      "queries": 20,
+      "positives": 13,
+      "noAnswerQueries": 7,
+      "nonemptyPoolNoAnswerQueries": 7,
+      "returned": 17,
+      "truePositives": 16,
+      "irrelevant": 1,
+      "relevant": 16,
+      "attainableRelevantAt5": 16,
+      "returnedPrecision": 0.9411764705882353,
+      "microRecallAt5": 1,
+      "cappedAttainableRecallAt5": 1,
+      "ndcgAt5": 1,
+      "noAnswerFalsePositiveQueries": 1,
+      "noAnswerFalsePositiveRate": 0.14285714285714285,
+      "nonemptyPoolNoAnswerFalsePositiveQueries": 1,
+      "nonemptyPoolNoAnswerFalsePositiveRate": 0.14285714285714285,
+      "missedPositiveQueries": 0,
+      "missedRelevantPairs": 0
+    }
+  ],
+  "rows": [
+    {
+      "queryId": "q01",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_achargeretry"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_achargeretry",
+          "score": 1,
+          "bm25": -14.396583743049968
+        },
+        {
+          "id": "mem_awebhook",
+          "score": 1,
+          "bm25": -4.470022179086271
+        },
+        {
+          "id": "mem_amailduplicate",
+          "score": 0.9882450635434727,
+          "bm25": -2.549183601098299
+        },
+        {
+          "id": "mem_aexportretention",
+          "score": 0.7822936489718811,
+          "bm25": -1.7195614032881603
+        },
+        {
+          "id": "mem_avite",
+          "score": 0.7464761667482247,
+          "bm25": -2.29463419490519
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q01",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_achargeretry"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_achargeretry",
+          "score": 0.8500000000000001,
+          "bm25": -15.655230221316241,
+          "returnedScore": 0.85
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q02",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_amail", "mem_amailduplicate"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_amailduplicate",
+          "score": 1,
+          "bm25": -17.817920700122432
+        },
+        {
+          "id": "mem_amail",
+          "score": 1,
+          "bm25": -16.922752486833105
+        },
+        {
+          "id": "mem_aplaywright",
+          "score": 1,
+          "bm25": -13.882608432642868
+        },
+        {
+          "id": "mem_as3",
+          "score": 1,
+          "bm25": -7.405747113571
+        },
+        {
+          "id": "mem_avite",
+          "score": 1,
+          "bm25": -3.3244780396092084
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q02",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_amail", "mem_amailduplicate"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_amail",
+          "score": 0.6012828310461331,
+          "bm25": -17.963242176835724,
+          "returnedScore": 0.6
+        },
+        {
+          "id": "mem_amailduplicate",
+          "score": 0.4052137335448185,
+          "bm25": -16.372719933435068,
+          "returnedScore": 0.41
+        },
+        {
+          "id": "mem_as3",
+          "score": 0.29822452916207753,
+          "bm25": -7.004098551883072,
+          "returnedScore": 0.3
+        },
+        {
+          "id": "mem_aplaywright",
+          "score": 0.2910559973303158,
+          "bm25": -13.307463923462551,
+          "returnedScore": 0.29
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q03",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_acache"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_acache",
+          "score": 1,
+          "bm25": -13.57313760063514
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q03",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_acache"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_acache",
+          "score": 0.7289201122533278,
+          "bm25": -16.378702851855017,
+          "returnedScore": 0.73
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q04",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_acsvsafety", "mem_aexportretention"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_acsvsafety",
+          "score": 1,
+          "bm25": -19.28658637329673
+        },
+        {
+          "id": "mem_aexportretention",
+          "score": 1,
+          "bm25": -17.605533694157916
+        },
+        {
+          "id": "mem_asearchtenant",
+          "score": 1,
+          "bm25": -5.915092181057265
+        },
+        {
+          "id": "mem_avite",
+          "score": 1,
+          "bm25": -3.6403262513071315
+        },
+        {
+          "id": "mem_asearchaccents",
+          "score": 0.944969479685927,
+          "bm25": -3.4438416558087748
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q04",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_acsvsafety", "mem_aexportretention"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_acsvsafety",
+          "score": 0.7541044052650018,
+          "bm25": -24.32519536435418,
+          "returnedScore": 0.75
+        },
+        {
+          "id": "mem_aexportretention",
+          "score": 0.35620873592663255,
+          "bm25": -18.547205870785735,
+          "returnedScore": 0.36
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q05",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_atimezone"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_atimezone",
+          "score": 0.8170582772137709,
+          "bm25": -3.292919224769798
+        },
+        {
+          "id": "mem_acsvsafety",
+          "score": 0.7983966718800867,
+          "bm25": -1.844114148029204
+        },
+        {
+          "id": "mem_aproration",
+          "score": 0.7295039278275275,
+          "bm25": -1.3781434980677667
+        },
+        {
+          "id": "mem_avite",
+          "score": 0.714774731758833,
+          "bm25": -1.2976607126723168
+        },
+        {
+          "id": "mem_asearchaccents",
+          "score": 0.6295039278275275,
+          "bm25": -1.3781434980677667
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q05",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_atimezone"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_atimezone",
+          "score": 0.8500000000000001,
+          "bm25": -3.292919224769798,
+          "returnedScore": 0.85
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q06",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_amigration"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_amigration",
+          "score": 1,
+          "bm25": -13.87639878421263
+        },
+        {
+          "id": "mem_awebhook",
+          "score": 0.8674516568638238,
+          "bm25": -4.478000965771715
+        },
+        {
+          "id": "mem_avite",
+          "score": 0.8404627697776291,
+          "bm25": -3.7724215832134087
+        },
+        {
+          "id": "mem_as3",
+          "score": 0.7700109044276346,
+          "bm25": -1.6316544649622962
+        },
+        {
+          "id": "mem_aproration",
+          "score": 0.7388999592071804,
+          "bm25": -1.3196471940966144
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q06",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_amigration"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_amigration",
+          "score": 0.810280539496665,
+          "bm25": -18.529912633983194,
+          "returnedScore": 0.81
+        },
+        {
+          "id": "mem_avite",
+          "score": 0.29492854421028175,
+          "bm25": -4.451720600371151,
+          "returnedScore": 0.29
+        },
+        {
+          "id": "mem_awebhook",
+          "score": 0.26129052578697276,
+          "bm25": -3.7518959768712077,
+          "returnedScore": 0.26
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q07",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_amigration"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_amigration",
+          "score": 1,
+          "bm25": -15.031611757373565
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q07",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_amigration"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_amigration",
+          "score": 0.4883547988998773,
+          "bm25": -13.040408698503802,
+          "returnedScore": 0.49
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q08",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_areact"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_as3",
+          "score": 1,
+          "bm25": -8.08186652964064
+        },
+        {
+          "id": "mem_asearchaccents",
+          "score": 0.9977373502528003,
+          "bm25": -5.567598827816871
+        },
+        {
+          "id": "mem_avite",
+          "score": 0.9940705591219046,
+          "bm25": -2.6241149071214767
+        },
+        {
+          "id": "mem_awebhook",
+          "score": 0.9355729346331536,
+          "bm25": -3.663590383467583
+        },
+        {
+          "id": "mem_atimezone",
+          "score": 0.9170584702149299,
+          "bm25": -3.29292278162111
+        }
+      ],
+      "misses": ["mem_areact"]
+    },
+    {
+      "queryId": "q08",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_areact"],
+      "eligibleCount": 18,
+      "hits": [],
+      "misses": ["mem_areact"]
+    },
+    {
+      "queryId": "q09",
+      "split": "development",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_amail",
+          "score": 1,
+          "bm25": -10.161562452735435
+        },
+        {
+          "id": "mem_amailduplicate",
+          "score": 0.9877606991198818,
+          "bm25": -5.163734647370799
+        },
+        {
+          "id": "mem_aproration",
+          "score": 0.7400886306810263,
+          "bm25": -2.226728990928881
+        },
+        {
+          "id": "mem_aauth",
+          "score": 0.7237921641223244,
+          "bm25": -2.0655302847323047
+        },
+        {
+          "id": "mem_avite",
+          "score": 0.6675912324705774,
+          "bm25": -1.615002805664124
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q09",
+      "split": "development",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_amail",
+          "score": 0.2708754981720713,
+          "bm25": -9.937153892636804,
+          "returnedScore": 0.27
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q10",
+      "split": "development",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_acache",
+          "score": 1,
+          "bm25": -7.771403501813004
+        },
+        {
+          "id": "mem_awebhook",
+          "score": 0.9747675791611925,
+          "bm25": -4.7067065284675715
+        },
+        {
+          "id": "mem_acsvsafety",
+          "score": 0.9026473471282412,
+          "bm25": -3.0428108952542963
+        },
+        {
+          "id": "mem_aproration",
+          "score": 0.8495042304910118,
+          "bm25": -1.3781452098024607
+        },
+        {
+          "id": "mem_avite",
+          "score": 0.8347750638764627,
+          "bm25": -1.297662466003908
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q10",
+      "split": "development",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "q11",
+      "split": "development",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_asearchaccents",
+          "score": 1,
+          "bm25": -13.394454647586832
+        },
+        {
+          "id": "mem_aexportretention",
+          "score": 1,
+          "bm25": -4.165044394360855
+        },
+        {
+          "id": "mem_asearchtenant",
+          "score": 0.9458464772679686,
+          "bm25": -3.461228125312439
+        },
+        {
+          "id": "mem_acsvsafety",
+          "score": 0.9368654799148485,
+          "bm25": -3.2893690717048414
+        },
+        {
+          "id": "mem_aplaywright",
+          "score": 0.8182666227483686,
+          "bm25": -3.3153041303762385
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q11",
+      "split": "development",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_asearchaccents",
+          "score": 0.36380791354425507,
+          "bm25": -13.979743659750866,
+          "returnedScore": 0.36
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q12",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_gpnpm"],
+      "eligibleCount": 8,
+      "hits": [
+        {
+          "id": "mem_gpnpm",
+          "score": 0.9826432943224248,
+          "bm25": -4.337412378081166
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q12",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_gpnpm"],
+      "eligibleCount": 8,
+      "hits": [
+        {
+          "id": "mem_gpnpm",
+          "score": 1,
+          "bm25": -5.694682572156382,
+          "returnedScore": 1
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q13",
+      "split": "development",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_acache",
+          "score": 1,
+          "bm25": -6.923637543009025
+        },
+        {
+          "id": "mem_acsvsafety",
+          "score": 0.8106059948291899,
+          "bm25": -1.7824615480848864
+        },
+        {
+          "id": "mem_areact",
+          "score": 0.6935278213125498,
+          "bm25": -1.1907140165155763
+        },
+        {
+          "id": "mem_aplaywright",
+          "score": 0.617840647607217,
+          "bm25": -1.313961260963561
+        },
+        {
+          "id": "mem_amailduplicate",
+          "score": 0.5902419915069094,
+          "bm25": -1.1750572725804476
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q13",
+      "split": "development",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "q14",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_aredisold"],
+      "eligibleCount": 1,
+      "hits": [
+        {
+          "id": "mem_aredisold",
+          "score": 0.7758598691112025,
+          "bm25": -21.65512085859695
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q14",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_aredisold"],
+      "eligibleCount": 1,
+      "hits": [
+        {
+          "id": "mem_aredisold",
+          "score": 0.717151419281719,
+          "bm25": -24.519137399086905,
+          "returnedScore": 0.72
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q15",
+      "split": "development",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_avite",
+          "score": 1,
+          "bm25": -7.142230270635072
+        },
+        {
+          "id": "mem_aplaywright",
+          "score": 0.9882245537152545,
+          "bm25": -5.181407765921858
+        },
+        {
+          "id": "mem_amigration",
+          "score": 0.8576257634677296,
+          "bm25": -2.420274001774524
+        },
+        {
+          "id": "mem_aproration",
+          "score": 0.8016989826110061,
+          "bm25": -1.7151703437838055
+        },
+        {
+          "id": "mem_sharedmoney",
+          "score": 0.7620536378344644,
+          "bm25": -2.472869017963549
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q15",
+      "split": "development",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "q16",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_sharedmoney", "mem_brounding"],
+      "eligibleCount": 30,
+      "hits": [
+        {
+          "id": "mem_sharedmoney",
+          "score": 1,
+          "bm25": -23.42698753111492
+        },
+        {
+          "id": "mem_brounding",
+          "score": 1,
+          "bm25": -27.959342534924303
+        },
+        {
+          "id": "mem_asearchtenant",
+          "score": 1,
+          "bm25": -3.1900460606825027
+        },
+        {
+          "id": "mem_bcsv",
+          "score": 1,
+          "bm25": -5.475857734232085
+        },
+        {
+          "id": "mem_bsearch",
+          "score": 1,
+          "bm25": -6.182028510763599
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q16",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_sharedmoney", "mem_brounding"],
+      "eligibleCount": 30,
+      "hits": [
+        {
+          "id": "mem_sharedmoney",
+          "score": 0.7367530824250172,
+          "bm25": -26.14999572879714,
+          "returnedScore": 0.74
+        },
+        {
+          "id": "mem_brounding",
+          "score": 0.6674102346030946,
+          "bm25": -28.3298814328833,
+          "returnedScore": 0.67
+        },
+        {
+          "id": "mem_bsearch",
+          "score": 0.26500544576160445,
+          "bm25": -7.228691544126619,
+          "returnedScore": 0.27
+        },
+        {
+          "id": "mem_bcache",
+          "score": 0.2291137952520716,
+          "bm25": -4.388102601148811,
+          "returnedScore": 0.23
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q17",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_sharedmoney"],
+      "eligibleCount": 1,
+      "hits": [
+        {
+          "id": "mem_sharedmoney",
+          "score": 1,
+          "bm25": -23.42698753111492
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q17",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_sharedmoney"],
+      "eligibleCount": 1,
+      "hits": [
+        {
+          "id": "mem_sharedmoney",
+          "score": 0.6505084748934746,
+          "bm25": -26.14999572879714,
+          "returnedScore": 0.65
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q18",
+      "split": "development",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 8,
+      "hits": [
+        {
+          "id": "mem_gworktree",
+          "score": 0.9170046208509596,
+          "bm25": -3.291930611037264
+        },
+        {
+          "id": "mem_ga11y",
+          "score": 0.9147060791502641,
+          "bm25": -6.391315099151052
+        },
+        {
+          "id": "mem_gsqlite",
+          "score": 0.8170046208509596,
+          "bm25": -3.291930611037264
+        },
+        {
+          "id": "mem_gredaction",
+          "score": 0.652699974793347,
+          "bm25": -1.5169895206521984
+        },
+        {
+          "id": "mem_gpnpm",
+          "score": 0.5821985199345583,
+          "bm25": -1.1376589057822304
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q18",
+      "split": "development",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 8,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "q19",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_gsqlite"],
+      "eligibleCount": 8,
+      "hits": [
+        {
+          "id": "mem_gsqlite",
+          "score": 1,
+          "bm25": -25.797392416295107
+        },
+        {
+          "id": "mem_gworktree",
+          "score": 1,
+          "bm25": -4.8906752274929
+        },
+        {
+          "id": "mem_gunicode",
+          "score": 0.8310677342158609,
+          "bm25": -3.5676227595706296
+        },
+        {
+          "id": "mem_gsecrets",
+          "score": 0.800393577515533,
+          "bm25": -3.0063071696892316
+        },
+        {
+          "id": "mem_gtimers",
+          "score": 0.7284898188687353,
+          "bm25": -1.3724219360874341
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q19",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_gsqlite"],
+      "eligibleCount": 8,
+      "hits": [
+        {
+          "id": "mem_gsqlite",
+          "score": 0.5255867030968334,
+          "bm25": -26.484955157801945,
+          "returnedScore": 0.53
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q20",
+      "split": "development",
+      "method": "legacy",
+      "relevant": ["mem_awebhook", "mem_achargeretry"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_achargeretry",
+          "score": 1,
+          "bm25": -23.313158757621416
+        },
+        {
+          "id": "mem_awebhook",
+          "score": 1,
+          "bm25": -15.428803674026645
+        },
+        {
+          "id": "mem_asearchaccents",
+          "score": 0.951180967600348,
+          "bm25": -4.029699561105752
+        },
+        {
+          "id": "mem_as3",
+          "score": 0.8706158708189015,
+          "bm25": -2.340190419362866
+        },
+        {
+          "id": "mem_areact",
+          "score": 0.6212277304273867,
+          "bm25": -1.3322403778508538
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q20",
+      "split": "development",
+      "method": "current",
+      "relevant": ["mem_awebhook", "mem_achargeretry"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_achargeretry",
+          "score": 0.44976746076091245,
+          "bm25": -26.47244175642997,
+          "returnedScore": 0.45
+        },
+        {
+          "id": "mem_awebhook",
+          "score": 0.4390174827144653,
+          "bm25": -19.5270587073599,
+          "returnedScore": 0.44
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q21",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_avite"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_avite",
+          "score": 1,
+          "bm25": -25.317170564152796
+        },
+        {
+          "id": "mem_as3",
+          "score": 1,
+          "bm25": -4.1607014114799865
+        },
+        {
+          "id": "mem_aplaywright",
+          "score": 1,
+          "bm25": -5.719124660305204
+        },
+        {
+          "id": "mem_awebhook",
+          "score": 0.9574030100177381,
+          "bm25": -4.1921891411288374
+        },
+        {
+          "id": "mem_aexportretention",
+          "score": 0.8581447489112393,
+          "bm25": -4.212262861324319
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q21",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_avite"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_avite",
+          "score": 0.8500000000000001,
+          "bm25": -29.450821463953005,
+          "returnedScore": 0.85
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q22",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_bmail"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bmail",
+          "score": 1,
+          "bm25": -30.441673110020904
+        },
+        {
+          "id": "mem_btimezone",
+          "score": 1,
+          "bm25": -3.933205314386131
+        },
+        {
+          "id": "mem_bs3",
+          "score": 1,
+          "bm25": -5.236254689543656
+        },
+        {
+          "id": "mem_bsearch",
+          "score": 0.9894488136590408,
+          "bm25": -4.538595565423561
+        },
+        {
+          "id": "mem_bwebhook",
+          "score": 0.8853077742612143,
+          "bm25": -5.071932026628113
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q22",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_bmail"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bmail",
+          "score": 0.818561401977312,
+          "bm25": -34.15887379036643,
+          "returnedScore": 0.82
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q23",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_bdeploy"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bdeploy",
+          "score": 1,
+          "bm25": -22.078109473325572
+        },
+        {
+          "id": "mem_bsms",
+          "score": 1,
+          "bm25": -4.691881802684322
+        },
+        {
+          "id": "mem_btimezone",
+          "score": 1,
+          "bm25": -6.253247332246623
+        },
+        {
+          "id": "mem_bwebhook",
+          "score": 0.978074301332714,
+          "bm25": -4.210349666271406
+        },
+        {
+          "id": "mem_bs3",
+          "score": 0.8875660394362674,
+          "bm25": -2.540650699384804
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q23",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_bdeploy"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bdeploy",
+          "score": 0.7811521699887081,
+          "bm25": -25.13494540129017,
+          "returnedScore": 0.78
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q24",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_bdeployold"],
+      "eligibleCount": 14,
+      "hits": [
+        {
+          "id": "mem_bdeploy",
+          "score": 1,
+          "bm25": -9.827187597953086
+        },
+        {
+          "id": "mem_btimezone",
+          "score": 1,
+          "bm25": -5.419449905449877
+        },
+        {
+          "id": "mem_bwebhook",
+          "score": 0.9884933354279469,
+          "bm25": -2.5523137667813356
+        },
+        {
+          "id": "mem_brounding",
+          "score": 0.951781919888677,
+          "bm25": -3.5825717075773666
+        },
+        {
+          "id": "mem_bs3",
+          "score": 0.9403218967934944,
+          "bm25": -3.3539196207175723
+        }
+      ],
+      "misses": ["mem_bdeployold"]
+    },
+    {
+      "queryId": "q24",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_bdeployold"],
+      "eligibleCount": 14,
+      "hits": [
+        {
+          "id": "mem_bdeployold",
+          "score": 0.5924653763417884,
+          "bm25": -22.68601755004258,
+          "returnedScore": 0.59
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q25",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_gunicode"],
+      "eligibleCount": 8,
+      "hits": [
+        {
+          "id": "mem_gunicode",
+          "score": 0.9874102306584966,
+          "bm25": -4.47675810975843
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q25",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_gunicode"],
+      "eligibleCount": 8,
+      "hits": [
+        {
+          "id": "mem_gunicode",
+          "score": 1,
+          "bm25": -5.789318552648562,
+          "returnedScore": 1
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q26",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_bcsv"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bcsv",
+          "score": 1,
+          "bm25": -21.237051392433333
+        },
+        {
+          "id": "mem_brounding",
+          "score": 0.8903544756414762,
+          "bm25": -2.5759556756500586
+        },
+        {
+          "id": "mem_bcache",
+          "score": 0.7055374202795153,
+          "bm25": -1.903072957333865
+        },
+        {
+          "id": "mem_bsms",
+          "score": 0.6963940271826038,
+          "bm25": -1.8280065295062322
+        },
+        {
+          "id": "mem_sharedmoney",
+          "score": 0.688967133993679,
+          "bm25": -1.769830932739768
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q26",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_bcsv"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bcsv",
+          "score": 0.7762736733732517,
+          "bm25": -25.285140445613777,
+          "returnedScore": 0.78
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q27",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_bpool"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bpool",
+          "score": 1,
+          "bm25": -19.080676818639443
+        },
+        {
+          "id": "mem_btimezone",
+          "score": 1,
+          "bm25": -5.929303529735347
+        },
+        {
+          "id": "mem_brounding",
+          "score": 0.9961429438090166,
+          "bm25": -2.65154001839053
+        },
+        {
+          "id": "mem_bsms",
+          "score": 0.8782933936717179,
+          "bm25": -2.680440507183609
+        },
+        {
+          "id": "mem_bmail",
+          "score": 0.8316037339935498,
+          "bm25": -2.140740350201662
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q27",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_bpool"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bpool",
+          "score": 0.3171220986234493,
+          "bm25": -19.669622487816746,
+          "returnedScore": 0.32
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q28",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_brounding"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_brounding",
+          "score": 1,
+          "bm25": -25.682993412592424
+        },
+        {
+          "id": "mem_bsms",
+          "score": 0.9684605861596821,
+          "bm25": -4.508445680449316
+        },
+        {
+          "id": "mem_bcache",
+          "score": 0.8194786720940765,
+          "bm25": -3.3379934042723503
+        },
+        {
+          "id": "mem_bcargo",
+          "score": 0.7875912324705774,
+          "bm25": -1.615002805664124
+        },
+        {
+          "id": "mem_bs3",
+          "score": 0.7506157823743093,
+          "bm25": -2.34018943259816
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q28",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_brounding"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_brounding",
+          "score": 0.8911571622374628,
+          "bm25": -23.049159118400418,
+          "returnedScore": 0.89
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q29",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_bs3"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bs3",
+          "score": 1,
+          "bm25": -8.918763714621424
+        },
+        {
+          "id": "mem_bcsv",
+          "score": 0.7237921641223244,
+          "bm25": -2.0655302847323047
+        },
+        {
+          "id": "mem_bcargo",
+          "score": 0.7194566390934855,
+          "bm25": -2.0253216923114166
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q29",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_bs3"],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bs3",
+          "score": 0.31335947503112827,
+          "bm25": -10.415226029541278,
+          "returnedScore": 0.31
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q30",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bsms",
+          "score": 1,
+          "bm25": -7.116479875150057
+        },
+        {
+          "id": "mem_bmail",
+          "score": 0.983939405010766,
+          "bm25": -5.021898211702974
+        },
+        {
+          "id": "mem_bcache",
+          "score": 0.8340923153229903,
+          "bm25": -3.6316091133854926
+        },
+        {
+          "id": "mem_bs3",
+          "score": 0.8311926285913804,
+          "bm25": -2.1366903330421647
+        },
+        {
+          "id": "mem_bwebhook",
+          "score": 0.7520066994803936,
+          "bm25": -2.355780140883419
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q30",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 13,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "q31",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bpool",
+          "score": 1,
+          "bm25": -10.33356424583181
+        },
+        {
+          "id": "mem_btimezone",
+          "score": 1,
+          "bm25": -3.2311261785286693
+        },
+        {
+          "id": "mem_bcsv",
+          "score": 0.9681476433718548,
+          "bm25": -4.498966406274387
+        },
+        {
+          "id": "mem_bsms",
+          "score": 0.8782933936717179,
+          "bm25": -2.6804405071836093
+        },
+        {
+          "id": "mem_bs3",
+          "score": 0.17000168275578903,
+          "bm25": -0.0000016827586206896553
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q31",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bpool",
+          "score": 0.31441964788815513,
+          "bm25": -12.427666176482864,
+          "returnedScore": 0.31
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q32",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bsearch",
+          "score": 1,
+          "bm25": -9.846113372647972
+        },
+        {
+          "id": "mem_bmail",
+          "score": 1,
+          "bm25": -4.627391169786987
+        },
+        {
+          "id": "mem_bpool",
+          "score": 0.3794213519486718,
+          "bm25": -0.4912493902183669
+        },
+        {
+          "id": "mem_bs3",
+          "score": 0.3794213519486718,
+          "bm25": -0.4912493902183669
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q32",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 13,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "q33",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bdeploy",
+          "score": 1,
+          "bm25": -9.827187597953086
+        },
+        {
+          "id": "mem_btimezone",
+          "score": 1,
+          "bm25": -5.419449905449877
+        },
+        {
+          "id": "mem_bwebhook",
+          "score": 0.9884933354279469,
+          "bm25": -2.5523137667813356
+        },
+        {
+          "id": "mem_brounding",
+          "score": 0.951781919888677,
+          "bm25": -3.5825717075773666
+        },
+        {
+          "id": "mem_bs3",
+          "score": 0.9403218967934944,
+          "bm25": -3.3539196207175723
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q33",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 13,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "q34",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_avite",
+          "score": 0.8875916303631296,
+          "bm25": -1.6150055265515912
+        },
+        {
+          "id": "mem_aproration",
+          "score": 0.8016988432262305,
+          "bm25": -1.7151693162187214
+        },
+        {
+          "id": "mem_amailduplicate",
+          "score": 0.7891523828525484,
+          "bm25": -1.6257220866707773
+        },
+        {
+          "id": "mem_aexportretention",
+          "score": 0.7822937928648328,
+          "bm25": -1.7195624675228944
+        },
+        {
+          "id": "mem_acsvsafety",
+          "score": 0.5951851187472446,
+          "bm25": -1.1986967472250922
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q34",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 18,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "q35",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_awebhook", "mem_bwebhook"],
+      "eligibleCount": 30,
+      "hits": [
+        {
+          "id": "mem_bwebhook",
+          "score": 1,
+          "bm25": -20.85240735472584
+        },
+        {
+          "id": "mem_awebhook",
+          "score": 1,
+          "bm25": -17.20392124125481
+        },
+        {
+          "id": "mem_as3",
+          "score": 1,
+          "bm25": -4.85694426715596
+        },
+        {
+          "id": "mem_aauth",
+          "score": 1,
+          "bm25": -4.021603633961583
+        },
+        {
+          "id": "mem_btimezone",
+          "score": 1,
+          "bm25": -3.3539196207175723
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q35",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_awebhook", "mem_bwebhook"],
+      "eligibleCount": 30,
+      "hits": [
+        {
+          "id": "mem_bwebhook",
+          "score": 0.6157412021677925,
+          "bm25": -23.604779160563737,
+          "returnedScore": 0.62
+        },
+        {
+          "id": "mem_awebhook",
+          "score": 0.463332204105159,
+          "bm25": -18.82425059923516,
+          "returnedScore": 0.46
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q36",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 1,
+      "hits": [
+        {
+          "id": "mem_sharedmoney",
+          "score": 1,
+          "bm25": -6.338497422031299
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q36",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 1,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "q37",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_gsecrets", "mem_gredaction"],
+      "eligibleCount": 8,
+      "hits": [
+        {
+          "id": "mem_gredaction",
+          "score": 1,
+          "bm25": -27.51137910834058
+        },
+        {
+          "id": "mem_gsecrets",
+          "score": 1,
+          "bm25": -19.351543797405792
+        },
+        {
+          "id": "mem_gworktree",
+          "score": 0.9472861996746074,
+          "bm25": -3.933063256644676
+        },
+        {
+          "id": "mem_gpnpm",
+          "score": 0.8075351117687929,
+          "bm25": -3.1243085021301336
+        },
+        {
+          "id": "mem_gunicode",
+          "score": 0.7252499894353877,
+          "bm25": -2.0792916627204843
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q37",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_gsecrets", "mem_gredaction"],
+      "eligibleCount": 8,
+      "hits": [
+        {
+          "id": "mem_gredaction",
+          "score": 0.6425663021713621,
+          "bm25": -32.12510973944859,
+          "returnedScore": 0.64
+        },
+        {
+          "id": "mem_gsecrets",
+          "score": 0.362719757832186,
+          "bm25": -22.124481770302644,
+          "returnedScore": 0.36
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q38",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": [],
+      "eligibleCount": 13,
+      "hits": [
+        {
+          "id": "mem_bsms",
+          "score": 1,
+          "bm25": -8.477452256190986
+        },
+        {
+          "id": "mem_bcache",
+          "score": 1,
+          "bm25": -5.183377461347453
+        },
+        {
+          "id": "mem_btimezone",
+          "score": 1,
+          "bm25": -3.8377454086122054
+        },
+        {
+          "id": "mem_bwebhook",
+          "score": 1,
+          "bm25": -5.003651997568958
+        },
+        {
+          "id": "mem_bs3",
+          "score": 0.9741149395099297,
+          "bm25": -4.10503454167548
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q38",
+      "split": "heldout",
+      "method": "current",
+      "relevant": [],
+      "eligibleCount": 13,
+      "hits": [],
+      "misses": []
+    },
+    {
+      "queryId": "q39",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_asearchaccents", "mem_asearchtenant"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_asearchtenant",
+          "score": 1,
+          "bm25": -22.26434556280708
+        },
+        {
+          "id": "mem_asearchaccents",
+          "score": 1,
+          "bm25": -13.35653544173673
+        },
+        {
+          "id": "mem_aexportretention",
+          "score": 1,
+          "bm25": -3.6352274469405703
+        },
+        {
+          "id": "mem_acsvsafety",
+          "score": 1,
+          "bm25": -5.6609470361858385
+        },
+        {
+          "id": "mem_acache",
+          "score": 0.8944114523081534,
+          "bm25": -2.628597807765818
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q39",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_asearchaccents", "mem_asearchtenant"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_asearchtenant",
+          "score": 0.744185245093794,
+          "bm25": -27.069569519031152,
+          "returnedScore": 0.74
+        },
+        {
+          "id": "mem_asearchaccents",
+          "score": 0.43257964352568745,
+          "bm25": -16.305156226449974,
+          "returnedScore": 0.43
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q40",
+      "split": "heldout",
+      "method": "legacy",
+      "relevant": ["mem_aplaywright"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_aplaywright",
+          "score": 1,
+          "bm25": -34.239599589382024
+        },
+        {
+          "id": "mem_avite",
+          "score": 1,
+          "bm25": -9.898171286180613
+        },
+        {
+          "id": "mem_as3",
+          "score": 1,
+          "bm25": -9.399531368998645
+        },
+        {
+          "id": "mem_amailduplicate",
+          "score": 1,
+          "bm25": -7.4638947291417335
+        },
+        {
+          "id": "mem_acsvsafety",
+          "score": 1,
+          "bm25": -4.1639318435377515
+        }
+      ],
+      "misses": []
+    },
+    {
+      "queryId": "q40",
+      "split": "heldout",
+      "method": "current",
+      "relevant": ["mem_aplaywright"],
+      "eligibleCount": 18,
+      "hits": [
+        {
+          "id": "mem_aplaywright",
+          "score": 0.5168180655367844,
+          "bm25": -38.357914045148966,
+          "returnedScore": 0.52
+        }
+      ],
+      "misses": []
+    }
+  ]
+}
