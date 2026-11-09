@@ -13,7 +13,6 @@ import type { MemoryRecord } from '../../src/store/memory-schema.js';
 import { memoryRecord } from '../helpers/memories.js';
 
 const DAY = 24 * 60 * 60 * 1000;
-const HOUR = 60 * 60 * 1000;
 const START = Date.parse('2026-06-01T00:00:00Z');
 const ID = 'mem_TEST0000';
 const BODY = 'Preserve idempotency keys for webhook retries.';
@@ -86,9 +85,11 @@ describe('memory decay over MCP', () => {
     });
   }
 
-  test('startup archives stale active files and search cannot bypass the archived gate', async () => {
+  test('search archives stale active files and cannot bypass the archived gate', async () => {
     seed();
     await start();
+    expect(stored().metadata.status).toBe('active');
+    expect(await search()).toMatchObject({ result_count: 0 });
     expect(stored().metadata).toMatchObject({
       status: 'archived',
       archive_source: 'decay',
@@ -113,12 +114,12 @@ describe('memory decay over MCP', () => {
     expect(stored().metadata.last_accessed_at).toBeUndefined();
   });
 
-  test('search performs maintenance without waiting for the hourly interval', async () => {
+  test('search sweeps the store even when the query does not match', async () => {
     seed({ created_at: iso(START), updated_at: iso(START) });
     await start();
     vi.setSystemTime(START + DEFAULT_CONFIG.memory_archive_after_days * DAY);
     expect(stored().metadata.status).toBe('active');
-    expect(await search()).toMatchObject({ result_count: 0 });
+    expect(await search({ query: 'nonmatchingquery' })).toMatchObject({ result_count: 0 });
     expect(stored().metadata).toMatchObject({
       status: 'archived',
       archive_source: 'decay',
@@ -126,14 +127,32 @@ describe('memory decay over MCP', () => {
     });
     expect(await search({ include_archived: true })).toMatchObject({ result_count: 1 });
     vi.setSystemTime(Date.now() + DEFAULT_CONFIG.memory_delete_after_days * DAY);
-    expect(await search({ include_archived: true })).toMatchObject({ result_count: 0 });
+    expect(await search({ query: 'nonmatchingquery', include_archived: true })).toMatchObject({
+      result_count: 0,
+    });
     expect(existsSync(join(paths.memories, 'hand-renamed.md'))).toBe(false);
   });
 
-  test('get rescues an overdue decay archive before maintenance and restores the index', async () => {
+  test('get refreshes a stale active memory before the first search', async () => {
     seed();
     await start();
-    vi.setSystemTime(START + (DEFAULT_CONFIG.memory_delete_after_days + 1) * DAY);
+    expect(await call('get_memory', { id: ID })).toMatchObject({
+      status: 'active',
+      last_accessed_at: iso(START),
+      body: BODY,
+    });
+    expect(await search()).toMatchObject({ result_count: 1 });
+    expect(stored().metadata).not.toHaveProperty('archived_at');
+  });
+
+  test('get rescues an overdue decay archive before maintenance and restores the index', async () => {
+    seed({
+      status: 'archived',
+      archive_source: 'decay',
+      archived_at: iso(START - 91 * DAY),
+      archive_reason: 'No explicit read for 90 days.',
+    });
+    await start();
     const result = await call('get_memory', { id: ID });
     expect(result).toMatchObject({
       id: ID,
@@ -160,16 +179,15 @@ describe('memory decay over MCP', () => {
     seed({
       status: 'archived',
       archive_source: 'manual',
-      archived_at: iso(START),
+      archived_at: iso(START - 91 * DAY),
       archive_reason: 'Retired deliberately.',
     });
     await start();
-    vi.setSystemTime(START + (DEFAULT_CONFIG.memory_delete_after_days + 1) * DAY);
     expect(await call('get_memory', { id: ID })).toMatchObject({
       status: 'archived',
       archive_source: 'manual',
       archive_reason: 'Retired deliberately.',
-      archived_at: iso(START),
+      archived_at: iso(START - 91 * DAY),
       last_accessed_at: iso(Date.now()),
       body: BODY,
     });
@@ -185,22 +203,37 @@ describe('memory decay over MCP', () => {
     });
   });
 
-  test('hourly maintenance archives and deletes without requests, and close cancels the timer', async () => {
-    seed({ created_at: iso(START), updated_at: iso(START) });
-    await start();
-    expect(vi.getTimerCount()).toBe(1);
-    vi.setSystemTime(START + DEFAULT_CONFIG.memory_archive_after_days * DAY - HOUR);
-    await vi.advanceTimersByTimeAsync(HOUR);
-    await vi.waitFor(() => expect(stored().metadata.status).toBe('archived'));
-    const archivedAt = Date.parse(String(stored().metadata.archived_at));
-    vi.setSystemTime(archivedAt + DEFAULT_CONFIG.memory_delete_after_days * DAY - 2 * HOUR);
-    await vi.advanceTimersByTimeAsync(HOUR);
-    expect(existsSync(join(paths.memories, 'hand-renamed.md'))).toBe(true);
-    await vi.advanceTimersByTimeAsync(HOUR);
-    await vi.waitFor(() => expect(existsSync(join(paths.memories, 'hand-renamed.md'))).toBe(false));
-    await server!.close();
-    expect(vi.getTimerCount()).toBe(0);
-    await vi.advanceTimersByTimeAsync(HOUR);
-    expect(vi.getTimerCount()).toBe(0);
-  });
+  test.each(['active', 'archived'] as const)(
+    'startup and idle leave overdue %s memories untouched until search',
+    async (status) => {
+      seed({
+        status,
+        ...(status === 'archived'
+          ? {
+              archive_source: 'decay' as const,
+              archived_at: iso(START - 91 * DAY),
+              archive_reason: 'No explicit read for 90 days.',
+            }
+          : {}),
+      });
+      const original = stored();
+      await start();
+      expect(stored()).toEqual(original);
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(365 * DAY);
+      expect(stored()).toEqual(original);
+      expect(await search()).toMatchObject({ result_count: 0 });
+      if (status === 'active') {
+        expect(stored().metadata).toMatchObject({
+          status: 'archived',
+          archived_at: iso(Date.now()),
+        });
+        expect(await search({ include_archived: true })).toMatchObject({ result_count: 1 });
+      } else {
+        expect(existsSync(join(paths.memories, 'hand-renamed.md'))).toBe(false);
+      }
+      await server!.close();
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
 });

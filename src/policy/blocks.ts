@@ -17,7 +17,7 @@
 import { MEMORY_TYPES, type MemoryType } from '../store/memory-schema.js';
 
 /** `policy_version` from the docs/memory-policy.md front matter. Pinned by tests. */
-export const POLICY_VERSION = '2.3.0';
+export const POLICY_VERSION = '2.4.0';
 
 /** A policy rule plus the wording that identifies it in a rendered surface. */
 export interface PolicyClause<Key extends string> {
@@ -338,8 +338,8 @@ export const ARCHIVE_LIFECYCLE =
   'retention permanently deletes expired archives: by default 90 days unread to ' +
   'archive, then 90 days archived without an explicit read to delete. Configure ' +
   'memory_archive_after_days and memory_delete_after_days (positive integers, maximum ' +
-  '365000 days). Maintenance runs at startup, hourly while running, and before searches; ' +
-  'there is no standalone daemon.';
+  '365000 days). Maintenance runs store-wide only before searches, not at startup or while idle. ' +
+  'Direct gets do not trigger maintenance; unused stores retain files until the next search.';
 
 // --- §11 Duplicates --------------------------------------------------------
 

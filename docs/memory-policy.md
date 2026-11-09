@@ -1,5 +1,5 @@
 ---
-policy_version: 2.3.0
+policy_version: 2.4.0
 updated: 2026-08-23
 ---
 
@@ -199,9 +199,10 @@ The optional persisted fields are `last_accessed_at`, `archived_at`, and
 Legacy archives missing `archived_at` receive a fresh full deletion grace on
 first maintenance. New decay archives use the actual sweep time as `archived_at`,
 never a backdated deadline, so a memory cannot be archived and deleted in one
-sweep. Maintenance runs at startup, hourly while the server is running, and
-before searches; there is no standalone daemon. A direct `get_memory` before a
-sweep can rescue a record that still exists.
+sweep. Maintenance runs store-wide only before searches, regardless of query or
+scope; it does not run at startup or while idle. Unused stores retain files until
+the next search. A direct `get_memory` does not trigger maintenance and can rescue
+a record that still exists.
 
 `search_memories` excludes archives unless `include_archived` is explicitly
 true (default false). Optional `status` narrows results but never bypasses

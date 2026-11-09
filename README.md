@@ -116,8 +116,9 @@ leaves it archived but restarts its deletion grace. Explicit restore through
 `update_memory` clears `archived_at` and `archive_source` (`manual` or `decay`).
 Deletion grace starts at the later of archive time and last explicit read.
 
-Maintenance runs at startup, hourly while the server runs, and before searches;
-there is no standalone daemon. A direct get before a sweep can rescue an
+Maintenance runs store-wide only before searches, regardless of query or scope;
+it does not run at startup or while idle. Unused stores retain files until the
+next search. A direct get does not trigger maintenance and can rescue an
 existing record. Newly decayed archives receive the actual sweep timestamp and
 cannot be deleted in the same sweep. Legacy archives without `archived_at`
 receive a fresh full deletion grace on first maintenance.

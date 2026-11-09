@@ -59,7 +59,7 @@ export const SERVER_NAME = 'memento';
 // Kept in step with package.json by a test: the harness pools runs by the package
 // version while the event log records this one, so a drift between them silently
 // mixes pre- and post-change reps in one comparison.
-export const SERVER_VERSION = '0.6.0';
+export const SERVER_VERSION = '0.6.1';
 
 interface ToolCallResult {
   content: { type: 'text'; text: string }[];
@@ -170,12 +170,6 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
       console.error(`Memento retention skipped ${result.skipped.length} invalid or unsafe files.`);
     }
   };
-  try {
-    await maintain();
-  } catch (error) {
-    index.close();
-    throw error;
-  }
 
   // Serialize local calls with maintenance; the store lock also protects other processes.
   let pending = Promise.resolve();
@@ -190,18 +184,8 @@ export async function createServer(resolved: ResolvedConfig = loadConfig()): Pro
     );
     return task;
   };
-  const timer = setInterval(
-    () => {
-      void enqueue(maintain).catch((error: unknown) => {
-        console.error('Memento retention failed; it will retry on the next sweep.', error);
-      });
-    },
-    60 * 60 * 1000,
-  );
-  timer.unref();
   const stop = async () => {
     closed = true;
-    clearInterval(timer);
     await pending;
     if (!indexClosed) {
       indexClosed = true;

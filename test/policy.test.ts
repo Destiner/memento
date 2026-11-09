@@ -267,8 +267,10 @@ describe('tool descriptions are locally actionable', () => {
       expect(set.archive_memory).toMatch(/no hard-delete tool/);
       expect(set.archive_memory).toMatch(/retention permanently deletes/);
       expect(set.archive_memory).toMatch(/90 days unread.*90 days archived/);
-      expect(set.archive_memory).toMatch(/startup, hourly while running, and before searches/);
-      expect(set.archive_memory).toMatch(/no standalone daemon/);
+      expect(set.archive_memory).toMatch(/store-wide only before searches/);
+      expect(set.archive_memory).toMatch(/not at startup or while idle/);
+      expect(set.archive_memory).toMatch(/Direct gets do not trigger maintenance/);
+      expect(set.archive_memory).toMatch(/unused stores retain files until the next search/);
     },
   );
 
