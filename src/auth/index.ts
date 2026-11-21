@@ -567,6 +567,21 @@ export async function createAuthService(options: AuthServiceOptions): Promise<Au
             if (!consent?.scopes.includes('mcp') || !consent.resources?.includes(resource))
               return fail(400, 'invalid_grant');
           }
+          const response = await auth.handler(withBody(request, body));
+          if (refresh && response.ok) {
+            // Better Auth copies the original browser session onto access tokens minted offline.
+            const { access_token: accessToken } = (await response.clone().json()) as {
+              access_token?: string;
+            };
+            if (
+              typeof accessToken !== 'string' ||
+              db
+                .prepare('UPDATE oauthAccessToken SET sessionId = NULL WHERE token = ?')
+                .run(hash(accessToken)).changes !== 1
+            )
+              throw new Error('Could not detach refreshed access token from browser session');
+          }
+          return response;
         }
         if (p.endsWith('/consent') || (p.endsWith('/social') && body.oauth_query)) {
           if (

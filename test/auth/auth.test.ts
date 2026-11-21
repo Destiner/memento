@@ -220,6 +220,34 @@ describe('production OAuth boundary', () => {
     const next = (await refreshed.json()) as { access_token: string };
     expect((await service.authenticate(bearer(next.access_token)))?.accountId).toBe(owner.id);
   });
+  it('keeps refreshed MCP access independent of browser session expiry', async () => {
+    const owner = seedSession();
+    const issued = await tokens(owner.cookie);
+    const refresh = async (refreshToken: string) => {
+      const response = await handle('/api/auth/oauth2/token', {
+        client_id: issued.clientId,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        resource,
+      });
+      expect(response.status).toBe(200);
+      return (await response.json()) as { access_token: string; refresh_token: string };
+    };
+    const beforeExpiry = await refresh(issued.refresh_token);
+    database
+      .prepare('UPDATE session SET expiresAt = ? WHERE userId = ?')
+      .run(new Date(Date.now() - 1000).toISOString(), owner.id);
+    expect(await service.authenticate(bearer(issued.access_token))).toBeNull();
+    expect((await service.authenticate(bearer(beforeExpiry.access_token)))?.accountId).toBe(
+      owner.id,
+    );
+
+    const afterExpiry = await refresh(beforeExpiry.refresh_token);
+    expect((await service.authenticate(bearer(afterExpiry.access_token)))?.accountId).toBe(
+      owner.id,
+    );
+  });
+
   it('requires explicit providers, secret and an allowlist', async () => {
     await expect(createAuthService({ ...options, allowedEmails: [] })).rejects.toThrow();
     await expect(

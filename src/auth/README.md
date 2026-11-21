@@ -69,10 +69,12 @@ external and every response has no-store, no-referrer, nosniff and restrictive
 CSP headers.
 
 Authorization revocation removes the owner's consent, access/refresh family and
-outstanding codes transactionally. Signout ends the browser session and its session-bound access tokens. An
-`offline_access` refresh authorization survives and can issue new access tokens;
-use revoke to disconnect a client. OAuth protocol redirects are validated registered client
-callbacks; ordinary sign-in success/error redirects are fixed same-origin URLs.
+outstanding codes transactionally. Access tokens issued from an authorization
+code are bound to the browser session. An `offline_access` refresh authorization
+survives browser session expiry and signout and issues access tokens that are not
+bound to that session. Use revoke to disconnect a client. OAuth protocol
+redirects are validated registered client callbacks; ordinary sign-in
+success/error redirects are fixed same-origin URLs.
 
 ## Verification
 
