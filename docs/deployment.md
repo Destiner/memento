@@ -1,6 +1,8 @@
 # Cloud deployment
 
-## Topology
+For the Cloudflare Worker, SQLite Durable Objects, and one-way cutover procedure, see [Cloudflare migration](cloudflare-migration.md). The staging Wrangler configuration deliberately has no public route.
+
+## Render topology
 
 Deploy `render.yaml`: one paid Node web service, one instance, one 1 GiB persistent
 disk mounted at `/var/data`. MCP and browser authentication share one origin.

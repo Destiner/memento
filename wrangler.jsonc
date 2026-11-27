@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "memento-cf-stage",
+  "main": "cloudflare/worker.ts",
+  "compatibility_date": "2026-11-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "send_metrics": false,
+  "durable_objects": {
+    "bindings": [
+      { "name": "MEMENTO_AUTH", "class_name": "AuthObject" },
+      { "name": "MEMENTO_ACCOUNTS", "class_name": "AccountObject" },
+    ],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AuthObject", "AccountObject"] }],
+}

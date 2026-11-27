@@ -1,7 +1,9 @@
 # Cloud authentication boundary
 
-`createAuthService(options)` is the Node-only, SQLite-backed HTTP authentication
-service. Import its contract and types from `src/auth/index.ts`.
+Node's `createAuthService(options)` and Cloudflare's
+`createWorkerAuthService(options, storage)` implement the same SQLite-backed
+HTTP authentication service. Import the contract and types from
+`src/auth/index.ts`; Workers import the factory from `cloudflare/auth-service.ts`.
 
 ## Integration
 
@@ -42,12 +44,20 @@ provider requires **encrypted**, not hashed, confidential-client secrets when
 JWTs are disabled; encryption uses the configured Better Auth secret. Keep the
 secret stable across restarts.
 
-The service has one SQLite owner/process per data directory. Grant operations
-and bearer checks are serialized to fence concurrent rotation/replay/revocation.
-Bounded uploads and social-provider callbacks stay outside that critical section;
-this is not a multi-worker/distributed deployment. The authoritative database is
-`auth.sqlite` (mode 0600, WAL). Preserve the database and its live WAL consistently
-when backing up; do not copy only the database file while it is being written.
+Use one SQLite owner per origin. Grant operations and bearer checks are
+serialized to fence concurrent rotation/replay/revocation. Bounded uploads and
+social-provider callbacks stay outside that critical section.
+
+- Node uses one process per data directory. The authoritative database is
+  `auth.sqlite` (mode 0600, WAL). Preserve the database and its live WAL
+  consistently when backing up; do not copy only the database file while it is
+  being written.
+- Cloudflare uses one stable SQLite-backed Durable Object per service, with
+  `nodejs_compat` enabled. Initialize the service inside the object's
+  `blockConcurrencyWhile` and route all auth and bearer checks to that object.
+  Auth migrations are versioned independently of Worker/DO class migrations.
+  Append schema changes in `cloudflare/auth-schema.ts`; do not rewrite an
+  applied migration. The Worker does not import a Node `auth.sqlite` file.
 
 DCR accepts at most five HTTPS or native loopback HTTP redirect URIs, rejects
 credentials/fragments and remote JWKS metadata, limits bodies to 16 KiB and names
@@ -78,9 +88,9 @@ success/error redirects are fixed same-origin URLs.
 
 ## Verification
 
-`bunx vitest run test/auth` exercises temporary SQLite stores and mocked vendor
-network responses, including actual GitHub callback → login continuation →
-consent → code redemption. Google admission tests sign real offline RSA ID tokens
-and mock only Google's JWKS endpoint. No real credentials or vendor accounts are
-used. Live-provider deployment acceptance still requires correctly configured
-provider apps, HTTPS routing and environment configuration.
+`bunx vitest run test/auth` covers Node SQLite and a local workerd SQLite
+Durable Object with synthetic provider responses. It exercises Google ID token
+verification, GitHub sign-in through OAuth consent and PKCE, and refresh and
+revocation across Worker restarts. Live-provider deployment acceptance still
+requires correctly configured provider apps, HTTPS routing and environment
+configuration.

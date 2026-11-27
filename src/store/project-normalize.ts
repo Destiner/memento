@@ -14,6 +14,7 @@ import { homedir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 
 import { MementoError } from '../errors.js';
+import { usesPrivateMemoryFilesystem } from './memory-mutation-lock.js';
 
 // Cap on retained checkout records. A moved checkout appends rather than
 // replaces (a second entry may be a worktree or another machine), so the array
@@ -118,6 +119,8 @@ export async function normalizeWorkingDirectory(input: string): Promise<string> 
   }
 
   const resolved = resolve(expanded);
+  // In a Worker these are client checkout paths, never virtual filesystem lookups.
+  if (usesPrivateMemoryFilesystem()) return resolved;
   try {
     return await realpath(resolved);
   } catch {

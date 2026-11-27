@@ -1,0 +1,35 @@
+# Safe template: copy to a private directory and fill the approved deployment values.
+name = "memento-migration-operator"
+main = "worker.ts"
+compatibility_date = "2026-11-23"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+preview_urls = false
+routes = []
+send_metrics = false
+
+[triggers]
+crons = []
+
+[observability]
+enabled = false
+
+[vars]
+STAGING_KEY = ""
+EXPECTED_SHA256 = ""
+EXPECTED_ORIGIN = ""
+SCHEDULED_AT = ""
+
+[[r2_buckets]]
+binding = "STAGING"
+bucket_name = "memento-private-migration-staging"
+
+[[durable_objects.bindings]]
+name = "MEMENTO_AUTH"
+class_name = "AuthObject"
+script_name = "memento-cf-stage"
+
+[[durable_objects.bindings]]
+name = "MEMENTO_ACCOUNTS"
+class_name = "AccountObject"
+script_name = "memento-cf-stage"

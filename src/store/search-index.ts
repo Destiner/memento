@@ -1,10 +1,7 @@
-// The derived search index: a thin, synchronous wrapper over node:sqlite that
-// owns the FTS5 tables and the read/write paths against them.
-//
-// This module is the only place that talks to SQLite. Callers hand it a validated
-// record plus a body; it derives the lexical text and structured columns. The
-// index is rebuildable from markdown, so any failure here is recoverable by
-// dropping the database and re-running the rebuild routine.
+// The derived search index owns the FTS5 tables and the synchronous read/write
+// paths against them. Callers hand it a validated record plus a body; it derives
+// the lexical text and structured columns. The index is rebuildable from
+// markdown, so failures are recoverable by rebuilding the derived index.
 //
 // It answers two questions, both of which need a cheap candidate pool over
 // lexical similarity:
@@ -15,9 +12,7 @@
 //     neighbours of a draft so the operation can score them (similarity.ts) and
 //     decide whether to gate the write.
 
-import { DatabaseSync } from 'node:sqlite';
-
-import { CREATE_MEMORIES_FTS, CREATE_MEMORIES_TABLE } from './index-schema.js';
+import { CREATE_MEMORIES_FTS, CREATE_MEMORIES_TABLE, createSearchScratch } from './index-schema.js';
 import {
   memoryProjectIds,
   type MemoryRecord,
@@ -37,6 +32,12 @@ import {
   type QueryClause,
 } from './search-query.js';
 import { lexicalEvidence, type TermMatch } from './search-relevance.js';
+import {
+  openDurableSearchDatabase,
+  openNodeSearchDatabase,
+  type DurableSearchStorage,
+  type SearchDatabase,
+} from './search-sqlite.js';
 
 // In-memory database sentinel, used by tests and ephemeral runs.
 export const MEMORY_DB = ':memory:';
@@ -114,40 +115,27 @@ const SELECT_COLUMNS = `m.id, m.title, m.description, m.type, m.scope_kind, m.pr
                 m.status, m.source, m.verification, m.created_at, m.updated_at`;
 
 export class MemoryIndex {
-  private readonly db: DatabaseSync;
-  private readonly literalPatterns = new Map<string, RegExp>();
+  private readonly db: SearchDatabase;
 
-  constructor(location: string = MEMORY_DB) {
-    this.db = new DatabaseSync(location);
-    this.db.exec('PRAGMA journal_mode = WAL;');
-    this.db.exec('PRAGMA foreign_keys = ON;');
-    this.applySchema();
-    this.db.function('memento_literal_match', { deterministic: true }, (text, literal) => {
-      if (typeof text !== 'string' || typeof literal !== 'string') return 0;
-      let pattern = this.literalPatterns.get(literal);
-      if (!pattern) {
-        pattern = literalPattern(literal);
-        this.literalPatterns.set(literal, pattern);
-      }
-      return pattern.test(text) ? 1 : 0;
+  constructor(location: string | DurableSearchStorage = MEMORY_DB) {
+    this.db =
+      typeof location === 'string'
+        ? openNodeSearchDatabase(location)
+        : openDurableSearchDatabase(location);
+    this.db.transaction(() => {
+      this.db.exec(CREATE_MEMORIES_TABLE);
+      this.db.exec(CREATE_MEMORIES_FTS);
+      for (const statement of createSearchScratch(this.db.scratchSchema)) this.db.exec(statement);
     });
   }
 
-  private applySchema(): void {
-    this.db.exec(CREATE_MEMORIES_TABLE);
-    this.db.exec(CREATE_MEMORIES_FTS);
-    // Connection-local views and scratch tokenizer do not change the persisted
-    // index schema. SQLite remains the single authority for stemming/diacritics.
-    this.db.exec(`
-      CREATE VIRTUAL TABLE temp.search_tokens USING fts5(value, tokenize='porter unicode61');
-      CREATE VIRTUAL TABLE temp.search_stems USING fts5vocab(temp, search_tokens, instance);
-      CREATE VIRTUAL TABLE temp.search_vocab USING fts5vocab(main, memories_fts, instance);
-    `);
+  static fromDurableStorage(storage: DurableSearchStorage): MemoryIndex {
+    return new MemoryIndex(storage);
   }
 
   // Insert or replace a memory in both tables. Idempotent on `id`.
   upsert(record: MemoryRecord, body: string): void {
-    this.transaction(() => {
+    this.db.transaction(() => {
       this.deleteById(record.id);
       this.insertRow(record, body);
     });
@@ -155,43 +143,48 @@ export class MemoryIndex {
 
   /** Retention reconciles interrupted state transitions against canonical files. */
   statusOf(id: string): MemoryStatus | undefined {
-    const row = this.db.prepare('SELECT status FROM memories WHERE id = ?;').get(id) as
-      { status: MemoryStatus } | undefined;
+    const [row] = this.db.rows<{ status: MemoryStatus }>(
+      'SELECT status FROM memories WHERE id = ?;',
+      id,
+    );
     return row?.status;
   }
 
   // Remove a memory from the index. Safe to call when absent.
   remove(id: string): void {
-    this.transaction(() => this.deleteById(id));
+    this.db.transaction(() => this.deleteById(id));
   }
 
   // Drop all rows without touching the schema, so a rebuild can repopulate.
   clear(): void {
-    this.transaction(() => {
+    this.db.transaction(() => {
       this.db.exec('DELETE FROM memories;');
       this.db.exec('DELETE FROM memories_fts;');
     });
   }
 
   count(): number {
-    const row = this.db.prepare('SELECT COUNT(*) AS n FROM memories;').get() as unknown as {
-      n: number;
-    };
-    return row.n;
+    return this.countMatching();
+  }
+
+  private countMatching(filter?: SqlFilter): number {
+    const where = filter ? ` WHERE ${filter.clauses.join(' AND ')}` : '';
+    const [row] = this.db.rows<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM memories m${where}`,
+      ...(filter?.params ?? []),
+    );
+    return row!.n;
   }
 
   /** Broad FTS retrieval, followed by scope-local lexical evidence and abstention. */
   search(query: string, options: SearchOptions): SearchHit[] {
-    this.literalPatterns.clear();
     const plan = searchQuery(query);
     if (!plan.terms.length) return [];
     // Validate actual SQLite expansion even when the requested scope is empty.
     const stems = this.queryStems(plan.terms);
     const filter = filters(options);
-    const count = this.db
-      .prepare(`SELECT COUNT(*) AS n FROM memories m WHERE ${filter.clauses.join(' AND ')}`)
-      .get(...filter.params) as { n: number };
-    if (!count.n) return [];
+    const count = this.countMatching(filter);
+    if (!count) return [];
 
     const clauses: QueryClause[] = plan.clauses.map((clause) => ({
       ...clause,
@@ -199,34 +192,20 @@ export class MemoryIndex {
     }));
     const terms = [...new Set(clauses.flatMap((clause) => clause.terms))];
     if (!terms.length) return [];
-    const matches = this.db
-      .prepare(
+    const matches = [
+      ...this.db.rows<TermMatch>(
         `SELECT DISTINCT v.term, f.id, v.col AS column
-        FROM temp.search_vocab v
-        JOIN memories_fts f ON f.rowid = v.doc
-        JOIN memories m ON m.id = f.id
-        WHERE v.term IN (${placeholders(terms.length)}) AND ${filter.clauses.join(' AND ')}`,
-      )
-      .all(...terms, ...filter.params) as unknown as TermMatch[];
-    const evidence = lexicalEvidence(clauses, matches, count.n);
+         FROM ${this.db.scratchSchema}.search_vocab v
+         JOIN memories_fts f ON f.rowid = v.doc
+         JOIN memories m ON m.id = f.id
+         WHERE v.term IN (${placeholders(terms.length)}) AND ${filter.clauses.join(' AND ')}`,
+        ...terms,
+        ...filter.params,
+      ),
+    ];
+    const evidence = lexicalEvidence(clauses, matches, count);
     const pool = Math.max(options.limit * CANDIDATE_MULTIPLIER, CANDIDATE_FLOOR);
-    const rows = this.selectPool(matchExpression(plan.terms), filter, pool, true);
-
-    // Check Unicode-aware literal boundaries before LIMIT. Repeated OFFSET scans
-    // over prefix decoys made recovery quadratic in corpus size.
-    for (const clause of plan.clauses.filter((part) => part.literals.length)) {
-      const exactFilter = {
-        clauses: [
-          ...filter.clauses,
-          ...clause.literals.map(
-            () =>
-              'memento_literal_match(f.title || char(10) || f.description || char(10) || f.body, ?) = 1',
-          ),
-        ],
-        params: [...filter.params, ...clause.literals],
-      };
-      rows.push(...this.selectPool(matchExpression(plan.terms), exactFilter, pool, true));
-    }
+    const rows = this.searchPool(matchExpression(plan.terms), filter, pool, plan.clauses);
     const ranked: SearchHit[] = [];
     const seen = new Set<string>();
     for (const row of rows) {
@@ -248,22 +227,27 @@ export class MemoryIndex {
   }
 
   private queryStems(terms: string[]): Map<string, string[]> {
-    this.db.exec('DELETE FROM temp.search_tokens');
-    const insert = this.db.prepare('INSERT INTO temp.search_tokens (rowid, value) VALUES (?, ?)');
-    terms.forEach((term, i) => insert.run(i + 1, term));
-    const rows = this.db.prepare('SELECT term, doc FROM temp.search_stems').all() as {
-      term: string;
-      doc: number;
-    }[];
-    assertTermBudget(new Set(rows.map((row) => row.term)).size);
-    const out = new Map<string, string[]>();
-    for (const row of rows) {
-      const key = terms[row.doc - 1]!;
-      const values = out.get(key) ?? [];
-      values.push(row.term);
-      out.set(key, values);
-    }
-    return out;
+    const schema = this.db.scratchSchema;
+    return this.db.transaction(() => {
+      this.db.exec(`DELETE FROM ${schema}.search_tokens`);
+      // Bind only the term text to stay below workerd's 100-binding limit.
+      const values = terms.map((_, i) => `(${i + 1}, ?)`).join(', ');
+      this.db.exec(`INSERT INTO ${schema}.search_tokens (rowid, value) VALUES ${values}`, ...terms);
+      const distinct = new Set<string>();
+      const out = new Map<string, string[]>();
+      for (const { term, doc } of this.db.rows<{ term: string; doc: number }>(
+        `SELECT term, doc FROM ${schema}.search_stems`,
+      )) {
+        distinct.add(term);
+        const key = terms[doc - 1]!;
+        const values = out.get(key) ?? [];
+        values.push(term);
+        out.set(key, values);
+      }
+      assertTermBudget(distinct.size);
+      this.db.exec(`DELETE FROM ${schema}.search_tokens`);
+      return out;
+    });
   }
 
   /**
@@ -282,74 +266,95 @@ export class MemoryIndex {
       filters({ scope: options.scope }),
       options.limit ?? DEDUPE_POOL_SIZE,
     );
-    return rows.map(toIndexed);
+    return Array.from(rows, toIndexed);
   }
 
   close(): void {
     this.db.close();
   }
 
-  private selectPool(
+  private *searchPool(
     match: string,
     filter: SqlFilter,
     limit: number,
+    clauses: QueryClause[],
+  ): Iterable<MemoryRow> {
+    const exact = clauses
+      .filter((clause) => clause.literals.length)
+      .map((clause) => ({ remaining: limit, patterns: clause.literals.map(literalPattern) }));
+    if (!exact.length) {
+      yield* this.selectPool(match, filter, limit, true);
+      return;
+    }
+
+    // Each clause gets its own cap in the same BM25 order, even if prefix decoys
+    // fill the broad pool. Walk one cursor instead of rescanning or using a UDF.
+    let broad = limit;
+    for (const row of this.selectPool(match, filter, undefined, true)) {
+      let include = broad > 0;
+      if (include) broad--;
+      const text = `${row.title}\n${row.description}\n${row.body}`;
+      for (const clause of exact) {
+        if (clause.remaining > 0 && clause.patterns.every((pattern) => pattern.test(text))) {
+          clause.remaining--;
+          include = true;
+        }
+      }
+      if (include) yield row;
+      if (!broad && exact.every((clause) => !clause.remaining)) break;
+    }
+  }
+
+  private selectPool(
+    match: string,
+    filter: SqlFilter,
+    limit: number | undefined,
     weighted = false,
-  ): MemoryRow[] {
+  ): Iterable<MemoryRow> {
     const where = ['memories_fts MATCH ?', ...filter.clauses].join(' AND ');
     const rank = weighted ? 'bm25(memories_fts, 0, 4, 2, 1)' : 'bm25(memories_fts)';
-    return this.db
-      .prepare(
-        `SELECT ${SELECT_COLUMNS}, ${weighted ? 'f.body' : "'' AS body"}, ${rank} AS bm25
-         FROM memories_fts f
-         JOIN memories m ON m.id = f.id
-         WHERE ${where}
-         ORDER BY bm25 ASC${weighted ? ', m.id ASC' : ''}
-         LIMIT ?;`,
-      )
-      .all(match, ...filter.params, limit) as unknown as MemoryRow[];
+    return this.db.rows<MemoryRow>(
+      `SELECT ${SELECT_COLUMNS}, ${weighted ? 'f.body' : "'' AS body"}, ${rank} AS bm25
+       FROM memories_fts f
+       JOIN memories m ON m.id = f.id
+       WHERE ${where}
+       ORDER BY bm25 ASC${weighted ? ', m.id ASC' : ''}${limit === undefined ? '' : ' LIMIT ?'};`,
+      match,
+      ...filter.params,
+      ...(limit === undefined ? [] : [limit]),
+    );
   }
 
   private deleteById(id: string): void {
-    this.db.prepare('DELETE FROM memories WHERE id = ?;').run(id);
-    this.db.prepare('DELETE FROM memories_fts WHERE id = ?;').run(id);
+    this.db.exec('DELETE FROM memories WHERE id = ?;', id);
+    this.db.exec('DELETE FROM memories_fts WHERE id = ?;', id);
   }
 
   private insertRow(record: MemoryRecord, body: string): void {
-    this.db
-      .prepare(
-        `INSERT INTO memories
-           (id, title, description, type, scope_kind, project_ids, status,
-            source, verification, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-      )
-      .run(
-        record.id,
-        record.title,
-        record.description,
-        record.type,
-        record.scope.kind,
-        JSON.stringify(memoryProjectIds(record)),
-        record.status,
-        record.provenance.source,
-        record.provenance.verification,
-        record.created_at,
-        record.updated_at,
-      );
-
-    this.db
-      .prepare('INSERT INTO memories_fts (id, title, description, body) VALUES (?, ?, ?, ?);')
-      .run(record.id, record.title, record.description, body);
-  }
-
-  private transaction(fn: () => void): void {
-    this.db.exec('BEGIN;');
-    try {
-      fn();
-      this.db.exec('COMMIT;');
-    } catch (error) {
-      this.db.exec('ROLLBACK;');
-      throw error;
-    }
+    this.db.exec(
+      `INSERT INTO memories
+         (id, title, description, type, scope_kind, project_ids, status,
+          source, verification, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      record.id,
+      record.title,
+      record.description,
+      record.type,
+      record.scope.kind,
+      JSON.stringify(memoryProjectIds(record)),
+      record.status,
+      record.provenance.source,
+      record.provenance.verification,
+      record.created_at,
+      record.updated_at,
+    );
+    this.db.exec(
+      'INSERT INTO memories_fts (id, title, description, body) VALUES (?, ?, ?, ?);',
+      record.id,
+      record.title,
+      record.description,
+      body,
+    );
   }
 }
 

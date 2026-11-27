@@ -1,10 +1,9 @@
-import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { Hono } from 'hono';
 import { BodyLimitError, bufferRequest } from './request-body.js';
 
 import type { AccountStores } from './accounts.js';
-import type { AuthService } from './auth/index.js';
-import { createServer } from './server.js';
+import type { AuthIdentity, AuthService } from './auth/index.js';
+import type { StoreContext } from './server.js';
 
 export function createApplication({
   origin,
@@ -14,6 +13,29 @@ export function createApplication({
   origin: string;
   auth: AuthService;
   accounts: AccountStores;
+}) {
+  return createHttpApplication({
+    origin,
+    auth,
+    dispatch: async (accountId, request) => {
+      const store = await accounts.get(accountId);
+      return handleMcp(request, store, () => auth.authenticate(request), accountId);
+    },
+  });
+}
+
+export function createHttpApplication({
+  origin,
+  auth,
+  ready,
+  dispatch,
+}: {
+  origin: string;
+  auth: Pick<AuthService, 'handle'> & {
+    authenticate(request: Request): Promise<Pick<AuthIdentity, 'accountId'> | null>;
+  };
+  ready?: () => Promise<void>;
+  dispatch(accountId: string, request: Request): Promise<Response>;
 }) {
   const app = new Hono();
   let stopping = false;
@@ -27,9 +49,6 @@ export function createApplication({
     ),
   );
   app.use('*', async (c, next) => {
-    c.header('Cache-Control', 'no-store');
-    c.header('X-Content-Type-Options', 'nosniff');
-    c.header('Referrer-Policy', 'no-referrer');
     if (c.req.path === '/health') return next();
     if (stopping) return c.json({ error: 'shutting_down' }, 503);
     if (new URL(c.req.url).host !== new URL(origin).host)
@@ -45,15 +64,15 @@ export function createApplication({
       if (active === 0) for (const resolve of drained.splice(0)) resolve();
     }
   });
-  app.get('/health', (c) => c.json({ status: stopping ? 'stopping' : 'ok' }, stopping ? 503 : 200));
+  app.get('/health', async (c) => {
+    if (stopping) return c.json({ status: 'stopping' }, 503);
+    await ready?.();
+    return c.json({ status: 'ok' });
+  });
   app.all('/mcp', async (c) => {
-    let request = canonicalRequest(c.req.raw, origin);
+    const request = canonicalRequest(c.req.raw, origin);
     const identity = await auth.authenticate(request);
-    if (!identity) {
-      return c.json({ error: 'unauthorized' }, 401, {
-        'WWW-Authenticate': `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp"`,
-      });
-    }
+    if (!identity) return unauthorizedMcp(origin);
     // Stateless request/response MCP: no shared session ids, SSE streams or session authority.
     if (request.method !== 'POST') return c.body(null, 405, { Allow: 'POST' });
     if ((byAccount.get(identity.accountId) ?? 0) >= 16) {
@@ -61,23 +80,7 @@ export function createApplication({
     }
     byAccount.set(identity.accountId, (byAccount.get(identity.accountId) ?? 0) + 1);
     try {
-      request = await bufferRequest(request, 1024 * 1024);
-      const store = await accounts.get(identity.accountId);
-      const server = await createServer(store, async () => {
-        const current = await auth.authenticate(request);
-        if (current?.accountId !== identity.accountId)
-          throw new Error('Authorization expired or revoked.');
-      });
-      const transport = new WebStandardStreamableHTTPServerTransport({
-        sessionIdGenerator: undefined,
-        enableJsonResponse: true,
-      });
-      try {
-        await server.connect(transport);
-        return await transport.handleRequest(request);
-      } finally {
-        await server.close();
-      }
+      return await dispatch(identity.accountId, await bufferRequest(request, 1024 * 1024));
     } finally {
       const remaining = (byAccount.get(identity.accountId) ?? 1) - 1;
       if (remaining) byAccount.set(identity.accountId, remaining);
@@ -86,7 +89,18 @@ export function createApplication({
   });
   app.all('*', (c) => auth.handle(canonicalRequest(c.req.raw, origin)));
   return {
-    fetch: app.fetch,
+    async fetch(request: Request): Promise<Response> {
+      const response = await app.fetch(request);
+      const headers = new Headers(response.headers);
+      headers.set('Cache-Control', 'no-store');
+      headers.set('X-Content-Type-Options', 'nosniff');
+      headers.set('Referrer-Policy', 'no-referrer');
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
+    },
     async drain() {
       stopping = true;
       if (active) await new Promise<void>((resolve) => drained.push(resolve));
@@ -94,8 +108,52 @@ export function createApplication({
   };
 }
 
-// Render terminates TLS. Use the configured origin, never forwarded host/proto headers.
+export function unauthorizedMcp(origin: string): Response {
+  return Response.json(
+    { error: 'unauthorized' },
+    {
+      status: 401,
+      headers: {
+        'WWW-Authenticate': `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp"`,
+      },
+    },
+  );
+}
+
+export async function handleMcp(
+  request: Request,
+  store: StoreContext,
+  authenticate: () => Promise<Pick<AuthIdentity, 'accountId'> | null>,
+  accountId: string,
+): Promise<Response> {
+  // Keep the SDK's schema initialization out of the Worker bundle's startup path.
+  const [{ createServer }, { WebStandardStreamableHTTPServerTransport }] = await Promise.all([
+    import('./server.js'),
+    import('@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'),
+  ]);
+  const server = await createServer(store, async () => {
+    if ((await authenticate())?.accountId !== accountId)
+      throw new Error('Authorization expired or revoked.');
+  });
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
+  try {
+    await server.connect(transport);
+    return await transport.handleRequest(request);
+  } finally {
+    await server.close();
+  }
+}
+
+// Render terminates TLS. Never derive authority from forwarded host/proto headers.
 function canonicalRequest(request: Request, origin: string): Request {
   const url = new URL(request.url);
-  return new Request(`${origin}${url.pathname}${url.search}`, request);
+  const canonical = new Request(`${origin}${url.pathname}${url.search}`, request);
+  canonical.headers.set('host', new URL(origin).host);
+  for (const name of [...canonical.headers.keys()]) {
+    if (name === 'forwarded' || name.startsWith('x-forwarded-')) canonical.headers.delete(name);
+  }
+  return canonical;
 }
