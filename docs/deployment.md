@@ -24,7 +24,7 @@ Use Render's secret environment configuration, not checked-in values:
 
 | Variable | Meaning |
 | --- | --- |
-| `MEMENTO_PUBLIC_ORIGIN` | Exact canonical HTTPS origin, no trailing slash/path; Blueprint uses the assigned service URL |
+| `MEMENTO_PUBLIC_ORIGIN` | Exact canonical HTTPS origin, no trailing slash/path; Blueprint sets `https://memento.destiner.io` |
 | `MEMENTO_DATA_DIR` | Absolute path under the disk; Blueprint sets `/var/data/memento` |
 | `AUTH_ALLOWED_EMAILS` | Required comma-separated exact verified email addresses; normalized to lowercase; no wildcards/domains |
 | `BETTER_AUTH_SECRET` | Stable random secret, at least 32 characters; Blueprint can generate it |

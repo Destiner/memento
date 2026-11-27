@@ -29,10 +29,7 @@ services:
       - key: MEMENTO_DATA_DIR
         value: /var/data/memento
       - key: MEMENTO_PUBLIC_ORIGIN
-        fromService:
-          name: memento
-          type: web
-          envVarKey: RENDER_EXTERNAL_URL
+        value: https://memento.destiner.io
       - key: BETTER_AUTH_SECRET
         generateValue: true
       - key: AUTH_ALLOWED_EMAILS
