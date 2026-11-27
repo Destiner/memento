@@ -13,6 +13,8 @@ services:
     buildCommand: bun install --frozen-lockfile && bun run build
     startCommand: node dist/main.js serve
     healthCheckPath: /health
+    domains:
+      - memento.destiner.io
     disk:
       name: memento-data
       mountPath: /var/data
