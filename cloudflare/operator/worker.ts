@@ -24,7 +24,8 @@ interface Env {
   MIGRATION_KEY: string;
 }
 
-const GRACE_MS = 10 * 60_000;
+const MINUTE_MS = 60_000;
+const GRACE_MS = 10 * MINUTE_MS;
 const CREATE_ONLY = { onlyIf: { etagDoesNotMatch: '*' } };
 
 function cronFor(time: Date) {
@@ -48,14 +49,12 @@ export default {
     try {
       const time = new Date(env.SCHEDULED_AT);
       const scheduled = time.getTime();
-      if (time.toISOString() !== env.SCHEDULED_AT || scheduled % 60_000 !== 0) {
+      if (time.toISOString() !== env.SCHEDULED_AT || scheduled % MINUTE_MS !== 0) {
         throw new Error('configuration');
       }
-      if (
-        event.cron !== cronFor(time) ||
-        event.scheduledTime !== scheduled ||
-        !inWindow(scheduled)
-      ) {
+      // Hosted Cron can report a timestamp inside the scheduled UTC minute.
+      const eventMinute = Math.floor(event.scheduledTime / MINUTE_MS) * MINUTE_MS;
+      if (event.cron !== cronFor(time) || eventMinute !== scheduled || !inWindow(scheduled)) {
         return;
       }
       const prefix = stagingPrefix(env.STAGING_KEY);

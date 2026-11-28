@@ -230,10 +230,18 @@ test('scheduled workerd event imports via the real private DOs once, even for co
   const { mf, schedule, account, claim, receipt, when, hash } = await start({
     artifact: await sealFixtureWithCli(),
   });
-  expect((await schedule(when.getTime() + 60_000)).status).toBe(200);
-  expect((await schedule(when.getTime(), '* * * * *')).status).toBe(200);
+  const time = when.getTime();
+  const nextYear = new Date(time);
+  nextYear.setUTCFullYear(nextYear.getUTCFullYear() + 1);
+  for (const outsideMinute of [time - 1, time + 60_000, nextYear.getTime() + 14_000]) {
+    expect((await schedule(outsideMinute)).status).toBe(200);
+    expect(await claim()).toBeNull();
+    expect(await receipt()).toBeUndefined();
+  }
+  expect((await schedule(time + 14_000, '* * * * *')).status).toBe(200);
   expect(await claim()).toBeNull();
-  const responses = await Promise.all([schedule(), schedule()]);
+  expect(await receipt()).toBeUndefined();
+  const responses = await Promise.all([schedule(time + 14_000), schedule(time + 59_999)]);
   expect(responses.map(({ status }) => status)).toEqual([200, 200]);
   expect(await claim()).not.toBeNull();
   const expected = {

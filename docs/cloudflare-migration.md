@@ -135,10 +135,10 @@ Pick **one approved future UTC minute** with at least 15 minutes for Cron Trigge
 propagation plus operational margin (or longer per Cloudflare docs). Put its ISO
 value, with seconds and milliseconds zero, in `SCHEDULED_AT`. For example, for
 `2027-01-17T04:23:00.000Z` set `crons = ["23 4 17 1 *"]`. Cron itself has no year;
-this Worker checks the exact year/timestamp, exact cron expression and a ten-minute
-admission window, and does not call a DO on any other event. Use exactly the generated
-numeric spelling (no leading zeroes); do not enable interval polling. Stage before
-arming. In production only, using your authorized account and private config:
+this Worker checks the exact UTC minute (including year), exact cron expression and
+a ten-minute admission window, and does not call a DO on any other event. Use exactly
+the generated numeric spelling (no leading zeroes); do not enable interval polling.
+Stage before arming. In production only, using your authorized account and private config:
 
 ```sh
 # BUCKET is the registered private bucket; CFG is the private config path.
