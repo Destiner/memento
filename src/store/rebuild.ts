@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { parseFrontmatter } from './frontmatter.js';
 import { assertInsideRoot } from './path-safety.js';
 import { validateMemoryFrontmatter } from './memory-schema.js';
-import { withMemoryMutationLock } from './memory-mutation-lock.js';
+import { usesPrivateMemoryFilesystem, withMemoryMutationLock } from './memory-mutation-lock.js';
 import type { MemoryIndex } from './search-index.js';
 
 export interface RebuildResult {
@@ -34,12 +34,15 @@ export async function rebuildIndexUnlocked(
   index: MemoryIndex,
   memoriesDir: string,
 ): Promise<RebuildResult> {
+  const strictIndexWrites = usesPrivateMemoryFilesystem();
   const files = await listMemoryFiles(memoriesDir);
 
   index.clear();
 
   const result: RebuildResult = { indexed: 0, skipped: [] };
   for (const file of files) {
+    let record;
+    let content;
     try {
       const path = join(memoriesDir, file);
       // A symlink escaping the memory root is store corruption, not a memory;
@@ -47,10 +50,17 @@ export async function rebuildIndexUnlocked(
       await assertInsideRoot(memoriesDir, path);
       const raw = await readFile(path, 'utf8');
       const { metadata, body } = parseFrontmatter(raw);
-      const validated = validateMemoryFrontmatter(metadata);
-      index.upsert(validated, body);
+      record = validateMemoryFrontmatter(metadata);
+      content = body;
+    } catch (error) {
+      result.skipped.push({ file, reason: error instanceof Error ? error.message : String(error) });
+      continue;
+    }
+    try {
+      index.upsert(record, content);
       result.indexed += 1;
     } catch (error) {
+      if (strictIndexWrites) throw error;
       result.skipped.push({ file, reason: error instanceof Error ? error.message : String(error) });
     }
   }

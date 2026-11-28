@@ -49,3 +49,13 @@ CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
   tokenize='porter unicode61'
 );
 `;
+
+// Workerd only permits the main schema. Keep its scratch tokenizer empty
+// between searches; the vocab tables are read-only views of their FTS tables.
+export function createSearchScratch(schema: 'main' | 'temp'): string[] {
+  return [
+    `CREATE VIRTUAL TABLE IF NOT EXISTS ${schema}.search_tokens USING fts5(value, tokenize='porter unicode61')`,
+    `CREATE VIRTUAL TABLE IF NOT EXISTS ${schema}.search_stems USING fts5vocab(${schema === 'temp' ? 'temp, ' : ''}search_tokens, instance)`,
+    `CREATE VIRTUAL TABLE IF NOT EXISTS ${schema}.search_vocab USING fts5vocab(${schema === 'temp' ? 'main, ' : ''}memories_fts, instance)`,
+  ];
+}

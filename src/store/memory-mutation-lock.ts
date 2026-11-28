@@ -1,14 +1,30 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
 import { chmod, mkdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 
 import { MementoError } from '../errors.js';
+
+const serializedMemoryDir = new AsyncLocalStorage<string>();
+
+/** Only for an already serialized backend with a private, request-local filesystem. */
+export function withSerializedMemoryStore<T>(memoriesDir: string, operation: () => T): T {
+  return serializedMemoryDir.run(memoriesDir, operation);
+}
+
+export function usesPrivateMemoryFilesystem(): boolean {
+  return serializedMemoryDir.getStore() !== undefined;
+}
 
 export async function withMemoryMutationLock<T>(
   memoriesDir: string,
   operation: () => Promise<T>,
 ): Promise<T> {
+  if (serializedMemoryDir.getStore() === memoriesDir) return operation();
+
+  const sqlite = process.getBuiltinModule('node:sqlite');
+  if (!sqlite) throw new Error('SQLite-backed memory locking requires Node.js.');
+  const { DatabaseSync } = sqlite;
   const lockRoot = join(dirname(memoriesDir), '.memento-locks');
   const identity = createHash('sha256').update(resolve(memoriesDir)).digest('hex').slice(0, 24);
   const lockPath = join(lockRoot, `memory-store-${identity}.sqlite`);

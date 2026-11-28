@@ -7,6 +7,7 @@
 // to a date-partitioned file under the logs directory; appends are line-atomic
 // for the small records we write.
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { appendFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -32,6 +33,19 @@ export interface LoggerOptions {
   now?: () => number;
 }
 
+const accountEvents = new AsyncLocalStorage<{
+  logsDir: string;
+  append: (filename: string, line: string) => void;
+}>();
+
+export function withAccountEventLog<T>(
+  logsDir: string,
+  append: (filename: string, line: string) => void,
+  operation: () => T,
+): T {
+  return accountEvents.run({ logsDir, append }, operation);
+}
+
 const NOOP_LOGGER: EventLogger = { log: () => Promise.resolve() };
 
 export function createLogger(options: LoggerOptions): EventLogger {
@@ -40,6 +54,7 @@ export function createLogger(options: LoggerOptions): EventLogger {
   }
 
   const now = options.now ?? Date.now;
+  const account = accountEvents.getStore();
 
   return {
     async log(fields) {
@@ -52,9 +67,15 @@ export function createLogger(options: LoggerOptions): EventLogger {
           client: options.client?.(),
           now: now(),
         });
-        const file = join(options.logsDir, logFilename(event.timestamp));
+        const filename = logFilename(event.timestamp);
+        const line = JSON.stringify(event) + '\n';
+        if (account?.logsDir === options.logsDir) {
+          account.append(filename, line);
+          return;
+        }
+        const file = join(options.logsDir, filename);
         await mkdir(options.logsDir, { recursive: true });
-        await appendFile(file, JSON.stringify(event) + '\n', 'utf8');
+        await appendFile(file, line, 'utf8');
       } catch {
         // Best-effort: instrumentation failures must not surface to the caller.
       }

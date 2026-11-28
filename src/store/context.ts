@@ -11,6 +11,7 @@ export class StoreContext {
   constructor(
     readonly resolved: ResolvedConfig,
     readonly index: MemoryIndex,
+    private readonly onOperationError?: () => void,
   ) {}
 
   enqueue<T>(operation: () => T | Promise<T>): Promise<T> {
@@ -18,7 +19,7 @@ export class StoreContext {
     const task = this.pending.then(operation);
     this.pending = task.then(
       () => undefined,
-      () => undefined,
+      () => this.onOperationError?.(),
     );
     return task;
   }

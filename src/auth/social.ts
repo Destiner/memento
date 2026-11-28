@@ -60,7 +60,8 @@ export function githubProvider(
             'User-Agent': 'memento',
             'X-GitHub-Api-Version': '2022-11-28',
           },
-          redirect: 'error',
+          // Workers reject redirect: 'error'; the ok checks still reject every redirect.
+          redirect: 'manual',
           signal: AbortSignal.timeout(10_000),
         };
         const profileResponse = await fetch('https://api.github.com/user', options);

@@ -1,0 +1,12 @@
+name = "memento-search-test"
+main = "worker.ts"
+compatibility_date = "2026-11-27"
+send_metrics = false
+
+[[durable_objects.bindings]]
+name = "SEARCH"
+class_name = "SearchObject"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SearchObject"]

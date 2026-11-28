@@ -4,7 +4,11 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, test } from 'vitest';
 
-import { withMemoryMutationLock } from '../../src/store/memory-mutation-lock.js';
+import {
+  usesPrivateMemoryFilesystem,
+  withMemoryMutationLock,
+  withSerializedMemoryStore,
+} from '../../src/store/memory-mutation-lock.js';
 
 describe('memory mutation lock', () => {
   const directories: string[] = [];
@@ -39,5 +43,40 @@ describe('memory mutation lock', () => {
     signalRelease?.();
     await held;
     await expect(withMemoryMutationLock(memoriesDir, async () => 'next')).resolves.toBe('next');
+  });
+
+  test('private lock bypass stays in its async scope and applies only to the named store', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'memento-lock-'));
+    directories.push(root);
+    const privateDir = join(root, 'private');
+    const sharedDir = join(root, 'shared');
+    let signalAcquired!: () => void;
+    let signalRelease!: () => void;
+    const acquired = new Promise<void>((resolve) => (signalAcquired = resolve));
+    const release = new Promise<void>((resolve) => (signalRelease = resolve));
+    const held = withMemoryMutationLock(sharedDir, async () => {
+      signalAcquired();
+      await release;
+    });
+    try {
+      await acquired;
+      await Promise.all([
+        withSerializedMemoryStore(privateDir, async () => {
+          await Promise.resolve();
+          expect(usesPrivateMemoryFilesystem()).toBe(true);
+          await expect(withMemoryMutationLock(privateDir, async () => 'private')).resolves.toBe(
+            'private',
+          );
+          await expect(withMemoryMutationLock(sharedDir, async () => 'blocked')).rejects.toThrow(
+            /already being mutated/,
+          );
+        }),
+        Promise.resolve().then(() => expect(usesPrivateMemoryFilesystem()).toBe(false)),
+      ]);
+      expect(usesPrivateMemoryFilesystem()).toBe(false);
+    } finally {
+      signalRelease();
+      await held;
+    }
   });
 });
