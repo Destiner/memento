@@ -223,7 +223,18 @@ export function validateAuthSnapshot(value: unknown, origin: string): AuthSnapsh
     }
   }
   const auth = value as AuthSnapshot;
-  if (auth.oauthResource.length !== 1 || auth.oauthResource[0]!.identifier !== `${origin}/mcp`) {
+  const canonical = `${origin}/mcp`;
+  const allowed = new Set([canonical]);
+  // This exception is for snapshot preservation only, not live OAuth audiences.
+  if (origin === 'https://memento.destiner.io') {
+    allowed.add('https://memento-o9bz.onrender.com/mcp');
+  }
+  if (
+    !auth.oauthResource.some(({ identifier }) => identifier === canonical) ||
+    auth.oauthResource.some(
+      ({ identifier }) => typeof identifier !== 'string' || !allowed.has(identifier),
+    )
+  ) {
     throw new Error('Auth snapshot does not match the migration resource.');
   }
   validateAuthReferences(auth);

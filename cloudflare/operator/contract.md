@@ -11,8 +11,9 @@ Worker. It never calls the main Worker over HTTP.
 The `auth` argument is the auth member of the exporter envelope. The shared
 snapshot validator requires set equality between `auth.user[*].id` and
 `accounts[*].id`, with an empty document list for users with no source directory.
-It validates the exact canonical origin and expected `${origin}/mcp` resource.
-For the wire format and auth bootstrap rules see [snapshot.md](../snapshot.md).
+It validates the exact canonical origin and requires the `${origin}/mcp` resource.
+For the production-only historical resource exception, wire format and auth
+bootstrap rules, see [snapshot.md](../snapshot.md).
 
 Neither method has a Fetch equivalent. The target must stay dark until an
 operator verifies the complete run against the approved digest and counts.

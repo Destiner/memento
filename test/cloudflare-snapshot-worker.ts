@@ -3,6 +3,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { readAccountDocuments, replaceEmptyAccountDocuments } from '../cloudflare/account-store.js';
 import { createWorkerAuthService } from '../cloudflare/auth-service.js';
 import { importAuthSnapshot, markAuthIngressStarted } from '../cloudflare/import-auth.js';
+import { AUTH_TABLES, readAuthTable } from '../cloudflare/snapshot-auth.js';
 import { validateMigrationSnapshot } from '../cloudflare/snapshot.js';
 
 interface Env {
@@ -34,6 +35,16 @@ export class SnapshotFixture extends DurableObject<Env> {
         }
         return Response.json(verified);
       }
+      if (pathname === '/auth-readback') {
+        return Response.json(
+          Object.fromEntries(
+            AUTH_TABLES.map((table) => [
+              table,
+              readAuthTable((query) => storage.sql.exec(query), table),
+            ]),
+          ),
+        );
+      }
       if (pathname === '/mcp') {
         const service = await createWorkerAuthService(options, storage);
         try {
@@ -41,7 +52,7 @@ export class SnapshotFixture extends DurableObject<Env> {
           const docs = identity
             ? await this.env.STORE.getByName(`account:${identity.accountId}`).documents()
             : null;
-          return Response.json({ identity, docs });
+          return Response.json({ identity, docs }, { status: identity ? 200 : 401 });
         } finally {
           await service.close();
         }

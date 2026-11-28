@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { Miniflare } from 'miniflare';
 import { afterEach, beforeEach, expect, it } from 'vitest';
+import { AUTH_TABLES, readAuthTable } from '../cloudflare/snapshot-auth.js';
 import { validateMigrationSnapshot, validateAccountSnapshot } from '../cloudflare/snapshot.js';
 import { exportSnapshot } from '../scripts/cloudflare-export.js';
 import { createAuthService } from '../src/auth/index.js';
@@ -25,7 +26,7 @@ import { acquireServiceLock } from '../src/service-lock.js';
 import { serializeFrontmatter } from '../src/store/frontmatter.js';
 
 const options = {
-  origin: 'https://memento.example',
+  origin: 'https://memento.destiner.io',
   secret: 'synthetic-offline-test-secret-only-32094320',
   allowedEmails: ['mock-owner@example.test'],
   githubClientId: 'synthetic',
@@ -268,8 +269,72 @@ it('refuses unlocked inconsistencies, unknown accounts, links, dangling and dupl
   await expect(exportSnapshot(source, origin)).rejects.toThrow();
 });
 
-it('restores in offline workerd, verifies durable auth and documents, and refreshes after restart', async () => {
+it('restores both resources in offline workerd but only accepts the canonical bearer after restart', async () => {
+  const historicalOrigin = 'https://memento-o9bz.onrender.com';
+  const historicalResource = `${historicalOrigin}/mcp`;
+  const historicalResources = JSON.stringify([historicalResource]);
+  const historicalAccess = 'synthetic-historical-access-token-1234567890';
+  const historicalRefresh = 'synthetic-historical-refresh-token-1234567890';
+  const identity = { email: options.allowedEmails[0], accountId: id };
+  const historicalService = await createAuthService({
+    ...options,
+    origin: historicalOrigin,
+    dataDir: source,
+  });
+  try {
+    sql((db) => {
+      db.prepare(
+        `INSERT INTO oauthClientResource (id, clientId, resourceId, metadata, createdAt)
+        VALUES ('mock-historical-link', ?, ?, '{"synthetic":true}', ?)`,
+      ).run(client.client_id, historicalResource, now);
+      db.prepare(
+        `INSERT INTO oauthRefreshToken
+        (id, token, clientId, userId, scopes, resources, createdAt, expiresAt, authorizationCodeId)
+        VALUES ('mock-historical-refresh', ?, ?, ?, ?, ?, ?, ?, 'mock-historical-authorization')`,
+      ).run(
+        hash(historicalRefresh),
+        client.client_id,
+        id,
+        scopes,
+        historicalResources,
+        now,
+        expires,
+      );
+      db.prepare(
+        `INSERT INTO oauthAccessToken
+        (id, token, clientId, userId, scopes, resources, createdAt, expiresAt, refreshId, sessionId)
+        VALUES ('mock-historical-access', ?, ?, ?, ?, ?, ?, ?, 'mock-historical-refresh', 'mock-session')`,
+      ).run(
+        hash(historicalAccess),
+        client.client_id,
+        id,
+        scopes,
+        historicalResources,
+        now,
+        expires,
+      );
+    });
+    expect(
+      await historicalService.authenticate(
+        new Request(historicalResource, {
+          headers: { authorization: `Bearer ${historicalAccess}` },
+        }),
+      ),
+    ).toEqual(identity);
+  } finally {
+    await historicalService.close();
+  }
   const snapshot = await exportSnapshot(source, origin);
+  expect(snapshot.auth.oauthResource.map(({ identifier }) => identifier).sort()).toEqual(
+    [`${origin}/mcp`, historicalResource].sort(),
+  );
+  sql((db) => {
+    for (const table of AUTH_TABLES) {
+      expect(snapshot.auth[table]).toEqual(
+        readAuthTable((query) => db.prepare(query).all(), table),
+      );
+    }
+  });
   const bundle = await build({
     entryPoints: [fileURLToPath(new URL('./cloudflare-snapshot-worker.ts', import.meta.url))],
     bundle: true,
@@ -323,16 +388,22 @@ it('restores in offline workerd, verifies durable auth and documents, and refres
     expect((await put(snapshot, '?fixture=sealed')).status).toBe(400);
     expect((await get('/seed')).status).toBe(204);
     const invalid = structuredClone(snapshot);
-    invalid.auth.oauthAccessToken[0]!.refreshId = 'dangling-grant';
+    invalid.auth.oauthResource = invalid.auth.oauthResource.filter(
+      ({ identifier }) => identifier !== `${origin}/mcp`,
+    );
     expect((await put(invalid)).status).toBe(400);
+    const dangling = structuredClone(snapshot);
+    dangling.auth.oauthAccessToken[0]!.refreshId = 'dangling-grant';
+    expect((await put(dangling)).status).toBe(400);
     const restored = await put(snapshot);
     expect(restored.status).toBe(200);
     expect(await restored.json()).toBe(true);
     expect((await put(snapshot)).status).toBe(400);
     await worker.dispose();
     worker = boot();
+    expect(await (await get('/auth-readback')).json()).toEqual(snapshot.auth);
     const docs = snapshot.accounts.find((record) => record.id === id)!.documents;
-    const identity = { email: options.allowedEmails[0], accountId: id };
+    expect((await who(historicalAccess)).status).toBe(401);
     expect(await (await who(access)).json()).toEqual({ identity, docs });
     const response = await worker.dispatchFetch(`${origin}/api/auth/oauth2/token`, {
       method: 'POST',

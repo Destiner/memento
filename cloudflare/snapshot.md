@@ -28,7 +28,13 @@ The envelope is `{version: 1, origin, auth, accounts: [{id, documents}]}`.
 `auth` maps the fixed v1 SQLite table names to arrays of rows, with `auth.user`
 providing the account IDs. Row cells preserve SQLite storage classes (including
 integer and BLOB tags). All auth tables, including transient rows, transfer
-unchanged. Every user is included, including auth-only users with empty
+unchanged. Exactly one `${origin}/mcp` resource row is required. Only when the
+canonical origin is exactly `https://memento.destiner.io` may the snapshot also
+contain one `https://memento-o9bz.onrender.com/mcp` resource row. No other resource
+rows are accepted. The historical row and grants are preserved without rewriting;
+that audience does not authenticate at the canonical MCP endpoint.
+
+Every user is included, including auth-only users with empty
 `documents`; a disk account without an auth user is rejected. An unreferenced
 registered project is valid, but memory-to-project references must resolve in
 the same account. Filenames and bytes of validated UTF-8 Markdown/config are

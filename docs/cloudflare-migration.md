@@ -34,7 +34,10 @@ maintenance mode if supported. Do not attach an existing populated namespace. Do
 call normal target auth or MCP while dark. The operator has cross-script bindings to
 the main Worker's `AuthObject` and `AccountObject` classes, **not** its `fetch` handler.
 The target config's own origin is checked by the auth import against the snapshot's
-exact MCP resource before any account writes. The exporter includes one entry per
+exact canonical MCP resource before any account writes. A snapshot for
+`https://memento.destiner.io` may also retain the historical Render MCP resource
+and its grants unchanged. This does not make Render-audience bearers valid at the
+canonical endpoint. The exporter includes one entry per
 auth `user.id`, including empty stores; duplicates, omissions and orphan stores fail
 validation. Refer to [the snapshot contract](../cloudflare/snapshot.md).
 
