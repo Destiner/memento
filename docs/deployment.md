@@ -2,6 +2,65 @@
 
 For the Cloudflare Worker, SQLite Durable Objects, and one-way cutover procedure, see [Cloudflare migration](cloudflare-migration.md). The staging Wrangler configuration deliberately has no public route.
 
+## Cloudflare: manual deploys after cutover
+
+The default [`wrangler.jsonc`](../wrangler.jsonc) targets `memento-cf-stage` and stays
+dark: no public routes, previews, or `workers.dev`. The dedicated
+[`wrangler.production.jsonc`](../wrangler.production.jsonc) targets only
+`memento-cf-prod` at `memento.destiner.io`, with previews and `workers.dev` disabled.
+This is configuration for ongoing deploys, not an initial provisioning or domain
+handoff command. Do not deploy it before the owner verifies and accepts the cutover
+under the [migration runbook](cloudflare-migration.md#4-verify-then-release).
+Keep the active migration operator and its checkout pinned to the approved revision.
+
+Before using this command, confirm the authorized Cloudflare account and that the
+script named `memento-cf-prod` already serves the canonical domain using the exact
+SQLite Durable Object namespaces that received the verified import. If the verified
+script has another name, or the namespaces cannot be confirmed, stop. Matching
+binding names and migration tags do not carry data to a different script. Preserve
+`MEMENTO_AUTH` / `AuthObject` and `MEMENTO_ACCOUNTS` / `AccountObject`, the existing
+`v1` SQLite migration, and the stable object names (`auth-v1` and each account ID).
+Do not recreate the Worker, reset storage, or rename or move the namespaces.
+
+From the repo root with locked dependencies installed, an authorized operator
+deploys a reviewed revision explicitly:
+
+```sh
+node_modules/.bin/wrangler deploy --config wrangler.production.jsonc --keep-vars
+```
+
+No CI or automatic deploy should run this command. Keep the existing dashboard
+bindings on that same Worker: exact `MEMENTO_PUBLIC_ORIGIN`
+(`https://memento.destiner.io`), `AUTH_ALLOWED_EMAILS`, the existing
+`BETTER_AUTH_SECRET`, and configured Google and/or GitHub client ID/secret pairs.
+`--keep-vars` preserves dashboard variables; leave existing Worker secrets in place.
+Do not pass a secrets file to routine deploys, rotate credentials, change OAuth
+callbacks, or put values into source, argv, logs, or release artifacts. If a binding
+is missing or differs from the verified deployment, stop and resolve it privately
+with the owner before deploying.
+
+Repository checks use synthetic data and do not establish real-data verification,
+production routing, OAuth continuity, or cutover completion.
+
+## Render maintenance and recovery
+
+During cutover, keep the original Render service and persistent disk intact and
+serve maintenance on every ingress (including the direct Render hostname). Keep
+the disk mounted for authorized recovery; suspension, one-off jobs, builds, and
+predeploy commands are not substitutes for the disk-backed maintenance runtime.
+Keep the original revision, startup settings, and private credentials available
+and keep all Render writers paused. Do not restore ordinary service while
+Cloudflare can serve application traffic.
+
+Before any Cloudflare application traffic, an owner-approved return to Render
+requires disarming the migration operator, ensuring the destination is dark, and
+restoring the original Render startup settings and routing. After destination
+auth or application writes, the old disk is stale, including OAuth state; moving
+DNS back is not a rollback. Keep both sides gated pending an owner decision on
+reconciliation, restoration with explicit data loss, or forward repair. Retire the
+Render service/disk only after separately approved rollback and retention windows.
+See [failure, rollback and cleanup](cloudflare-migration.md#5-failure-rollback-and-cleanup).
+
 ## Render topology
 
 Deploy `render.yaml`: one paid Node web service, one instance, one 1 GiB persistent
